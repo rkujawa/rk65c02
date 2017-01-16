@@ -41,6 +41,9 @@ bus_init()
 void
 bus_finish(bus_t *t)
 {
+	assert(t != NULL);
+	assert(t->space != NULL);
+
 	free(t->space);
 }
 
