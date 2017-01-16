@@ -1,0 +1,6 @@
+syntax(2)
+
+test_suite('rk65c02-tests')
+
+atf_test_program{name='test_bus'}
+
