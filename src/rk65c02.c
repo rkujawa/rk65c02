@@ -35,25 +35,25 @@ instruction_fetch(bus_t *b, uint16_t addr)
 
 	/* handle operands */		
 	switch (i.def.mode) {
-	case ADDR_IMMEDIATE:
-	case ADDR_ZP:
-	case ADDR_ZPX:
-	case ADDR_ZPY:
-	case ADDR_IZP:
-	case ADDR_IZPX:
-	case ADDR_IZPY:
-	case ADDR_RELATIVE:
+	case IMMEDIATE:
+	case ZP:
+	case ZPX:
+	case ZPY:
+	case IZP:
+	case IZPX:
+	case IZPY:
+	case RELATIVE:
 		i.op1 = bus_read_1(b, addr+1);
 		break;
-	case ADDR_ABSOLUTE:
-	case ADDR_ABSOLUTEX:
-	case ADDR_ABSOLUTEY:
-	case ADDR_IABSOLUTE:
-	case ADDR_IABSOLUTEX:
+	case ABSOLUTE:
+	case ABSOLUTEX:
+	case ABSOLUTEY:
+	case IABSOLUTE:
+	case IABSOLUTEX:
 		i.op1 = bus_read_1(b, addr+1);
 		i.op2 = bus_read_1(b, addr+2);
 		break;
-	case ADDR_IMPLIED:
+	case IMPLIED:
 	default:
 		break;
 	}
@@ -65,21 +65,49 @@ void
 instruction_print(instruction_t *i)
 {
 	switch (i->def.mode) {
-	case ADDR_IMPLIED:
+	case IMPLIED:
 		printf("%s", i->def.mnemonic);
 		break;
-	case ADDR_IMMEDIATE:
+	case IMMEDIATE:
 		printf("%s #%X", i->def.mnemonic, i->op1);
 		break;
-	case ADDR_ZP:
+	case ZP:
 		printf("%s %X", i->def.mnemonic, i->op1);
 		break;
-
-	case ADDR_ABSOLUTE:
+	case ZPX:
+		printf("%s %X,X", i->def.mnemonic, i->op1);
+		break;
+	case ZPY:
+		printf("%s %X,Y", i->def.mnemonic, i->op1);
+		break;
+	case IZP:
+		printf("%s (%X)", i->def.mnemonic, i->op1);
+		break;
+	case IZPX:
+		printf("%s (%X,X)", i->def.mnemonic, i->op1);
+		break;
+	case IZPY:
+		printf("%s (%X),Y", i->def.mnemonic, i->op1);
+		break;
+	case ABSOLUTE:
+		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
+		break;
+	case ABSOLUTEX:
+		printf("%s %02X%02X,X", i->def.mnemonic, i->op2, i->op1);
+		break;
+	case ABSOLUTEY:
+		printf("%s %02X%02X,Y", i->def.mnemonic, i->op2, i->op1);
+		break;
+	case IABSOLUTE:
+		printf("%s (%02X%02X)", i->def.mnemonic, i->op2, i->op1);
+		break;
+	case IABSOLUTEX:
+		printf("%s (%02X%02X,X)", i->def.mnemonic, i->op2, i->op1);
+		break;
+	case RELATIVE:
 		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
 		break;
 	}
-
 }
 
 void
