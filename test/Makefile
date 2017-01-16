@@ -1,6 +1,5 @@
 CFLAGS=-Wall -I../src
-LDFLAGS=-L../src/ -latf-c -lrk65c02
-#-Wl,-R../src/
+LDFLAGS=-latf-c ../src/librk65c02.a
 
 test_bus : test_bus.o
 	$(CC) -o test_bus $(LDFLAGS) $<
