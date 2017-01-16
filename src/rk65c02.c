@@ -115,7 +115,7 @@ rk6502_start(bus_t *b, uint16_t addr) {
 		r.PC += i.def.size;
 	}
 }
-
+/*
 int
 main(void)
 {
@@ -138,4 +138,4 @@ main(void)
 
 	bus_finish(&b);
 }
-
+*/
