@@ -11,18 +11,6 @@
 
 static bool run = false;
 
-struct reg_state {
-	uint8_t A;	/* accumulator */
-	uint8_t X;	/* index X */
-	uint8_t Y;	/* index Y */
-
-	uint16_t PC;	/* program counter */
-	uint8_t SP;	/* stack pointer */
-	uint8_t P;	/* status */
-};
-
-typedef struct reg_state reg_state_t;
-
 instruction_t
 instruction_fetch(bus_t *b, uint16_t addr)
 {
@@ -31,7 +19,7 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	i.opcode = bus_read_1(b, addr);
 	i.def = instrs[i.opcode];
 
-	assert(i.def.op != OP_UNIMPL);
+	assert(i.def.opcode != OP_UNIMPL);
 
 	/* handle operands */		
 	switch (i.def.mode) {

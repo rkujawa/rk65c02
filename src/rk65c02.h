@@ -18,8 +18,20 @@ typedef enum {
 	IABSOLUTEX
 } addressing_t;
 
+struct reg_state {
+	uint8_t A;      /* accumulator */
+	uint8_t X;      /* index X */
+	uint8_t Y;      /* index Y */
+
+	uint16_t PC;    /* program counter */
+	uint8_t SP;     /* stack pointer */
+	uint8_t P;      /* status */
+};
+
+typedef struct reg_state reg_state_t;
+
 struct instrdef {
-        uint8_t op;
+        uint8_t opcode;
 	const char *mnemonic;
 	addressing_t mode;
 	uint8_t size;
@@ -35,7 +47,6 @@ struct instruction {
 };
 
 typedef struct instruction instruction_t;
-
 
 #define OP_BRK 0x00
 #define OP_TSB_ZP 0x04
