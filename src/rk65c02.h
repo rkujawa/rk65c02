@@ -18,6 +18,12 @@ typedef enum {
 	IABSOLUTEX
 } addressing_t;
 
+typedef enum {
+	STOPPED,
+	RUNNIG,
+	STEPPING
+} emu_state_t;
+
 struct reg_state {
 	uint8_t A;      /* accumulator */
 	uint8_t X;      /* index X */
@@ -47,6 +53,14 @@ struct instruction {
 };
 
 typedef struct instruction instruction_t;
+
+struct rk65c02emu {
+	emu_state_t state;
+	bus_t bus;
+	reg_state_t regs;
+}
+
+typedef struct rk65c02emu rk65c02emu_t;
 
 #define OP_BRK 0x00
 #define OP_TSB_ZP 0x04
