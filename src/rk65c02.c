@@ -6,110 +6,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "rk65c02.h"
 #include "bus.h"
+#include "instruction.h"
+#include "rk65c02.h"
 
 static bool run = false;
-
-instruction_t
-instruction_fetch(bus_t *b, uint16_t addr)
-{
-	instruction_t i;
-
-	i.opcode = bus_read_1(b, addr);
-	i.def = instrs[i.opcode];
-
-	assert(i.def.opcode != OP_UNIMPL);
-
-	/* handle operands */		
-	switch (i.def.mode) {
-	case IMMEDIATE:
-	case ZP:
-	case ZPX:
-	case ZPY:
-	case IZP:
-	case IZPX:
-	case IZPY:
-	case RELATIVE:
-		i.op1 = bus_read_1(b, addr+1);
-		break;
-	case ABSOLUTE:
-	case ABSOLUTEX:
-	case ABSOLUTEY:
-	case IABSOLUTE:
-	case IABSOLUTEX:
-		i.op1 = bus_read_1(b, addr+1);
-		i.op2 = bus_read_1(b, addr+2);
-		break;
-	case IMPLIED:
-	default:
-		break;
-	}
-
-	return i;
-}
-
-void
-instruction_print(instruction_t *i)
-{
-	switch (i->def.mode) {
-	case IMPLIED:
-		printf("%s", i->def.mnemonic);
-		break;
-	case IMMEDIATE:
-		printf("%s #%X", i->def.mnemonic, i->op1);
-		break;
-	case ZP:
-		printf("%s %X", i->def.mnemonic, i->op1);
-		break;
-	case ZPX:
-		printf("%s %X,X", i->def.mnemonic, i->op1);
-		break;
-	case ZPY:
-		printf("%s %X,Y", i->def.mnemonic, i->op1);
-		break;
-	case IZP:
-		printf("%s (%X)", i->def.mnemonic, i->op1);
-		break;
-	case IZPX:
-		printf("%s (%X,X)", i->def.mnemonic, i->op1);
-		break;
-	case IZPY:
-		printf("%s (%X),Y", i->def.mnemonic, i->op1);
-		break;
-	case ABSOLUTE:
-		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
-		break;
-	case ABSOLUTEX:
-		printf("%s %02X%02X,X", i->def.mnemonic, i->op2, i->op1);
-		break;
-	case ABSOLUTEY:
-		printf("%s %02X%02X,Y", i->def.mnemonic, i->op2, i->op1);
-		break;
-	case IABSOLUTE:
-		printf("%s (%02X%02X)", i->def.mnemonic, i->op2, i->op1);
-		break;
-	case IABSOLUTEX:
-		printf("%s (%02X%02X,X)", i->def.mnemonic, i->op2, i->op1);
-		break;
-	case RELATIVE:
-		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
-		break;
-	}
-}
-
-void
-disassemble(bus_t *b, uint16_t addr) 
-{
-	instruction_t i;
-
-	i = instruction_fetch(b, addr);
-
-	printf("%X:\t", addr);
-	instruction_print(&i);
-	printf("\t\t// %X", i.opcode);
-	printf("\n");
-}
 
 void
 rk6502_start(bus_t *b, uint16_t addr) {
@@ -125,7 +26,7 @@ rk6502_start(bus_t *b, uint16_t addr) {
 
 		//execute(i, r);
 
-		if (i.opcode == OP_STP)
+		if (i.def.opcode == 0xDB) // STP
 			run = false;
 
 		r.PC += i.def.size;
