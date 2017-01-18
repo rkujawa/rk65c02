@@ -114,3 +114,13 @@ disassemble(bus_t *b, uint16_t addr)
 	printf("\n");
 }
 
+instrdef_t
+instrdef_get(uint8_t opcode)
+{
+	instrdef_t id;
+
+	id = instrs[opcode];
+
+	return id;
+}
+
