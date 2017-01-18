@@ -19,7 +19,7 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	op = bus_read_1(b, addr);
 	i.def = instrdef_get(op);
 
-	assert(i.def.opcode != OP_UNIMPL);
+	//assert(i.def.opcode != OP_UNIMPL);
 
 	/* handle operands */		
 	switch (i.def.mode) {
