@@ -10,29 +10,40 @@
 #include "instruction.h"
 #include "rk65c02.h"
 
-static bool run = false;
-
-void
-rk6502_start(bus_t *b, uint16_t addr) {
-	instruction_t i;
-	reg_state_t r;
+rk65c02emu_t
+rk65c02_init(bus_t *b)
+{
 	rk65c02emu_t e;
 
 	e.bus = b;
-	e.regs = &r;
-	e.regs->PC = addr;
+	e.state = STOPPED;
 
-	run = true;
-	while (run) {
-		disassemble(e.bus, e.regs->PC);
-		i = instruction_fetch(e.bus, e.regs->PC);
+	return e;
+}
 
-		//execute(i, r);
+void
+rk65c02_start(rk65c02emu_t *e) {
+	instruction_t i;
+	instrdef_t id;
 
-		if (i.def.opcode == 0xDB) // STP
-			run = false;
+	e->state = RUNNING;
+	while (e->state == RUNNING) {
+		disassemble(e->bus, e->regs.PC);
+		i = instruction_fetch(e->bus, e->regs.PC);
+		id = instruction_decode(i.opcode);
 
-		e.regs->PC += i.def.size;
+//		instruction_execute(e, i);
+		if (id.emul != NULL)
+			id.emul(e, &i);
+		else
+			printf("unimplemented opcode %X\n", i.opcode);
+
+
+/*		if (i.opcode == 0xDB) // STP
+			e->state = STOPPED;*/
+
+		e->regs.PC += id.size;
+
 	}
 }
 /*

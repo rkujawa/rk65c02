@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "bus.h"
+#include "rk65c02.h"
 #include "65c02isa.h"
 #include "instruction.h"
 
@@ -14,15 +15,15 @@ instruction_t
 instruction_fetch(bus_t *b, uint16_t addr)
 {
 	instruction_t i;
-	uint8_t op;
+	instrdef_t id;
 
-	op = bus_read_1(b, addr);
-	i.def = instrdef_get(op);
+	i.opcode = bus_read_1(b, addr);
+	id = instruction_decode(i.opcode);
 
 	//assert(i.def.opcode != OP_UNIMPL);
 
 	/* handle operands */		
-	switch (i.def.mode) {
+	switch (id.mode) {
 	case IMMEDIATE:
 	case ZP:
 	case ZPX:
@@ -49,54 +50,64 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	return i;
 }
 
+/*void
+instruction_execute(rk65c02emu_t *e, instruction_t *i)
+{
+	id.emul();	
+	e->regs.PC += id.size;
+}*/
+
 void
 instruction_print(instruction_t *i)
 {
-	switch (i->def.mode) {
+	instrdef_t id;
+
+	id = instruction_decode(i->opcode);
+	switch (id.mode) {
 	case IMPLIED:
-		printf("%s", i->def.mnemonic);
+		printf("%s", id.mnemonic);
 		break;
 	case ACCUMULATOR:
-		printf("%s A", i->def.mnemonic);
+		printf("%s A", id.mnemonic);
 		break;
 	case IMMEDIATE:
-		printf("%s #%X", i->def.mnemonic, i->op1);
+		printf("%s #%X", id.mnemonic, i->op1);
 		break;
 	case ZP:
-		printf("%s %X", i->def.mnemonic, i->op1);
+		printf("%s %X", id.mnemonic, i->op1);
 		break;
 	case ZPX:
-		printf("%s %X,X", i->def.mnemonic, i->op1);
+		printf("%s %X,X", id.mnemonic, i->op1);
 		break;
 	case ZPY:
-		printf("%s %X,Y", i->def.mnemonic, i->op1);
+		printf("%s %X,Y", id.mnemonic, i->op1);
 		break;
 	case IZP:
-		printf("%s (%X)", i->def.mnemonic, i->op1);
+		printf("%s (%X)", id.mnemonic, i->op1);
 		break;
 	case IZPX:
-		printf("%s (%X,X)", i->def.mnemonic, i->op1);
+		printf("%s (%X,X)", id.mnemonic, i->op1);
 		break;
 	case IZPY:
-		printf("%s (%X),Y", i->def.mnemonic, i->op1);
+		printf("%s (%X),Y", id.mnemonic, i->op1);
 		break;
 	case ABSOLUTE:
-		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
+		printf("%s %02X%02X", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEX:
-		printf("%s %02X%02X,X", i->def.mnemonic, i->op2, i->op1);
+		printf("%s %02X%02X,X", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEY:
-		printf("%s %02X%02X,Y", i->def.mnemonic, i->op2, i->op1);
+		printf("%s %02X%02X,Y", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTE:
-		printf("%s (%02X%02X)", i->def.mnemonic, i->op2, i->op1);
+		printf("%s (%02X%02X)", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTEX:
-		printf("%s (%02X%02X,X)", i->def.mnemonic, i->op2, i->op1);
+		printf("%s (%02X%02X,X)", id.mnemonic, i->op2, i->op1);
 		break;
 	case RELATIVE:
-		printf("%s %02X%02X", i->def.mnemonic, i->op2, i->op1);
+		printf("%s %02X%02X", id.mnemonic, i->op2, i->op1);
 		break;
 	}
 }
@@ -105,17 +116,19 @@ void
 disassemble(bus_t *b, uint16_t addr) 
 {
 	instruction_t i;
+	instrdef_t id;
 
 	i = instruction_fetch(b, addr);
+	id = instruction_decode(i.opcode);
 
 	printf("%X:\t", addr);
 	instruction_print(&i);
-	printf("\t\t// %X", i.def.opcode);
+	printf("\t\t// %X", id.opcode);
 	printf("\n");
 }
 
 instrdef_t
-instrdef_get(uint8_t opcode)
+instruction_decode(uint8_t opcode)
 {
 	instrdef_t id;
 

@@ -2,11 +2,10 @@
 #define _RK6502_H_
 
 #include "bus.h"
-#include "instruction.h"
 
 typedef enum {
 	STOPPED,
-	RUNNIG,
+	RUNNING,
 	STEPPING
 } emu_state_t;
 
@@ -25,9 +24,13 @@ typedef struct reg_state reg_state_t;
 struct rk65c02emu {
 	emu_state_t state;
 	bus_t *bus;
-	reg_state_t *regs;
+	reg_state_t regs;
 };
 
 typedef struct rk65c02emu rk65c02emu_t;
 
+rk65c02emu_t rk65c02_init(bus_t *);
+void rk65c02_start(rk65c02emu_t *);
+
 #endif
+
