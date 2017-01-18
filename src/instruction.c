@@ -56,6 +56,9 @@ instruction_print(instruction_t *i)
 	case IMPLIED:
 		printf("%s", i->def.mnemonic);
 		break;
+	case ACCUMULATOR:
+		printf("%s A", i->def.mnemonic);
+		break;
 	case IMMEDIATE:
 		printf("%s #%X", i->def.mnemonic, i->op1);
 		break;

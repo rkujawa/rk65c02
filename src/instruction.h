@@ -15,7 +15,8 @@ typedef enum {
 	ABSOLUTEX,
 	ABSOLUTEY,
 	IABSOLUTE,
-	IABSOLUTEX
+	IABSOLUTEX,
+	ACCUMULATOR
 } addressing_t;
 
 struct instrdef {
