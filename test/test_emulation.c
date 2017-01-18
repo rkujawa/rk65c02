@@ -6,6 +6,8 @@
 #include "bus.h"
 #include "rk65c02.h"
 
+#define ROM_LOAD_ADDR 0xC000
+
 ATF_TC_WITHOUT_HEAD(emul_lda);
 ATF_TC_BODY(emul_lda, tc)
 {
@@ -15,15 +17,15 @@ ATF_TC_BODY(emul_lda, tc)
 	b = bus_init();
 	e = rk65c02_init(&b);
 
-	e.regs.PC = 0;
+	e.regs.PC = ROM_LOAD_ADDR;
 
-	bus_write_1(&b, 0, 0xA9);
-	bus_write_1(&b, 1, 0xAF);
-	bus_write_1(&b, 2, 0xDB);
+	bus_write_1(&b, ROM_LOAD_ADDR, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR+1, 0xAF);
+	bus_write_1(&b, ROM_LOAD_ADDR+2, 0xDB);
 
 	rk65c02_start(&e);
 
-	ATF_CHECK(e.regs.PC == 3);
+	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+3);
 	ATF_CHECK(e.regs.A == 0xAF);
 
 	bus_finish(&b);
@@ -38,14 +40,13 @@ ATF_TC_BODY(emul_nop, tc)
 	b = bus_init();
 	e = rk65c02_init(&b);
 
-	e.regs.PC = 0xC000;
+	e.regs.PC = ROM_LOAD_ADDR;
 
-	bus_write_1(&b, 0xC000, 0xEA);
-	bus_write_1(&b, 0xC001, 0xDB);
+	bus_load_file(&b, 0xC000, "test_emulation_nop.rom");
 
 	rk65c02_start(&e);
 
-	ATF_CHECK(e.regs.PC == 0xC002);
+	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
 
 	bus_finish(&b);
 }

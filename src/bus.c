@@ -1,8 +1,13 @@
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
+#include <unistd.h>
 #include <assert.h>
 #include <string.h>
+#include <fcntl.h>
+
+#include <sys/types.h>
 
 #define RK65C02_BUS_SIZE	64*1024
 
@@ -36,6 +41,27 @@ bus_init()
 	memset(t.space, 0, RK65C02_BUS_SIZE);
 
 	return t;	
+}
+
+bool
+bus_load_file(bus_t *t, uint16_t addr, const char *filename)
+{
+	int fd;
+	uint8_t data;
+
+	fd = open(filename, O_RDONLY);
+	if (fd == -1) {
+		perror("Problem while trying to open file");
+		return false;
+	}
+
+	while ((read(fd, &data, 1)) > 0) {
+		t->space[addr++] = data; // XXX: overflow addr
+	}
+
+	close(fd);
+
+	return true;
 }
 
 void
