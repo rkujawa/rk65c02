@@ -14,22 +14,25 @@ static bool run = false;
 
 void
 rk6502_start(bus_t *b, uint16_t addr) {
-	reg_state_t r;
 	instruction_t i;
+	reg_state_t r;
+	rk65c02emu_t e;
 
-	r.PC = addr;
+	e.bus = b;
+	e.regs = &r;
+	e.regs->PC = addr;
 
 	run = true;
 	while (run) {
-		disassemble(b, r.PC);
-		i = instruction_fetch(b, r.PC);
+		disassemble(e.bus, e.regs->PC);
+		i = instruction_fetch(e.bus, e.regs->PC);
 
 		//execute(i, r);
 
 		if (i.def.opcode == 0xDB) // STP
 			run = false;
 
-		r.PC += i.def.size;
+		e.regs->PC += i.def.size;
 	}
 }
 /*

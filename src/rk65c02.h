@@ -24,8 +24,8 @@ typedef struct reg_state reg_state_t;
 
 struct rk65c02emu {
 	emu_state_t state;
-	bus_t bus;
-	reg_state_t regs;
+	bus_t *bus;
+	reg_state_t *regs;
 };
 
 typedef struct rk65c02emu rk65c02emu_t;

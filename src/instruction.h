@@ -24,6 +24,7 @@ struct instrdef {
 	const char *mnemonic;
 	addressing_t mode;
 	uint8_t size;
+	void (*emul)(void);
 };
 
 typedef struct instrdef instrdef_t;

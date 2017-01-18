@@ -1,4 +1,4 @@
-OBJS=rk65c02.o bus.o instruction.o
+OBJS=rk65c02.o bus.o instruction.o emulation.o
 LIB_SO=librk65c02.so
 LIB_STATIC=librk65c02.a
 LDFLAGS=-shared
