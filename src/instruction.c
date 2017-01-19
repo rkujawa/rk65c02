@@ -137,3 +137,62 @@ instruction_decode(uint8_t opcode)
 	return id;
 }
 
+uint8_t
+instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
+{
+	uint8_t rv;	/* data read from the bus */
+//	uint8_t ziaddr; /* indirect zero page address */
+	uint16_t iaddr; /* indirect address */
+
+	rv = 0;
+
+	switch (id->mode) {
+	case ACCUMULATOR:
+		rv = e->regs.A;
+		break;
+	case IMMEDIATE:
+		rv = i->op1;
+		break;
+	case ZP:
+		rv = bus_read_1(e->bus, i->op1);
+		break;
+	case ZPX:
+		/* XXX: wraps around zero page? */
+		rv = bus_read_1(e->bus, i->op1 + e->regs.X);
+		break;
+	case ZPY:
+		rv = bus_read_1(e->bus, i->op1 + e->regs.Y);
+		break;
+	case IZP:
+		iaddr = bus_read_1(e->bus, i->op1);
+		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		rv = bus_read_1(e->bus, iaddr);
+		break;
+	case IZPX:
+/*		ziaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
+		ziaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
+		rv = bus_read_1(e->bus, ziaddr);
+		break;
+*/
+	case IZPY:
+/*
+		iaddr = bus_read_1(e->bus, i->op1 + e->regs.Y);
+		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.Y + 1) << 8);
+		rv = bus_read_1(e->bus, ziaddr);
+*/
+	case RELATIVE:
+	case ABSOLUTE:
+	case ABSOLUTEX:
+	case ABSOLUTEY:
+	case IABSOLUTE:
+	case IABSOLUTEX:
+
+	default:
+		printf("unhandled addressing mode for opcode %x\n",
+		    i->opcode);
+		break;
+	}
+
+	return rv;
+}
+

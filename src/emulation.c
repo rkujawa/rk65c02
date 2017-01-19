@@ -8,7 +8,11 @@ emul_lda(rk65c02emu_t *e, instruction_t *i)
 	instrdef_t id;
 	id = instruction_decode(i->opcode);
 
-	e->regs.A = i->op1;
+	e->regs.A = instruction_data_read_1(e, &id, i);
+
+
+	/* adjust status flags */
+
  
 }
 
