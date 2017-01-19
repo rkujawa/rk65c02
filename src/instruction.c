@@ -186,7 +186,6 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 	case ABSOLUTEY:
 	case IABSOLUTE:
 	case IABSOLUTEX:
-
 	default:
 		printf("unhandled addressing mode for opcode %x\n",
 		    i->opcode);

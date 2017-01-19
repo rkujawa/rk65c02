@@ -1,12 +1,25 @@
 #include <atf-c.h>
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "bus.h"
 #include "rk65c02.h"
 
 #define ROM_LOAD_ADDR 0xC000
+
+bool rom_start(rk65c02emu_t *, const char *);
+
+bool
+rom_start(rk65c02emu_t *e, const char *name)
+{
+	e->regs.PC = ROM_LOAD_ADDR;
+	bus_load_file(e->bus, ROM_LOAD_ADDR, name);
+	rk65c02_start(e);
+
+	return true;
+}
 
 ATF_TC_WITHOUT_HEAD(emul_lda);
 ATF_TC_BODY(emul_lda, tc)
@@ -17,16 +30,16 @@ ATF_TC_BODY(emul_lda, tc)
 	b = bus_init();
 	e = rk65c02_init(&b);
 
-	e.regs.PC = ROM_LOAD_ADDR;
-
-	bus_write_1(&b, ROM_LOAD_ADDR, 0xA9);
-	bus_write_1(&b, ROM_LOAD_ADDR+1, 0xAF);
-	bus_write_1(&b, ROM_LOAD_ADDR+2, 0xDB);
-
-	rk65c02_start(&e);
-
-	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+3);
+	/* LDA immediate */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_imm.rom"));
+/*	ATF_CHECK(e.state == STOPPED);  // separate test case for states? */
+	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+3); // separate test case for PC? */
 	ATF_CHECK(e.regs.A == 0xAF);
+
+	/* LDA zero page */
+	bus_write_1(&b, 0x10, 0xAE);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom"));
+	ATF_CHECK(e.regs.A == 0xAE);
 
 	bus_finish(&b);
 }
@@ -42,7 +55,7 @@ ATF_TC_BODY(emul_nop, tc)
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
-	bus_load_file(&b, 0xC000, "test_emulation_nop.rom");
+	bus_load_file(&b, ROM_LOAD_ADDR, "test_emulation_nop.rom");
 
 	rk65c02_start(&e);
 
