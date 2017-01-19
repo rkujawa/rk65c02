@@ -19,6 +19,15 @@ struct reg_state {
 	uint8_t P;      /* status */
 };
 
+#define P_CARRY 0x1
+#define P_ZERO 0x2
+#define P_IRQ_DISABLE 0x4
+#define P_DECIMAL 0x8
+#define P_BREAK 0x10
+#define P_UNDEFINED 0x20
+#define P_SIGN_OVERFLOW 0x40
+#define P_NEGATIVE 0x80
+
 typedef struct reg_state reg_state_t;
 
 struct rk65c02emu {
