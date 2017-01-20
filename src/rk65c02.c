@@ -34,8 +34,10 @@ rk65c02_start(rk65c02emu_t *e) {
 
 		if (id.emul != NULL)
 			id.emul(e, &i);
-		else
+		else {
 			printf("unimplemented opcode %X\n", i.opcode);
+			e->state = STOPPED;
+		}
 
 		e->regs.PC += id.size;
 
