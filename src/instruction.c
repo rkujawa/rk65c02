@@ -144,6 +144,24 @@ instruction_decode(uint8_t opcode)
 	return id;
 }
 
+void
+instruction_status_adjust_zero(rk65c02emu_t *e, uint8_t regval)
+{
+	if (regval == 0)
+		e->regs.P |= P_ZERO;
+	else
+		e->regs.P &= ~P_ZERO;
+}
+
+void
+instruction_status_adjust_negative(rk65c02emu_t *e, uint8_t regval)
+{
+	if (regval & NEGATIVE)
+		e->regs.P |= P_NEGATIVE;
+	else    
+		e->regs.P &= ~P_NEGATIVE;
+}
+
 uint8_t
 instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 {
