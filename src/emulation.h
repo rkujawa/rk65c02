@@ -7,6 +7,8 @@
 void emul_and(rk65c02emu_t *, instruction_t *);
 void emul_lda(rk65c02emu_t *, instruction_t *);
 void emul_nop(rk65c02emu_t *, instruction_t *);
+void emul_pha(rk65c02emu_t *, instruction_t *);
+void emul_pla(rk65c02emu_t *, instruction_t *);
 void emul_stp(rk65c02emu_t *, instruction_t *);
 
 #endif /* _EMULATION_H_*/

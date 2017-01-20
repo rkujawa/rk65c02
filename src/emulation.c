@@ -41,14 +41,14 @@ emul_nop(rk65c02emu_t *e, instruction_t *i)
 
 /* PHA - push accumulator to stack */
 void
-emul_pha(rk6502emu_t *e, instruction_t *i)
+emul_pha(rk65c02emu_t *e, instruction_t *i)
 {
 	stack_push(e, e->regs.A);
 }
 
 /* PLA - pull from stack to accumulator */
 void
-emul_pla(rk65c02emu_t *e, instruciton_t *i)
+emul_pla(rk65c02emu_t *e, instruction_t *i)
 {
 	e->regs.A = stack_pop(e);
 

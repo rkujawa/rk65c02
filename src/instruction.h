@@ -46,6 +46,7 @@ void disassemble(bus_t *, uint16_t);
 uint8_t instruction_data_read_1(rk65c02emu_t *, instrdef_t *, instruction_t *);
 void instruction_status_adjust_zero(rk65c02emu_t *, uint8_t);
 void instruction_status_adjust_negative(rk65c02emu_t *, uint8_t);
-//void instruction_execute(rk65c02emu_t *, instruction_t *);
+void stack_push(rk65c02emu_t *, uint8_t);
+uint8_t stack_pop(rk65c02emu_t *);
 
 #endif /* _INSTRUCTION_H_ */
