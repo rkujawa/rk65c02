@@ -28,6 +28,8 @@ struct reg_state {
 #define P_SIGN_OVERFLOW 0x40
 #define P_NEGATIVE 0x80
 
+#define NEGATIVE P_NEGATIVE
+
 typedef struct reg_state reg_state_t;
 
 struct rk65c02emu {

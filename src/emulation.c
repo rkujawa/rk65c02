@@ -10,10 +10,16 @@ emul_lda(rk65c02emu_t *e, instruction_t *i)
 
 	e->regs.A = instruction_data_read_1(e, &id, i);
 
-
 	/* adjust status flags */
+	if (e->regs.A & NEGATIVE)
+		e->regs.P |= P_NEGATIVE;
+	else
+		e->regs.P &= ~P_NEGATIVE;
 
- 
+	if (e->regs.A == 0)
+		e->regs.P |= P_ZERO;
+	else
+		e->regs.P &= ~P_ZERO;
 }
 
 void
