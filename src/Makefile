@@ -7,7 +7,7 @@ LIB_STATIC=librk65c02.a
 
 LDFLAGS_SO=-shared
 LDFLAGS_CLI=-lreadline
-CFLAGS=-Wall -fpic
+CFLAGS=-Wall -fpic -g
 
 65C02ISA=65c02isa
 
