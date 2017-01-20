@@ -220,3 +220,23 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 	return rv;
 }
 
+/* put value onto the stack */
+void
+stack_push(rk65c02emu_t *e, uint8_t val)
+{
+	bus_write_1(e->bus, STACK_START+e->regs.SP, val);
+	e->regs.SP--;
+}
+
+/* pull/pop value from the stack */
+uint8_t
+stack_pop(rk65c02emu_t *e)
+{
+	uint8_t val;
+
+	val = bus_read_1(e->bus, STACK_START+e->regs.SP);
+	e->regs.SP++;
+
+	return val;
+}
+

@@ -28,7 +28,10 @@ struct reg_state {
 #define P_SIGN_OVERFLOW 0x40
 #define P_NEGATIVE 0x80
 
-#define NEGATIVE P_NEGATIVE
+#define NEGATIVE P_NEGATIVE /* sign bit */
+
+#define STACK_START 0x0100
+#define STACK_END 0x01FF
 
 typedef struct reg_state reg_state_t;
 
