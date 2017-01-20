@@ -80,9 +80,51 @@ ATF_TC_BODY(emul_nop, tc)
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_nop.rom"));
 
+	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
+
+	bus_finish(&b);
+}
+
+/* test stack operation and stack related opcodes - PLA, PHA... */
+ATF_TC_WITHOUT_HEAD(emul_stack);
+ATF_TC_BODY(emul_stack, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* place 0xAA on stack */
+	e.regs.SP = 0xFF;
+	e.regs.A = 0xAA;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_pha.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFE);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
+
+	/* 
+	 * Run again to see if stack pointer further decrements and we'll
+	 * end up with one more value on stack.
+	 */
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.A = 0xAB;
+
 	rk65c02_start(&e);
 
-	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
+	ATF_CHECK(e.regs.SP == 0xFD);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END-1) == 0xAB);
+
+	/*
+	 * Now let's see if loading back into accumulator works.
+	 */
+	e.regs.A = 0x0;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_pla.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFE);
+	ATF_CHECK(e.regs.A == 0xAB);
 
 	bus_finish(&b);
 }
@@ -92,6 +134,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_and);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_nop);
+	ATF_TP_ADD_TC(tp, emul_stack);
 
 	return (atf_no_error());
 }

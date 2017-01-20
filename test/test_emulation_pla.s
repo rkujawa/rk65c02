@@ -1,0 +1,3 @@
+start:	pla
+	stp
+
