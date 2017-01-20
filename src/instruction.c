@@ -234,8 +234,8 @@ stack_pop(rk65c02emu_t *e)
 {
 	uint8_t val;
 
-	val = bus_read_1(e->bus, STACK_START+e->regs.SP);
 	e->regs.SP++;
+	val = bus_read_1(e->bus, STACK_START+e->regs.SP);
 
 	return val;
 }
