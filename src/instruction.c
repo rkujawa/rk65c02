@@ -123,7 +123,14 @@ disassemble(bus_t *b, uint16_t addr)
 
 	printf("%X:\t", addr);
 	instruction_print(&i);
-	printf("\t\t// %X", id.opcode);
+	printf("\t\t// ");
+
+	if (id.size == 1)
+		printf("%X", id.opcode);
+	else if (id.size == 2)
+		printf("%X %X", id.opcode, i.op1);
+	else if (id.size == 3)
+		printf("%X %X %X", id.opcode, i.op1, i.op2);
 	printf("\n");
 }
 
