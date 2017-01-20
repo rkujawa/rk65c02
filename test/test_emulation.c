@@ -78,7 +78,7 @@ ATF_TC_BODY(emul_nop, tc)
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
-	bus_load_file(&b, ROM_LOAD_ADDR, "test_emulation_nop.rom");
+	ATF_REQUIRE(rom_start(&e, "test_emulation_nop.rom"));
 
 	rk65c02_start(&e);
 
