@@ -7,14 +7,16 @@ BEGIN {
 	print "#include \"emulation.h\""
 
 	print "const struct instrdef instrs[] = {"
+	opcode = 0
 }
 
-{
-	printf "#define %s 0x%X\n", $1, NR-1
-	if (NR < 256)
+/^OP_/{
+	printf "#define %s 0x%X\n", $1, opcode
+	if (opcode < 0xFF)
 		printf "\t{ %s, %s, %s, %d, %s },\n", $1, $2, $3, $4, $5
 	else
 		printf "\t{ %s, %s, %s, %d, %s }\n", $1, $2, $3, $4, $5
+	opcode++
 
 }
 
