@@ -63,3 +63,14 @@ emul_stp(rk65c02emu_t *e, instruction_t *i)
 	e->state = STOPPED;
 }
 
+/* STZ - store zero */
+void
+emul_stz(rk65c02emu_t *e, instruction_t *i)
+{
+	instrdef_t id;
+
+	id = instruction_decode(i->opcode);
+
+	instruction_data_write_1(e, &id, i, 0);
+}
+
