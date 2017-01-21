@@ -162,6 +162,44 @@ instruction_status_adjust_negative(rk65c02emu_t *e, uint8_t regval)
 		e->regs.P &= ~P_NEGATIVE;
 }
 
+void
+instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint8_t val)
+{
+	uint16_t iaddr;
+
+	switch (id->mode) {
+	case ZP:
+		bus_write_1(e->bus, i->op1, val);
+		break;
+	case ZPX:
+		/* XXX: wraps around zero page? */
+		bus_write_1(e->bus, i->op1 + e->regs.X, val);
+		break;
+	case ZPY:
+		bus_write_1(e->bus, i->op1 + e->regs.Y, val);
+		break;
+	case IZP:
+		iaddr = bus_read_1(e->bus, i->op1);
+		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		bus_write_1(e->bus, iaddr, val);
+		break;
+	case ACCUMULATOR:
+	case IMMEDIATE:
+	case IZPX:
+	case IZPY:
+	case RELATIVE:
+	case ABSOLUTE:
+	case ABSOLUTEX:
+	case ABSOLUTEY:
+	case IABSOLUTE:
+	case IABSOLUTEX:
+	default:
+		printf("unhandled addressing mode for opcode %x\n",
+		    i->opcode);
+		break;
+	}
+}
+
 uint8_t
 instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 {
