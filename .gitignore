@@ -1,3 +1,9 @@
+# generated headers
+65c02isa.h
+emulation.h
+# built ROMs
+*.rom
+
 # Object files
 *.o
 *.ko
