@@ -20,7 +20,7 @@ $(CLI) : $(CLI_OBJS)
 $(LIB_SO) : $(LIB_OBJS)
 	$(CC) -o $(LIB_SO) $(LDFLAGS_SO) $(LIB_OBJS)
 
-$(LIB_STATIC) : $(OBJS)
+$(LIB_STATIC) : $(LIB_OBJS)
 	$(AR) rcs $(LIB_STATIC) $(LIB_OBJS)
 
 $(65C02ISA).h : $(65C02ISA).csv $(65C02ISA).awk
