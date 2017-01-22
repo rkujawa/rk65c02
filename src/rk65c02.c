@@ -17,6 +17,7 @@ rk65c02_init(bus_t *b)
 
 	e.bus = b;
 	e.state = STOPPED;
+	e.regs.P = P_UNDEFINED;
 
 	return e;
 }

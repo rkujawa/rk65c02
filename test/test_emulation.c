@@ -224,6 +224,35 @@ ATF_TC_BODY(emul_stack, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_php_plp);
+ATF_TC_BODY(emul_php_plp, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	e.regs.SP = 0xFF;
+	e.regs.P |= P_CARRY|P_ZERO|P_UNDEFINED;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_php.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFE);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_CARRY|P_ZERO|P_UNDEFINED));
+
+	/*
+	 * Now let's see if loading back into accumulator works.
+	 */
+	bus_write_1(e.bus, STACK_END, P_CARRY|P_DECIMAL);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_plp.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFF);
+	ATF_CHECK(e.regs.P == (P_CARRY|P_DECIMAL|P_UNDEFINED));
+
+	bus_finish(&b);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -233,7 +262,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_nop);
 	ATF_TP_ADD_TC(tp, emul_stz);
-
+	ATF_TP_ADD_TC(tp, emul_php_plp);
 	ATF_TP_ADD_TC(tp, emul_stack);
 
 	return (atf_no_error());

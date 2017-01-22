@@ -85,6 +85,13 @@ emul_pha(rk65c02emu_t *e, void *id, instruction_t *i)
 	stack_push(e, e->regs.A);
 }
 
+/* PHP - push processor flags to stack */
+void
+emul_php(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	stack_push(e, e->regs.P);
+}
+
 /* PLA - pull from stack to accumulator */
 void
 emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -93,6 +100,13 @@ emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);
+}
+
+/* PLA - pull from stack to processor flags */
+void
+emul_plp(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P = stack_pop(e) | P_UNDEFINED;
 }
 
 /* SEC - set the carry flag */
