@@ -22,6 +22,26 @@ emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P &= ~P_CARRY;
 }
 
+/* DNX - decrement X */
+void
+emul_dex(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X--;
+
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
+}
+
+/* DNY - decrement Y */
+void
+emul_dey(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.Y--;
+
+	instruction_status_adjust_zero(e, e->regs.Y);
+	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
 /* INX - increment X */
 void
 emul_inx(rk65c02emu_t *e, void *id, instruction_t *i)

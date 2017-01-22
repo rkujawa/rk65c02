@@ -22,6 +22,34 @@ rom_start(rk65c02emu_t *e, const char *name)
 	return true;
 }
 
+ATF_TC_WITHOUT_HEAD(emul_dex_dey);
+ATF_TC_BODY(emul_dex_dey, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* DEX  */
+	e.regs.X = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom"));
+	ATF_CHECK(e.regs.X == 0x0);
+	/* DEX underflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom"));
+	ATF_CHECK(e.regs.X == 0xFF);
+
+	/* DEY */
+	e.regs.Y = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom"));
+	ATF_CHECK(e.regs.Y == 0x0);
+	/* DEY underflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom"));
+	ATF_CHECK(e.regs.Y == 0xFF);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_inx_iny);
 ATF_TC_BODY(emul_inx_iny, tc)
 {
@@ -199,6 +227,7 @@ ATF_TC_BODY(emul_stack, tc)
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
+	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
 	ATF_TP_ADD_TC(tp, emul_lda);
