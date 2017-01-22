@@ -183,12 +183,14 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
 		bus_write_1(e->bus, iaddr, val);
 		break;
+	case ABSOLUTE:
+		bus_write_1(e->bus, i->op1 + (i->op2 << 8), val);
+		break;
 	case ACCUMULATOR:
 	case IMMEDIATE:
 	case IZPX:
 	case IZPY:
 	case RELATIVE:
-	case ABSOLUTE:
 	case ABSOLUTEX:
 	case ABSOLUTEY:
 	case IABSOLUTE:
@@ -235,20 +237,23 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 /*		ziaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
 		ziaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
 		rv = bus_read_1(e->bus, ziaddr);
-		break;
 */
+		break;
 	case IZPY:
 /*
 		iaddr = bus_read_1(e->bus, i->op1 + e->regs.Y);
 		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.Y + 1) << 8);
 		rv = bus_read_1(e->bus, ziaddr);
 */
-	case RELATIVE:
+		break;
 	case ABSOLUTE:
+		rv = bus_read_1(e->bus, i->op1 + (i->op2 << 8));
+		break;
 	case ABSOLUTEX:
 	case ABSOLUTEY:
 	case IABSOLUTE:
 	case IABSOLUTEX:
+	case RELATIVE:
 	default:
 		printf("unhandled addressing mode for opcode %x\n",
 		    i->opcode);
