@@ -28,7 +28,11 @@ rk65c02_start(rk65c02emu_t *e) {
 
 	e->state = RUNNING;
 	while (e->state == RUNNING) {
+		/* XXX: handle breakpoints and watch points */
+
+		/* if disassembly-when-running enabled */
 		disassemble(e->bus, e->regs.PC);
+
 		i = instruction_fetch(e->bus, e->regs.PC);
 		id = instruction_decode(i.opcode);
 

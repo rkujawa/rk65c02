@@ -6,6 +6,7 @@ VASMFLAGS=-Fbin -c02
 
 TESTS=test_bus test_emulation
 TESTROMS=test_emulation_and_imm.rom \
+	test_emulation_inx.rom test_emulation_iny.rom \
 	test_emulation_pha.rom test_emulation_pla.rom \
 	test_emulation_nop.rom \
 	test_emulation_lda_imm.rom test_emulation_lda_zp.rom \

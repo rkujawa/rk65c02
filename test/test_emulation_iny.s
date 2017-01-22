@@ -1,0 +1,3 @@
+start:	iny
+	stp
+

@@ -15,6 +15,26 @@ emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* INX - increment X */
+void
+emul_inx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X++;
+
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
+}
+
+/* INY - increment Y */
+void
+emul_iny(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.Y++;
+
+	instruction_status_adjust_zero(e, e->regs.Y);
+	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
 /* LDA - load to accumulator */
 void
 emul_lda(rk65c02emu_t *e, void *id, instruction_t *i)
