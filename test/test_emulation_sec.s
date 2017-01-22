@@ -1,0 +1,3 @@
+start:	sec	
+	stp
+

@@ -15,6 +15,13 @@ emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* CLC - clear carry flag */
+void
+emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P &= ~P_CARRY;
+}
+
 /* INX - increment X */
 void
 emul_inx(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -66,6 +73,13 @@ emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);
+}
+
+/* SEC - set the carry flag */
+void
+emul_sec(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P |= P_CARRY;
 }
 
 /* STP - stop the processor */
