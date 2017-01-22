@@ -34,7 +34,7 @@ struct instrdef {
 	const char *mnemonic;
 	addressing_t mode;
 	uint8_t size;
-	void (*emul)(rk65c02emu_t *e, instruction_t *i);
+	void (*emul)(rk65c02emu_t *e, void *id, instruction_t *i);
 };
 
 typedef struct instrdef instrdef_t;
@@ -49,5 +49,6 @@ void instruction_status_adjust_zero(rk65c02emu_t *, uint8_t);
 void instruction_status_adjust_negative(rk65c02emu_t *, uint8_t);
 void stack_push(rk65c02emu_t *, uint8_t);
 uint8_t stack_pop(rk65c02emu_t *);
+void program_counter_increment(rk65c02emu_t *, instrdef_t *);
 
 #endif /* _INSTRUCTION_H_ */

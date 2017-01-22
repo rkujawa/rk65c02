@@ -32,16 +32,15 @@ rk65c02_start(rk65c02emu_t *e) {
 		i = instruction_fetch(e->bus, e->regs.PC);
 		id = instruction_decode(i.opcode);
 
-		if (id.emul != NULL)
-			id.emul(e, &i);
-		else {
+		if (id.emul != NULL) {
+			id.emul(e, &id, &i);
+			/* if (!instruction_modify_pc) */
+			program_counter_increment(e, &id);
+		} else {
 			printf("unimplemented opcode %X @ %X\n", i.opcode,
 			    e->regs.PC);
 			e->state = STOPPED;
 		}
-
-		e->regs.PC += id.size;
-
 	}
 }
 /*

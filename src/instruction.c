@@ -278,3 +278,10 @@ stack_pop(rk65c02emu_t *e)
 	return val;
 }
 
+/* increment program counter based on instruction size (opcode + operands) */ 
+void
+program_counter_increment(rk65c02emu_t *e, instrdef_t *id)
+{
+	e->regs.PC += id->size;
+}	
+

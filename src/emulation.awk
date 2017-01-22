@@ -14,7 +14,7 @@ BEGIN {
 
 END {
 	for (i in emuls)
-		printf "void %s(rk65c02emu_t *, instruction_t *);\n",i
+		printf "void %s(rk65c02emu_t *, void *id, instruction_t *);\n",i
 
 	print "#endif /* _EMULATION_H_ */"
 }
