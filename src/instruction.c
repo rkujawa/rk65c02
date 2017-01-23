@@ -189,18 +189,29 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ACCUMULATOR:
 	case IMMEDIATE:
 	case IZPX:
+		/* XXX */
 		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
 		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
 		bus_write_1(e->bus, iaddr, val);
 	case IZPY:
+		/* XXX */
 		iaddr = bus_read_1(e->bus, i->op1 + e->regs.Y);
 		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.Y + 1) << 8);
 		bus_write_1(e->bus, iaddr, val);
-	case RELATIVE:
 	case ABSOLUTEX:
+		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X, val);
+		break;
 	case ABSOLUTEY:
+		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y, val);
+		break;
+	case RELATIVE:
 	case IABSOLUTE:
 	case IABSOLUTEX:
+		/* 
+		 * IABSOLUTE, IABSOLUTEX, RELATIVE are only for branches
+		 * and jumps. They do not read or write anything, only modify
+		 * PC which is handled within emulation of a given opcode.
+		 */
 	default:
 		printf("unhandled addressing mode for opcode %x\n",
 		    i->opcode);
@@ -255,10 +266,19 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		rv = bus_read_1(e->bus, i->op1 + (i->op2 << 8));
 		break;
 	case ABSOLUTEX:
+		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X);
+		break;
 	case ABSOLUTEY:
+		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
+		break;
 	case IABSOLUTE:
 	case IABSOLUTEX:
 	case RELATIVE:
+		/* 
+		 * IABSOLUTE, IABSOLUTEX, RELATIVE are only for branches
+		 * and jumps. They do not read or write anything, only modify
+		 * PC which is handled within emulation of a given opcode.
+		 */
 	default:
 		printf("unhandled addressing mode for opcode %x\n",
 		    i->opcode);
