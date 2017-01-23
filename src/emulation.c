@@ -72,6 +72,16 @@ emul_lda(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* LDX - load to X */
+void
+emul_ldx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
+}
+
 /* NOP - do nothing */
 void
 emul_nop(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -128,5 +138,62 @@ void
 emul_stz(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	instruction_data_write_1(e, id, i, 0);
+}
+
+/* TAX - transfer accumulator to X */
+void
+emul_tax(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X = e->regs.A;
+
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
+}
+
+/* TAY - transfer accumulator to Y */
+void
+emul_tay(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.Y = e->regs.A;
+
+	instruction_status_adjust_zero(e, e->regs.Y);
+	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
+/* TSX - transfer stack pointer to X */
+void
+emul_tsx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X = e->regs.SP;
+
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
+}
+
+/* TXA - transfer X to accumulator */
+void
+emul_txa(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.A = e->regs.X;
+
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
+}
+
+/* TXS - transfer X to stack pointer */
+void
+emul_txs(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.SP = e->regs.X;
+}
+
+/* TYA - transfer Y to accumulator */
+void
+emul_tya(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.A = e->regs.Y;
+
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
 }
 
