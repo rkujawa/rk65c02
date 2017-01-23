@@ -4,6 +4,9 @@ emulation.h
 # built ROMs
 *.rom
 
+# OS X 
+.DS_Store
+
 # Object files
 *.o
 *.ko
