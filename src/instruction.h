@@ -12,6 +12,7 @@ typedef enum {
 	IZP,
 	IZPX,
 	IZPY,
+	ZPR,
 	RELATIVE,
 	ABSOLUTE,
 	ABSOLUTEX,

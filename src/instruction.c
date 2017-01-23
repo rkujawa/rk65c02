@@ -91,6 +91,9 @@ instruction_print(instruction_t *i)
 	case IZPY:
 		printf("%s (%X),Y", id.mnemonic, i->op1);
 		break;
+	case ZPR:
+		printf("%s %X,%X", id.mnemonic, i->op1, i->op2);
+		break;
 	case ABSOLUTE:
 		printf("%s %02X%02X", id.mnemonic, i->op2, i->op1);
 		break;
@@ -204,6 +207,8 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ABSOLUTEY:
 		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y, val);
 		break;
+	case ZPR:
+		/* XXX */
 	case RELATIVE:
 	case IABSOLUTE:
 	case IABSOLUTEX:
@@ -271,6 +276,8 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 	case ABSOLUTEY:
 		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
 		break;
+	case ZPR:
+		/* XXX */
 	case IABSOLUTE:
 	case IABSOLUTEX:
 	case RELATIVE:
