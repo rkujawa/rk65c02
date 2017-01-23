@@ -39,6 +39,16 @@ emul_dey(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.Y);
 }
 
+/* EOR - logical exclusive OR */
+void
+emul_eor(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.A ^= instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
+}
+
 /* INX - increment X */
 void
 emul_inx(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -93,6 +103,16 @@ emul_ldy(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_nop(rk65c02emu_t *e, void *id, instruction_t *i)
 {
+}
+
+/* ORA - logical inclusive OR */
+void
+emul_ora(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.A |= instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
 }
 
 /* PHA - push accumulator to stack */
