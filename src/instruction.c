@@ -189,7 +189,13 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ACCUMULATOR:
 	case IMMEDIATE:
 	case IZPX:
+		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
+		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
+		bus_write_1(e->bus, iaddr, val);
 	case IZPY:
+		iaddr = bus_read_1(e->bus, i->op1 + e->regs.Y);
+		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.Y + 1) << 8);
+		bus_write_1(e->bus, iaddr, val);
 	case RELATIVE:
 	case ABSOLUTEX:
 	case ABSOLUTEY:
@@ -234,17 +240,16 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		rv = bus_read_1(e->bus, iaddr);
 		break;
 	case IZPX:
-/*		ziaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
-		ziaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
-		rv = bus_read_1(e->bus, ziaddr);
-*/
+		/* XXX: what about page wraps / roll over */
+		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
+		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
+		rv = bus_read_1(e->bus, iaddr);
 		break;
 	case IZPY:
-/*
+		/* XXX: what about page wraps / roll over */
 		iaddr = bus_read_1(e->bus, i->op1 + e->regs.Y);
 		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.Y + 1) << 8);
-		rv = bus_read_1(e->bus, ziaddr);
-*/
+		rv = bus_read_1(e->bus, iaddr);
 		break;
 	case ABSOLUTE:
 		rv = bus_read_1(e->bus, i->op1 + (i->op2 << 8));
