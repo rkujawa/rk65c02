@@ -82,6 +82,16 @@ emul_ldx(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.X);
 }
 
+/* LDY - load to Y */
+void
+emul_ldy(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.Y = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	instruction_status_adjust_zero(e, e->regs.Y);
+	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
 /* NOP - do nothing */
 void
 emul_nop(rk65c02emu_t *e, void *id, instruction_t *i)
