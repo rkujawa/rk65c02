@@ -146,6 +146,76 @@ emul_plp(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P = stack_pop(e) | P_UNDEFINED;
 }
 
+/* ROL - rotate left */
+void
+emul_rol(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	bool ncarry;
+	uint8_t val;
+
+	ncarry = false;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	/* new carry flag value equals contents of bit 7 */
+	if (val & 0x80)
+		ncarry = true;
+
+	/* shift left by one bit */
+	val <<= 1;
+
+	/* bit 0 is set from current value of carry flag */
+	if (e->regs.P & P_CARRY)
+		val |= 0x1;
+	else
+		val &= ~0x1;
+
+	if (ncarry)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	instruction_status_adjust_zero(e, val);
+	instruction_status_adjust_negative(e, val);
+
+	instruction_data_write_1(e, (instrdef_t *) id, i, val);
+}
+
+/* ROR - rotate right */
+void
+emul_ror(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	bool ncarry;
+	uint8_t val;
+
+	ncarry = false;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	/* new carry flag value equals contents of bit 0 */
+	if (val & 0x1)
+		ncarry = true;
+
+	/* shift right by one bit */
+	val >>= 1;
+
+	/* bit 7 is set from current value of carry flag */
+	if (e->regs.P & P_CARRY)
+		val |= 0x80;
+	else
+		val &= ~0x80;
+
+	if (ncarry)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	instruction_status_adjust_zero(e, val);
+	instruction_status_adjust_negative(e, val);
+
+	instruction_data_write_1(e, (instrdef_t *) id, i, val);
+}
+
 /* SEC - set the carry flag */
 void
 emul_sec(rk65c02emu_t *e, void *id, instruction_t *i)
