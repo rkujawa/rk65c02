@@ -160,6 +160,27 @@ emul_stp(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->state = STOPPED;
 }
 
+/* STA - store accumulator */
+void
+emul_sta(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	instruction_data_write_1(e, id, i, e->regs.A);
+}
+
+/* STX - store X */
+void
+emul_stx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	instruction_data_write_1(e, id, i, e->regs.X);
+}
+
+/* STY - store Y */
+void
+emul_sty(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	instruction_data_write_1(e, id, i, e->regs.Y);
+}
+
 /* STZ - store zero */
 void
 emul_stz(rk65c02emu_t *e, void *id, instruction_t *i)
