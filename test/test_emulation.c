@@ -100,6 +100,11 @@ ATF_TC_BODY(emul_lda, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom"));
 	ATF_CHECK(e.regs.A == 0xAE);
 
+	/* LDA absolute */
+	bus_write_1(&b, 0x2F5A, 0xEA);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_abs.rom"));
+	ATF_CHECK(e.regs.A == 0xEA);
+
 	bus_finish(&b);
 }
 

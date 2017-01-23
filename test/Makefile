@@ -13,6 +13,7 @@ TESTROMS=test_emulation_and_imm.rom \
 	test_emulation_php.rom test_emulation_plp.rom \
 	test_emulation_nop.rom \
 	test_emulation_lda_imm.rom test_emulation_lda_zp.rom \
+	test_emulation_lda_abs.rom \
 	test_emulation_stz_zp.rom
 
 all : $(TESTS) $(TESTROMS)
