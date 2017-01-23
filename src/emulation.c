@@ -6,10 +6,7 @@
 void
 emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	uint8_t rv;
-
-	rv = e->regs.A & (instruction_data_read_1(e, (instrdef_t *) id, i));
-	e->regs.A = rv;
+	e->regs.A &= (instruction_data_read_1(e, (instrdef_t *) id, i));
 
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);
