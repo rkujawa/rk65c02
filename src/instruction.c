@@ -189,18 +189,18 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ABSOLUTE:
 		bus_write_1(e->bus, i->op1 + (i->op2 << 8), val);
 		break;
-	case ACCUMULATOR:
-	case IMMEDIATE:
 	case IZPX:
 		/* XXX */
 		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
 		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
 		bus_write_1(e->bus, iaddr, val);
+		break;
 	case IZPY:
 		/* XXX */
 		iaddr = bus_read_1(e->bus, i->op1);
 		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
 		bus_write_1(e->bus, iaddr, val + e->regs.Y);
+		break;
 	case ABSOLUTEX:
 		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X, val);
 		break;
@@ -209,6 +209,8 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		break;
 	case ZPR:
 		/* XXX */
+	case ACCUMULATOR:
+	case IMMEDIATE:
 	case RELATIVE:
 	case IABSOLUTE:
 	case IABSOLUTEX:
