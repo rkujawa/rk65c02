@@ -26,6 +26,7 @@ bus_read_1(bus_t *t, uint16_t addr)
 void
 bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 {
+/*	printf("bus WRITE @ %x value %x\n", addr, val); */
 	t->space[addr] = val;
 }
 
