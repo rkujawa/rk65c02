@@ -197,6 +197,35 @@ ATF_TC_BODY(emul_nop, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_txa_tya_tax_tay);
+ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	e.regs.A = 0x0;
+	e.regs.X = 0xAA;
+	e.regs.Y = 0x55;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_txa.rom"));
+	ATF_CHECK(e.regs.A = 0xAA);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tya.rom"));
+	ATF_CHECK(e.regs.A = 0x55);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tax.rom"));
+	ATF_CHECK(e.regs.X = 0x55);
+
+	e.regs.A = 0xFF;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tay.rom"));
+	ATF_CHECK(e.regs.A = 0xFF);
+
+	bus_finish(&b);
+}
+
 /* test stack operation and stack related opcodes - PLA, PHA... */
 ATF_TC_WITHOUT_HEAD(emul_stack);
 ATF_TC_BODY(emul_stack, tc)
@@ -281,6 +310,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_stz);
 	ATF_TP_ADD_TC(tp, emul_php_plp);
 	ATF_TP_ADD_TC(tp, emul_stack);
+	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
 
 	return (atf_no_error());
 }

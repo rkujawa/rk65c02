@@ -1,0 +1,3 @@
+start:  txa
+	stp
+
