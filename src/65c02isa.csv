@@ -1,6 +1,6 @@
 opcode_id,mnemonic,addressing,size,emulation
 OP_BRK,"brk",IMPLIED,1,NULL
-OP_ORA_IZPX,"ora",IZPX,1,emul_ora
+OP_ORA_IZPX,"ora",IZPX,2,emul_ora
 OP_NOPI_3,"nop",IMMEDIATE,2,NULL
 OP_NOPI_4,"nop",IMPLIED,1,NULL
 OP_TSB_ZP,"tsb",ZP,2,NULL
