@@ -197,6 +197,73 @@ ATF_TC_BODY(emul_nop, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_ora);
+ATF_TC_BODY(emul_ora, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+	/* ORA immediate */
+	e.regs.A = 0x55;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_imm.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA zero page */
+	e.regs.A = 0xAA;
+	bus_write_1(&b, 0x10, 0x55);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zp.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA zero page X */
+	e.regs.A = 0xAA;
+	e.regs.X = 0x11;
+	bus_write_1(&b, 0x21, 0x55);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zpx.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA absolute */
+	e.regs.A = 0x55;
+	bus_write_1(&b, 0x2A01, 0xAA);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_abs.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA absolute X */
+	e.regs.A = 0xAA;
+	e.regs.X = 0x1;
+	bus_write_1(&b, 0x2A01, 0x55);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absx.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA absolute Y */
+	e.regs.A = 0x55;
+	e.regs.X = 0;
+	e.regs.Y = 0x2;
+	bus_write_1(&b, 0x2A02, 0xAA);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absy.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA indirect zero */
+	e.regs.A = 0xAA;
+	bus_write_1(&b, 0x2A04, 0x55);
+	bus_write_1(&b, 0x12, 0x04);
+	bus_write_1(&b, 0x13, 0x2A);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izp.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA indirect zero page X */
+	e.regs.A = 0xAA;
+	e.regs.X = 0x2;
+	e.regs.Y = 0;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpx.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+	/* ORA indirect zero page Y */
+	e.regs.A = 0xAA;
+	e.regs.X = 0;
+	e.regs.Y = 0x1;
+	bus_write_1(&b, 0x2A04, 0x54);
+	bus_write_1(&b, 0x14, 0x04);
+	bus_write_1(&b, 0x15, 0x2A);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpy.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_txa_tya_tax_tay);
 ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
 {
@@ -211,17 +278,17 @@ ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
 	e.regs.Y = 0x55;
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_txa.rom"));
-	ATF_CHECK(e.regs.A = 0xAA);
+	ATF_CHECK(e.regs.A == 0xAA);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_tya.rom"));
-	ATF_CHECK(e.regs.A = 0x55);
+	ATF_CHECK(e.regs.A == 0x55);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_tax.rom"));
-	ATF_CHECK(e.regs.X = 0x55);
+	ATF_CHECK(e.regs.X == 0x55);
 
 	e.regs.A = 0xFF;
 	ATF_REQUIRE(rom_start(&e, "test_emulation_tay.rom"));
-	ATF_CHECK(e.regs.A = 0xFF);
+	ATF_CHECK(e.regs.A == 0xFF);
 
 	bus_finish(&b);
 }
@@ -307,6 +374,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_nop);
+	ATF_TP_ADD_TC(tp, emul_ora);
 	ATF_TP_ADD_TC(tp, emul_stz);
 	ATF_TP_ADD_TC(tp, emul_php_plp);
 	ATF_TP_ADD_TC(tp, emul_stack);
