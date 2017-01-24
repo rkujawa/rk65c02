@@ -5,17 +5,7 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -c02
 
 TESTS=test_bus test_emulation
-TESTROMS=test_emulation_and_imm.rom \
-	test_emulation_clc.rom test_emulation_sec.rom \
-	test_emulation_dex.rom test_emulation_dey.rom \
-	test_emulation_inx.rom test_emulation_iny.rom \
-	test_emulation_pha.rom test_emulation_pla.rom \
-	test_emulation_php.rom test_emulation_plp.rom \
-	test_emulation_nop.rom \
-	test_emulation_lda_imm.rom test_emulation_lda_zp.rom \
-	test_emulation_lda_abs.rom \
-	test_emulation_lda_absx.rom test_emulation_lda_absy.rom \
-	test_emulation_stz_zp.rom
+TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
 
