@@ -33,6 +33,8 @@ struct reg_state {
 #define STACK_START 0x0100
 #define STACK_END 0x01FF
 
+#define BIT(val,n) ((val) & (1 << (n)))
+
 typedef struct reg_state reg_state_t;
 
 struct rk65c02emu {
