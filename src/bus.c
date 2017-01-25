@@ -20,7 +20,10 @@ typedef struct bus_tag bus_t;
 uint8_t
 bus_read_1(bus_t *t, uint16_t addr)
 {
-	return t->space[addr];
+	uint8_t val;
+	val = t->space[addr];
+/*	printf("bus READ @ %x value %x\n", addr, val); */
+	return val;
 }
 
 void
