@@ -12,6 +12,30 @@ emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* BIT - check if one or more bits are set */
+void
+emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+/*	uint8_t v = instruction_data_read_1(e, (instrdef_t *) id, i);
+	printf("%x\n", v);*/
+
+	/* zero flag set if acculumator AND memory equals zero */
+	if (e->regs.A & instruction_data_read_1(e, (instrdef_t *) id, i))
+		e->regs.P &= ~P_ZERO;
+	else
+		e->regs.P |= P_ZERO;
+
+	if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 6))
+		e->regs.P |= P_SIGN_OVERFLOW;
+	else
+		e->regs.P &= ~P_SIGN_OVERFLOW;
+
+	if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 7))
+		e->regs.P |= P_NEGATIVE;
+	else
+		e->regs.P &= ~P_NEGATIVE;
+}
+
 /* CLC - clear carry flag */
 void
 emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)

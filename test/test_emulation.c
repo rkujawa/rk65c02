@@ -22,6 +22,55 @@ rom_start(rk65c02emu_t *e, const char *name)
 	return true;
 }
 
+ATF_TC_WITHOUT_HEAD(emul_bit);
+ATF_TC_BODY(emul_bit, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* BIT immediate  */
+	e.regs.A = 0x40;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_imm.rom"));
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* BIT zero page */
+	e.regs.A = 0x40;
+	bus_write_1(&b, 0x10, 0x80);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zp.rom"));
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* BIT zero page X */
+	e.regs.A = 0x40;
+	e.regs.X = 0x1;
+	bus_write_1(&b, 0x10, 0x40);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zpx.rom"));
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* BIT absolute */
+	e.regs.A = 0x80;
+	bus_write_1(&b, 0x2010, 0x80);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_abs.rom"));
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* BIT absolute X */
+	e.regs.A = 0x40;
+	e.regs.X = 0x2;
+	bus_write_1(&b, 0x2010, 0x80);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_absx.rom"));
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_dex_dey);
 ATF_TC_BODY(emul_dex_dey, tc)
 {
@@ -424,6 +473,7 @@ ATF_TC_BODY(emul_php_plp, tc)
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
+	ATF_TP_ADD_TC(tp, emul_bit);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
