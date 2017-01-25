@@ -153,6 +153,20 @@ emul_php(rk65c02emu_t *e, void *id, instruction_t *i)
 	stack_push(e, e->regs.P);
 }
 
+/* PHX - push X to stack */
+void
+emul_phx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	stack_push(e, e->regs.X);
+}
+
+/* PHY - push Y to stack */
+void
+emul_phy(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	stack_push(e, e->regs.Y);
+}
+
 /* PLA - pull from stack to accumulator */
 void
 emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -168,6 +182,20 @@ void
 emul_plp(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.P = stack_pop(e) | P_UNDEFINED;
+}
+
+/* PLX - pull from stack to X */
+void
+emul_plx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.X = stack_pop(e);
+}
+
+/* PLY - pull from stack to X */
+void
+emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.Y = stack_pop(e);
 }
 
 /* ROL - rotate left */

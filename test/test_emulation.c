@@ -470,6 +470,52 @@ ATF_TC_BODY(emul_php_plp, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_phx_phy_plx_ply);
+ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* check push X to stack */
+	e.regs.X = 0xAA;
+	e.regs.SP = 0xFF;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_phx.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFE);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
+
+	/* check pull X from stack */
+	e.regs.X = 0;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_plx.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFF);
+	ATF_CHECK(e.regs.X == 0xAA);
+
+	/* check push Y to stack */
+	e.regs.Y = 0x55;
+	e.regs.SP = 0xFF;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_phy.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFE);
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0x55);
+
+	/* check pull X from stack */
+	e.regs.Y = 0xFF;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ply.rom"));
+
+	ATF_CHECK(e.regs.SP == 0xFF);
+	ATF_CHECK(e.regs.Y == 0x55);
+
+	bus_finish(&b);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -482,6 +528,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_ora);
 	ATF_TP_ADD_TC(tp, emul_stz);
 	ATF_TP_ADD_TC(tp, emul_php_plp);
+	ATF_TP_ADD_TC(tp, emul_phx_phy_plx_ply);
 	ATF_TP_ADD_TC(tp, emul_stack);
 	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
 	ATF_TP_ADD_TC(tp, emul_sta);
