@@ -3,16 +3,17 @@ LDFLAGS=-latf-c
 RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -c02
+UTILS=utils.o
 
 TESTS=test_bus test_emulation
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
 
-test_bus : test_bus.o $(RK6502LIB)
+test_bus : test_bus.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
-test_emulation : test_emulation.o $(RK6502LIB)
+test_emulation : test_emulation.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 %.rom : %.s

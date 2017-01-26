@@ -6,21 +6,7 @@
 
 #include "bus.h"
 #include "rk65c02.h"
-
-#define ROM_LOAD_ADDR 0xC000
-
-bool rom_start(rk65c02emu_t *, const char *);
-
-bool
-rom_start(rk65c02emu_t *e, const char *name)
-{
-	e->regs.PC = ROM_LOAD_ADDR;
-	if(!bus_load_file(e->bus, ROM_LOAD_ADDR, name))
-		return false;
-	rk65c02_start(e);
-
-	return true;
-}
+#include "utils.h"
 
 ATF_TC_WITHOUT_HEAD(emul_bit);
 ATF_TC_BODY(emul_bit, tc)
