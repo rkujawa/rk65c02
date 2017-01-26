@@ -43,6 +43,21 @@ emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P &= ~P_CARRY;
 }
 
+/* DEC  - decrement memory location/acumulator */
+void
+emul_dec(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val;
+
+	/* this is absurdly inefficient */
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+	val--;
+	instruction_data_write_1(e, id, i, val);
+
+	instruction_status_adjust_zero(e, val);
+	instruction_status_adjust_negative(e, val);
+}
+
 /* DNX - decrement X */
 void
 emul_dex(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -71,6 +86,21 @@ emul_eor(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);
+}
+
+/* INC - increment memory location/acumulator */
+void
+emul_inc(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val;
+
+	/* this is absurdly inefficient */
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+	val++;
+	instruction_data_write_1(e, id, i, val);
+
+	instruction_status_adjust_zero(e, val);
+	instruction_status_adjust_negative(e, val);
 }
 
 /* INX - increment X */
