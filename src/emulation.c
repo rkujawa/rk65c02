@@ -280,6 +280,7 @@ void
 emul_stp(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->state = STOPPED;
+	e->stopreason = STP;
 }
 
 /* STA - store accumulator */

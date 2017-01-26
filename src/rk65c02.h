@@ -6,8 +6,16 @@
 typedef enum {
 	STOPPED,
 	RUNNING,
-	STEPPING
+	STEPPING	/* XXX: how to implement? */
 } emu_state_t;
+
+typedef enum
+	STP,		/* due to 65C02 STP instruction */
+	BREAKPOINT,	/* due to breakpoint set */
+	WATCHPOINT,	/* due to watchpoint set */
+	HOST,		/* due to host stop function called */
+	EMUERROR	/* due to emulator error */
+} emu_stop_reason_t;
 
 struct reg_state {
 	uint8_t A;      /* accumulator */
@@ -41,6 +49,7 @@ struct rk65c02emu {
 	emu_state_t state;
 	bus_t *bus;
 	reg_state_t regs;
+	emu_stop_reason_t stopreason;
 };
 
 typedef struct rk65c02emu rk65c02emu_t;

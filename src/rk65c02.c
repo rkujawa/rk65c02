@@ -45,6 +45,7 @@ rk65c02_start(rk65c02emu_t *e) {
 			printf("unimplemented opcode %X @ %X\n", i.opcode,
 			    e->regs.PC);
 			e->state = STOPPED;
+			e->stopreason = EMUERROR;
 		}
 	}
 }
