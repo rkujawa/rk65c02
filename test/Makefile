@@ -11,10 +11,10 @@ TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 all : $(TESTS) $(TESTROMS)
 
 test_bus : test_bus.o $(UTILS) $(RK6502LIB)
-	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 test_emulation : test_emulation.o $(UTILS) $(RK6502LIB)
-	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 %.rom : %.s
 	$(VASM) $(VASMFLAGS) -o $@ $< 
