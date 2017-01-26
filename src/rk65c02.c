@@ -10,6 +10,8 @@
 #include "instruction.h"
 #include "rk65c02.h"
 
+void rk65c02_exec(rk65c02emu_t *);
+
 rk65c02emu_t
 rk65c02_init(bus_t *b)
 {
@@ -23,30 +25,49 @@ rk65c02_init(bus_t *b)
 }
 
 void
-rk65c02_start(rk65c02emu_t *e) {
+rk65c02_exec(rk65c02emu_t *e)
+{
 	instruction_t i;
 	instrdef_t id;
 
+	/* XXX: handle breakpoints and watch points */
+
+	/* if disassembly-when-running enabled */
+	disassemble(e->bus, e->regs.PC);
+
+	i = instruction_fetch(e->bus, e->regs.PC);
+	id = instruction_decode(i.opcode);
+
+	if (id.emul != NULL) {
+		id.emul(e, &id, &i);
+		/* if (!instruction_modify_pc) */
+		program_counter_increment(e, &id);
+	} else {
+		printf("unimplemented opcode %X @ %X\n", i.opcode,
+		    e->regs.PC);
+		e->state = STOPPED;
+		e->stopreason = EMUERROR;
+	}
+}
+
+void
+rk65c02_start(rk65c02emu_t *e) {
+
 	e->state = RUNNING;
 	while (e->state == RUNNING) {
-		/* XXX: handle breakpoints and watch points */
+		rk65c02_exec(e);
+	}
+}
 
-		/* if disassembly-when-running enabled */
-		disassemble(e->bus, e->regs.PC);
+void
+rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
-		i = instruction_fetch(e->bus, e->regs.PC);
-		id = instruction_decode(i.opcode);
+	uint16_t i = 0;
 
-		if (id.emul != NULL) {
-			id.emul(e, &id, &i);
-			/* if (!instruction_modify_pc) */
-			program_counter_increment(e, &id);
-		} else {
-			printf("unimplemented opcode %X @ %X\n", i.opcode,
-			    e->regs.PC);
-			e->state = STOPPED;
-			e->stopreason = EMUERROR;
-		}
+	e->state = STEPPING;
+	while ((e->state == STEPPING) && (i < steps)) {
+		rk65c02_exec(e);
+		i++;
 	}
 }
 /*

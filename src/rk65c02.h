@@ -9,10 +9,11 @@ typedef enum {
 	STEPPING	/* XXX: how to implement? */
 } emu_state_t;
 
-typedef enum
+typedef enum {
 	STP,		/* due to 65C02 STP instruction */
 	BREAKPOINT,	/* due to breakpoint set */
 	WATCHPOINT,	/* due to watchpoint set */
+	STEPPED,	/* stepped appropriate number of instructions */
 	HOST,		/* due to host stop function called */
 	EMUERROR	/* due to emulator error */
 } emu_stop_reason_t;
@@ -56,6 +57,7 @@ typedef struct rk65c02emu rk65c02emu_t;
 
 rk65c02emu_t rk65c02_init(bus_t *);
 void rk65c02_start(rk65c02emu_t *);
+void rk65c02_step(rk65c02emu_t *, uint16_t);
 
 #endif
 
