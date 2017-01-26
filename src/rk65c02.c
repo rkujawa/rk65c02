@@ -19,7 +19,7 @@ rk65c02_init(bus_t *b)
 
 	e.bus = b;
 	e.state = STOPPED;
-	e.regs.P = P_UNDEFINED;
+	e.regs.P = P_UNDEFINED|P_IRQ_DISABLE;
 
 	return e;
 }
