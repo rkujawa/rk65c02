@@ -10,7 +10,7 @@ TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
 
-test_stepping : test_step.o $(UTILS) $(RK6502LIB)
+test_stepping : test_stepping.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 test_bus : test_bus.o $(UTILS) $(RK6502LIB)
