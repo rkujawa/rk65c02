@@ -58,6 +58,7 @@ typedef struct rk65c02emu rk65c02emu_t;
 rk65c02emu_t rk65c02_init(bus_t *);
 void rk65c02_start(rk65c02emu_t *);
 void rk65c02_step(rk65c02emu_t *, uint16_t);
+void rk65c02_dump_regs(rk65c02emu_t *);
 
 #endif
 

@@ -82,6 +82,54 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 		i++;
 	}
 }
+
+void
+rk65c02_dump_regs(rk65c02emu_t *e)
+{
+	printf("A: %X X: %X Y: %X SP: %X P: ", e->regs.A, e->regs.X, e->regs.Y, e->regs.SP);
+
+	if (e->regs.P & P_NEGATIVE)
+		printf("N");
+	else
+		printf("-");
+
+	if (e->regs.P & P_SIGN_OVERFLOW)
+		printf("O");
+	else
+		printf("-");
+
+	if (e->regs.P & P_UNDEFINED)
+		printf("1");
+	else
+		printf("-");
+
+	if (e->regs.P & P_BREAK)
+		printf("B");
+	else
+		printf("-");
+
+	if (e->regs.P & P_DECIMAL)
+		printf("D");
+	else
+		printf("-");
+
+	if (e->regs.P & P_IRQ_DISABLE)
+		printf("I");
+	else
+		printf("-");
+
+	if (e->regs.P & P_ZERO)
+		printf("Z");
+	else
+		printf("-");
+
+	if (e->regs.P & P_CARRY)
+		printf("C");
+	else
+		printf("-");
+
+	printf("\n");
+}
 /*
 int
 main(void)
