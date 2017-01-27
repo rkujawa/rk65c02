@@ -75,7 +75,7 @@ OP_PHA,"pha",IMPLIED,1,emul_pha,false
 OP_EOR_IMM,"eor",IMMEDIATE,2,emul_eor,false
 OP_LSR,"lsr",ACCUMULATOR,1,emul_lsr,false
 OP_NOPI_4C,"nop",IMPLIED,1,NULL,false
-OP_JMP_ABS,"jmp",ABSOLUTE,3,NULL,true
+OP_JMP_ABS,"jmp",ABSOLUTE,3,emul_jmp,true
 OP_EOR_ABS,"eor",ABSOLUTE,3,emul_eor,false
 OP_LSR_ABS,"lsr",ABSOLUTE,3,emul_lsr,false
 OP_BBR4_REL,"bbr4",ZPR,2,NULL,true
@@ -107,7 +107,7 @@ OP_PLA,"pla",IMPLIED,1,emul_pla,false
 OP_ADC_IMM,"adc",IMMEDIATE,2,NULL,false
 OP_ROR,"ror",ACCUMULATOR,1,emul_ror,false
 OP_NOPI_6C,"nop",IMPLIED,1,NULL,false
-OP_JMP_IABS,"jmp",IABSOLUTE,3,NULL,true
+OP_JMP_IABS,"jmp",IABSOLUTE,3,emul_jmp,true
 OP_ADC_ABS,"adc",ABSOLUTE,3,NULL,false
 OP_ROR_ABS,"ror",ABSOLUTE,3,emul_ror,false
 OP_BBR6_REL,"bbr6",ZPR,2,NULL,true
@@ -123,7 +123,7 @@ OP_SEI,"sei",IMPLIED,1,NULL,false
 OP_ADC_ABSY,"adc",ABSOLUTEY,3,NULL,false
 OP_PLY,"ply",IMPLIED,1,emul_ply,false
 OP_NOPI_7C,"nop",IMPLIED,1,NULL,false
-OP_JMP_IABSX,"jmp",IABSOLUTEX,3,NULL,true
+OP_JMP_IABSX,"jmp",IABSOLUTEX,3,emul_jmp,true
 OP_ADC_ABSX,"adc",ABSOLUTEX,3,NULL,false
 OP_ROR_ABSX,"ror",ABSOLUTEX,3,emul_ror,false
 OP_BBR7_REL,"bbr7",ZPR,2,NULL,true

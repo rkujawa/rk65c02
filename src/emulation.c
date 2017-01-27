@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 
 #include "emulation.h"
 
@@ -149,6 +150,29 @@ emul_iny(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	instruction_status_adjust_zero(e, e->regs.Y);
 	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
+/* JMP - JUMP~ */
+void
+emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint16_t target;//, iaddr;
+
+	switch (((instrdef_t *)id)->mode) {
+	case ABSOLUTE:
+		target = i->op1 + (i->op2 << 8);
+		break;
+	case IABSOLUTE:
+		target = bus_read_1(e->bus, i->op1);
+		target |= (bus_read_1(e->bus, i->op2) << 8);
+//		target = bus_read_1(e->bus, indirect);
+//		target |= bus_read_1(e->bus, indirect + 1);
+	default:
+		assert(false); /* should never happen, lol */
+		break;
+	}
+
+	e->regs.PC = target;
 }
 
 /* LDA - load to accumulator */
