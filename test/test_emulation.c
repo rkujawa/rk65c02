@@ -85,6 +85,65 @@ ATF_TC_BODY(emul_dex_dey, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_inc);
+ATF_TC_BODY(emul_inc, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* INC A */
+	e.regs.A = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom"));
+	ATF_CHECK(e.regs.A == 0x2);
+	/* rk65c02_dump_regs(&e);*/
+	/* INC A overflow */
+	e.regs.A = 0xFF;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom"));
+	ATF_CHECK(e.regs.A == 0x0);
+
+	/* INC zero page */
+	bus_write_1(&b, 0x10, 0x00);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x1);
+	/* INC zero page overflow */
+	bus_write_1(&b, 0x10, 0xFF);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
+
+	/* INC zero page X */
+	e.regs.X = 1;
+	bus_write_1(&b, 0x11, 0x00);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0x1);
+	/* INC zero page X overflow */
+	bus_write_1(&b, 0x11, 0xFF);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0x00);
+
+	/* INC absolute */
+	bus_write_1(&b, 0x2010, 0xA0);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA1);
+	/* INC absolute overflow */
+	bus_write_1(&b, 0x2010, 0xFF);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x00);
+
+	/* INC absolute X */
+	e.regs.X = 0x10;
+	bus_write_1(&b, 0x2020, 0xFE);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
+	/* INC absolute X overflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x00);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_inx_iny);
 ATF_TC_BODY(emul_inx_iny, tc)
 {
@@ -508,6 +567,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_bit);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
+	ATF_TP_ADD_TC(tp, emul_inc);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_nop);

@@ -1,0 +1,3 @@
+start:	inc A
+	stp
+
