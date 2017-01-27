@@ -86,7 +86,8 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 void
 rk65c02_dump_regs(rk65c02emu_t *e)
 {
-	printf("A: %X X: %X Y: %X SP: %X P: ", e->regs.A, e->regs.X, e->regs.Y, e->regs.SP);
+	printf("A: %X X: %X Y: %X PC: %X SP: %X P: ", 
+	    e->regs.A, e->regs.X, e->regs.Y, e->regs.PC, e->regs.SP);
 
 	if (e->regs.P & P_NEGATIVE)
 		printf("N");
