@@ -12,6 +12,9 @@
 
 void rk65c02_exec(rk65c02emu_t *);
 
+/*
+ * Prepare the emulator for use, set initial CPU state.
+ */
 rk65c02emu_t
 rk65c02_init(bus_t *b)
 {
@@ -24,6 +27,9 @@ rk65c02_init(bus_t *b)
 	return e;
 }
 
+/*
+ * Execute a single instruction within emulator.
+ */
 void
 rk65c02_exec(rk65c02emu_t *e)
 {
@@ -50,6 +56,9 @@ rk65c02_exec(rk65c02emu_t *e)
 	}
 }
 
+/*
+ * Start the emulator.
+ */
 void
 rk65c02_start(rk65c02emu_t *e) {
 
@@ -59,6 +68,9 @@ rk65c02_start(rk65c02emu_t *e) {
 	}
 }
 
+/*
+ * Execute as many instructions as specified in steps argument.
+ */
 void
 rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
