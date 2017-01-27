@@ -85,6 +85,62 @@ ATF_TC_BODY(emul_dex_dey, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_dec);
+ATF_TC_BODY(emul_dec, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* DEC A */
+	e.regs.A = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom"));
+	ATF_CHECK(e.regs.A == 0x0);
+	/* DEC A underflow */
+	e.regs.A = 0x0;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom"));
+	ATF_CHECK(e.regs.A == 0xFF);
+
+	/* DEC zero page */
+	bus_write_1(&b, 0x10, 0x01);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x0);
+	/* DEC zero page underflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0xFF);
+
+	/* DEC zero page X */
+	e.regs.X = 1;
+	bus_write_1(&b, 0x11, 0x01);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0x0);
+	/* DEC  zero page X overflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0xFF);
+
+	/* DEC absolute */
+	bus_write_1(&b, 0x2010, 0xA1);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA0);
+	/* DEC absolute overflow */
+	bus_write_1(&b, 0x2010, 0x0);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xFF);
+
+	/* DEC absolute X */
+	e.regs.X = 0x10;
+	bus_write_1(&b, 0x2020, 0x1);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x0);
+	/* DEC absolute X underflow */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom"));
+	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_inc);
 ATF_TC_BODY(emul_inc, tc)
 {
@@ -565,6 +621,7 @@ ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
 	ATF_TP_ADD_TC(tp, emul_bit);
+	ATF_TP_ADD_TC(tp, emul_dec);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
 	ATF_TP_ADD_TC(tp, emul_inc);

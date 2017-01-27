@@ -1,0 +1,3 @@
+start:	dec A
+	stp
+
