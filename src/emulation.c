@@ -17,6 +17,32 @@ emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* ASL - shift left one bit */
+void
+emul_asl(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	bool ncarry;
+	uint8_t val;
+
+	ncarry = false;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	/* carry flag value equals contents of bit 7 */
+	if (val & 0x80)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	/* shift left by one bit */
+	val <<= 1;
+
+	instruction_status_adjust_zero(e, val);
+	instruction_status_adjust_negative(e, val);
+
+	instruction_data_write_1(e, (instrdef_t *) id, i, val);
+}
+
 /* BIT - check if one or more bits are set */
 void
 emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -158,6 +184,29 @@ emul_ldy(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.Y);
 }
 
+/* LSR - shift right one bit */
+void
+emul_lsr(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	/* carry flag value equals contents of bit 0 */
+	if (val & 0x1)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	/* shift right by one bit */
+	val >>= 1;
+
+	instruction_status_adjust_zero(e, val);
+	/* XXX: cannot ever be negative */
+	instruction_status_adjust_negative(e, val);
+
+	instruction_data_write_1(e, (instrdef_t *) id, i, val);
+}
 /* NOP - do nothing */
 void
 emul_nop(rk65c02emu_t *e, void *id, instruction_t *i)
