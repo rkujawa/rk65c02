@@ -207,9 +207,12 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ABSOLUTEY:
 		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y, val);
 		break;
+	case ACCUMULATOR:
+		e->regs.A = val;
+		break;
 	case ZPR:
 		/* XXX */
-	case ACCUMULATOR:
+		break;
 	case IMMEDIATE:
 	case RELATIVE:
 	case IABSOLUTE:
