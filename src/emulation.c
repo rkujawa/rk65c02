@@ -21,10 +21,7 @@ emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_asl(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	bool ncarry;
 	uint8_t val;
-
-	ncarry = false;
 
 	val = instruction_data_read_1(e, (instrdef_t *) id, i);
 
