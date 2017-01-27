@@ -156,17 +156,22 @@ emul_iny(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	uint16_t target;//, iaddr;
+	uint16_t target, iaddr;
 
 	switch (((instrdef_t *)id)->mode) {
 	case ABSOLUTE:
 		target = i->op1 + (i->op2 << 8);
 		break;
 	case IABSOLUTE:
-		target = bus_read_1(e->bus, i->op1);
-		target |= (bus_read_1(e->bus, i->op2) << 8);
-//		target = bus_read_1(e->bus, indirect);
-//		target |= bus_read_1(e->bus, indirect + 1);
+		iaddr = i->op1 + (i->op2 << 8);
+		target = bus_read_1(e->bus, iaddr);
+		target |= bus_read_1(e->bus, iaddr+1) << 8;
+		break;
+	case IABSOLUTEX:
+		iaddr = i->op1 + (i->op2 << 8) + e->regs.X;
+		target = bus_read_1(e->bus, iaddr);
+		target |= bus_read_1(e->bus, iaddr + 1) << 8;
+		break;
 	default:
 		assert(false); /* should never happen, lol */
 		break;
