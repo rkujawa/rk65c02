@@ -31,11 +31,12 @@ struct instruction {
 typedef struct instruction instruction_t;
 
 struct instrdef {
-	uint8_t opcode;
+	uint8_t opcode;		/* opcode, normally same as in instruction */
 	const char *mnemonic;
 	addressing_t mode;
 	uint8_t size;
 	void (*emul)(rk65c02emu_t *e, void *id, instruction_t *i);
+	bool modify_pc;
 };
 
 typedef struct instrdef instrdef_t;
@@ -51,5 +52,6 @@ void instruction_status_adjust_negative(rk65c02emu_t *, uint8_t);
 void stack_push(rk65c02emu_t *, uint8_t);
 uint8_t stack_pop(rk65c02emu_t *);
 void program_counter_increment(rk65c02emu_t *, instrdef_t *);
+bool instruction_modify_pc(instrdef_t *);
 
 #endif /* _INSTRUCTION_H_ */

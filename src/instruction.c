@@ -327,3 +327,10 @@ program_counter_increment(rk65c02emu_t *e, instrdef_t *id)
 	e->regs.PC += id->size;
 }	
 
+/* check whether given instruction modify program counter */
+bool
+instruction_modify_pc(instrdef_t *id)
+{
+	return id->modify_pc;
+}
+

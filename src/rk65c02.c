@@ -46,8 +46,8 @@ rk65c02_exec(rk65c02emu_t *e)
 
 	if (id.emul != NULL) {
 		id.emul(e, &id, &i);
-		/* if (!instruction_modify_pc) */
-		program_counter_increment(e, &id);
+		if (!instruction_modify_pc(&id)) 
+			program_counter_increment(e, &id);
 	} else {
 		printf("unimplemented opcode %X @ %X\n", i.opcode,
 		    e->regs.PC);
