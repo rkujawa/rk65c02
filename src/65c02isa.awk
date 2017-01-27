@@ -13,9 +13,9 @@ BEGIN {
 /^OP_/{
 	printf "#define %s 0x%X\n", $1, opcode
 	if (opcode < 255)
-		printf "\t{ %s, %s, %s, %d, %s },\n", $1, $2, $3, $4, $5
+		printf "\t{ %s, %s, %s, %d, %s, %s },\n", $1, $2, $3, $4, $5, $6
 	else
-		printf "\t{ %s, %s, %s, %d, %s }\n", $1, $2, $3, $4, $5
+		printf "\t{ %s, %s, %s, %d, %s, %s }\n", $1, $2, $3, $4, $5, $6
 	opcode++
 
 }
