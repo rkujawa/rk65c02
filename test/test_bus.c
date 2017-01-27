@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "rk65c02.h"
 #include "bus.h"
+#include "utils.h"
 
 ATF_TC_WITHOUT_HEAD(bus_init);
 ATF_TC_BODY(bus_init, tc)
@@ -21,10 +23,13 @@ ATF_TC_WITHOUT_HEAD(bus_load_file);
 ATF_TC_BODY(bus_load_file, tc)
 {
 	bus_t b;
+	const char *rompath;
 
 	b = bus_init();
 
-	ATF_REQUIRE(bus_load_file(&b, 0xC000, "test_emulation_nop.rom"));
+	rompath = rom_path("test_emulation_nop.rom", tc);
+
+	ATF_REQUIRE(bus_load_file(&b, 0xC000, rompath));
 
 	ATF_CHECK(b.space[0xC000] == 0xEA);
 
