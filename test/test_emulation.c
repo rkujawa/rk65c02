@@ -19,14 +19,14 @@ ATF_TC_BODY(emul_bit, tc)
 
 	/* BIT immediate  */
 	e.regs.A = 0x40;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_imm.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_imm.rom", tc));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 	/* BIT zero page */
 	e.regs.A = 0x40;
 	bus_write_1(&b, 0x10, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zp.rom", tc));
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
@@ -34,14 +34,14 @@ ATF_TC_BODY(emul_bit, tc)
 	e.regs.A = 0x40;
 	e.regs.X = 0x1;
 	bus_write_1(&b, 0x10, 0x40);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zpx.rom", tc));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 	/* BIT absolute */
 	e.regs.A = 0x80;
 	bus_write_1(&b, 0x2010, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_abs.rom", tc));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
@@ -49,7 +49,7 @@ ATF_TC_BODY(emul_bit, tc)
 	e.regs.A = 0x40;
 	e.regs.X = 0x2;
 	bus_write_1(&b, 0x2010, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_absx.rom", tc));
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
@@ -68,18 +68,18 @@ ATF_TC_BODY(emul_dex_dey, tc)
 
 	/* DEX  */
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom", tc));
 	ATF_CHECK(e.regs.X == 0x0);
 	/* DEX underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom", tc));
 	ATF_CHECK(e.regs.X == 0xFF);
 
 	/* DEY */
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom", tc));
 	ATF_CHECK(e.regs.Y == 0x0);
 	/* DEY underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom", tc));
 	ATF_CHECK(e.regs.Y == 0xFF);
 
 	bus_finish(&b);
@@ -96,46 +96,46 @@ ATF_TC_BODY(emul_dec, tc)
 
 	/* DEC A */
 	e.regs.A = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom", tc));
 	ATF_CHECK(e.regs.A == 0x0);
 	/* DEC A underflow */
 	e.regs.A = 0x0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	/* DEC zero page */
 	bus_write_1(&b, 0x10, 0x01);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x0);
 	/* DEC zero page underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0xFF);
 
 	/* DEC zero page X */
 	e.regs.X = 1;
 	bus_write_1(&b, 0x11, 0x01);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x0);
 	/* DEC  zero page X overflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0xFF);
 
 	/* DEC absolute */
 	bus_write_1(&b, 0x2010, 0xA1);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA0);
 	/* DEC absolute overflow */
 	bus_write_1(&b, 0x2010, 0x0);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xFF);
 
 	/* DEC absolute X */
 	e.regs.X = 0x10;
 	bus_write_1(&b, 0x2020, 0x1);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x0);
 	/* DEC absolute X underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
 
 	bus_finish(&b);
@@ -152,49 +152,49 @@ ATF_TC_BODY(emul_inc, tc)
 
 	/* INC A */
 	e.regs.A = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom", tc));
 	ATF_CHECK(e.regs.A == 0x2);
 	/* rk65c02_dump_regs(&e);*/
 	/* INC A overflow */
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom", tc));
 	ATF_CHECK(e.regs.A == 0x0);
 
 	/* INC zero page */
 	bus_write_1(&b, 0x10, 0x00);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x1);
 	/* INC zero page overflow */
 	bus_write_1(&b, 0x10, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
 
 	/* INC zero page X */
 	e.regs.X = 1;
 	bus_write_1(&b, 0x11, 0x00);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x1);
 	/* INC zero page X overflow */
 	bus_write_1(&b, 0x11, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x00);
 
 	/* INC absolute */
 	bus_write_1(&b, 0x2010, 0xA0);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA1);
 	/* INC absolute overflow */
 	bus_write_1(&b, 0x2010, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x00);
 
 	/* INC absolute X */
 	e.regs.X = 0x10;
 	bus_write_1(&b, 0x2020, 0xFE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
 	/* INC absolute X overflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x00);
 
 	bus_finish(&b);
@@ -211,20 +211,20 @@ ATF_TC_BODY(emul_inx_iny, tc)
 
 	/* INX */
 	e.regs.X = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom", tc));
 	ATF_CHECK(e.regs.X == 0x1);
 	/* INX overflow */
 	e.regs.X = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom", tc));
 	ATF_CHECK(e.regs.X == 0x0);
 
 	/* INY */
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom", tc));
 	ATF_CHECK(e.regs.Y == 0x1);
 	/* INY overflow */
 	e.regs.Y = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom", tc));
 	ATF_CHECK(e.regs.Y == 0x0);
 
 	bus_finish(&b);
@@ -240,31 +240,31 @@ ATF_TC_BODY(emul_lda, tc)
 	e = rk65c02_init(&b);
 
 	/* LDA immediate */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_imm.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_imm.rom", tc));
 /*	ATF_CHECK(e.state == STOPPED);  // separate test case for states? */
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+3); // separate test case for PC? */
 	ATF_CHECK(e.regs.A == 0xAF);
 
 	/* LDA zero page */
 	bus_write_1(&b, 0x10, 0xAE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAE);
 
 	/* LDA absolute */
 	bus_write_1(&b, 0x2F5A, 0xEA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_abs.rom", tc));
 	ATF_CHECK(e.regs.A == 0xEA);
 
 	/* LDA absolute X */
 	bus_write_1(&b, 0x2F5A, 0xEB);
 	e.regs.X = 0x5A;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absx.rom", tc));
 	ATF_CHECK(e.regs.A == 0xEB);
 
 	/* LDA absolute X */
 	bus_write_1(&b, 0x2F5E, 0xEC);
 	e.regs.Y = 0x5E;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absy.rom", tc));
 	ATF_CHECK(e.regs.A == 0xEC);
 
 	bus_finish(&b);
@@ -281,7 +281,7 @@ ATF_TC_BODY(emul_stz, tc)
 
 	/* STZ zp */
 	bus_write_1(&b, 0x10, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
 
 	bus_finish(&b);
@@ -298,10 +298,10 @@ ATF_TC_BODY(emul_clc_sec, tc)
 
 	/* SEC */
 	e.regs.P &= ~P_CARRY;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sec.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sec.rom", tc));
 	ATF_CHECK(e.regs.P & P_CARRY);
 	/* CLC */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_clc.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_clc.rom", tc));
 	ATF_CHECK(e.regs.P ^ P_CARRY);
 
 	bus_finish(&b);
@@ -318,12 +318,12 @@ ATF_TC_BODY(emul_and, tc)
 
 	/* AND immediate */
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_and_imm.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_and_imm.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAA);
 
 	/* AND zero page */
 /*	bus_write_1(&b, 0x10, 0xAE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_and_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_and_zp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAE);*/
 
 	bus_finish(&b);
@@ -340,7 +340,7 @@ ATF_TC_BODY(emul_nop, tc)
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_nop.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_nop.rom", tc));
 
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
 
@@ -358,45 +358,45 @@ ATF_TC_BODY(emul_sta, tc)
 
 	/* STA zero page */
 	e.regs.A = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0xAA);
 	/* STA zero page X */
 	e.regs.A = 0x55;
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x55);
 	/* STA absolute */
 	e.regs.A = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_abs.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA absolute X */
 	e.regs.A = 0x55;
 	e.regs.X = 0x10;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
 	/* STA absolute Y */
 	e.regs.A = 0xAA;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absy.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA indirect zero */
 	e.regs.A = 0x55;
 	bus_write_1(&b, 0x25, 0x10);
 	bus_write_1(&b, 0x26, 0x20);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
 	/* STA indirect zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x4;
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA indirect zero page Y */
 	e.regs.A = 0x54;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpy.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
 
 	bus_finish(&b);
@@ -412,49 +412,49 @@ ATF_TC_BODY(emul_ora, tc)
 	e = rk65c02_init(&b);
 	/* ORA immediate */
 	e.regs.A = 0x55;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_imm.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_imm.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA zero page */
 	e.regs.A = 0xAA;
 	bus_write_1(&b, 0x10, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x11;
 	bus_write_1(&b, 0x21, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zpx.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute */
 	e.regs.A = 0x55;
 	bus_write_1(&b, 0x2A01, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_abs.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_abs.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x1;
 	bus_write_1(&b, 0x2A01, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absx.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute Y */
 	e.regs.A = 0x55;
 	e.regs.X = 0;
 	e.regs.Y = 0x2;
 	bus_write_1(&b, 0x2A02, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absy.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero */
 	e.regs.A = 0xAA;
 	bus_write_1(&b, 0x2A04, 0x55);
 	bus_write_1(&b, 0x12, 0x04);
 	bus_write_1(&b, 0x13, 0x2A);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x2;
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpx.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero page Y */
 	e.regs.A = 0xAA;
@@ -463,7 +463,7 @@ ATF_TC_BODY(emul_ora, tc)
 	bus_write_1(&b, 0x2A04, 0x54);
 	bus_write_1(&b, 0x14, 0x04);
 	bus_write_1(&b, 0x15, 0x2A);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpy.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	bus_finish(&b);
@@ -482,17 +482,17 @@ ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
 	e.regs.X = 0xAA;
 	e.regs.Y = 0x55;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_txa.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_txa.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAA);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tya.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tya.rom", tc));
 	ATF_CHECK(e.regs.A == 0x55);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tax.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tax.rom", tc));
 	ATF_CHECK(e.regs.X == 0x55);
 
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tay.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_tay.rom", tc));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	bus_finish(&b);
@@ -512,7 +512,7 @@ ATF_TC_BODY(emul_stack, tc)
 	e.regs.SP = 0xFF;
 	e.regs.A = 0xAA;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_pha.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_pha.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
@@ -534,7 +534,7 @@ ATF_TC_BODY(emul_stack, tc)
 	 * Now let's see if loading back into accumulator works.
 	 */
 	e.regs.A = 0x0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_pla.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_pla.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(e.regs.A == 0xAB);
@@ -554,7 +554,7 @@ ATF_TC_BODY(emul_php_plp, tc)
 	e.regs.SP = 0xFF;
 	e.regs.P |= P_CARRY|P_ZERO|P_UNDEFINED;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_php.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_php.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_CARRY|P_ZERO|P_UNDEFINED));
@@ -563,7 +563,7 @@ ATF_TC_BODY(emul_php_plp, tc)
 	 * Now let's see if loading back into accumulator works.
 	 */
 	bus_write_1(e.bus, STACK_END, P_CARRY|P_DECIMAL);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_plp.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_plp.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.P == (P_CARRY|P_DECIMAL|P_UNDEFINED));
@@ -584,7 +584,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	e.regs.X = 0xAA;
 	e.regs.SP = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_phx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_phx.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
@@ -592,7 +592,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	/* check pull X from stack */
 	e.regs.X = 0;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_plx.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_plx.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.X == 0xAA);
@@ -601,7 +601,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	e.regs.Y = 0x55;
 	e.regs.SP = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_phy.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_phy.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0x55);
@@ -609,7 +609,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	/* check pull X from stack */
 	e.regs.Y = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ply.rom"));
+	ATF_REQUIRE(rom_start(&e, "test_emulation_ply.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.Y == 0x55);
