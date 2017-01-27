@@ -626,19 +626,36 @@ ATF_TC_BODY(emul_jmp, tc)
 	b = bus_init();
 	e = rk65c02_init(&b);
 
+	/* JMP absolute */
 	e.regs.PC = ROM_LOAD_ADDR;
 	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
 	    rom_path("test_emulation_jmp_abs.rom", tc)));
 
 	rk65c02_step(&e, 3);
-	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.PC = 0xC000);
 
-/*
-	ATF_CHECK(e.regs.SP == 0xFE);
-	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
+	/* JMP indirect absolute */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_jmp_iabs.rom", tc)));
 
-	e.regs.X = 0;
-	*/
+	bus_write_1(&b, 0x20, 0x0);
+	bus_write_1(&b, 0x21, 0xC0);
+
+	rk65c02_step(&e, 3);
+	ATF_CHECK(e.regs.PC = 0xC000);
+
+	/* JMP indirect absolute X */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_jmp_iabsx.rom", tc)));
+
+	e.regs.X = 0x10;
+	bus_write_1(&b, 0x40, 0x0);
+	bus_write_1(&b, 0x41, 0xC0);
+
+	rk65c02_step(&e, 3);
+	ATF_CHECK(e.regs.PC = 0xC000);
 }
 
 ATF_TP_ADD_TCS(tp)
