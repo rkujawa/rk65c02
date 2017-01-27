@@ -557,7 +557,7 @@ ATF_TC_BODY(emul_php_plp, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_php.rom", tc));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
-	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_CARRY|P_ZERO|P_UNDEFINED));
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_IRQ_DISABLE|P_CARRY|P_ZERO|P_UNDEFINED));
 
 	/*
 	 * Now let's see if loading back into accumulator works.
