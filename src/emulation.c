@@ -2,6 +2,11 @@
 
 #include "emulation.h"
 
+/* RMB, SMB, BBR, BBS are handled specially */
+void emul_rmb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+
+/* Implementation of emulation of instructions follows below */
+
 /* AND - logical AND */
 void
 emul_and(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -226,6 +231,60 @@ void
 emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.Y = stack_pop(e);
+}
+
+/* RMBx - reset or set memory bit (handles RMB0-RMB7) */
+void
+emul_rmb(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
+{
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	val &= ~(1 << bit);
+
+	instruction_data_write_1(e, id, i, val);
+}
+
+void
+emul_rmb0(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 0);
+}
+void
+emul_rmb1(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 1);
+}
+void
+emul_rmb2(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 2);
+}
+void
+emul_rmb3(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 3);
+}
+void
+emul_rmb4(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 4);
+}
+void
+emul_rmb5(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 5);
+}
+void
+emul_rmb6(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 6);
+}
+void
+emul_rmb7(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_rmb(e, id, i, 7);
 }
 
 /* ROL - rotate left */
