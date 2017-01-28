@@ -233,7 +233,6 @@ uint8_t
 instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 {
 	uint8_t rv;	/* data read from the bus */
-//	uint8_t ziaddr; /* indirect zero page address */
 	uint16_t iaddr; /* indirect address */
 
 	rv = 0;

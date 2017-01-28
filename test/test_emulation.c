@@ -57,6 +57,108 @@ ATF_TC_BODY(emul_bit, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_cmp);
+ATF_TC_BODY(emul_cmp, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* CMP immediate */
+	e.regs.A = 0xAA;
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_imm.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP zero page */
+	e.regs.A = 0xAA;
+	bus_write_1(&b, 0x10, 0xAB);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_zp.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* CMP zero page X */
+	e.regs.A = 0xAA;
+	e.regs.X = 0x1;
+	bus_write_1(&b, 0x11, 0xA0);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_zpx.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP indirect zero page */
+	e.regs.A = 0x01;
+	bus_write_1(&b, 0x20, 0x0);
+	bus_write_1(&b, 0x21, 0x20);
+	bus_write_1(&b, 0x2000, 0xFF);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izp.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP indirect zero page X */
+	e.regs.A = 0x02;
+	e.regs.X = 0x02;
+	bus_write_1(&b, 0x22, 0x0);
+	bus_write_1(&b, 0x23, 0x20);
+	bus_write_1(&b, 0x2000, 0x3);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izpx.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* CMP indirect zero page Y */
+	e.regs.A = 0x10;
+	e.regs.Y = 0x01;
+	bus_write_1(&b, 0x22, 0x0);
+	bus_write_1(&b, 0x23, 0x20);
+	bus_write_1(&b, 0x2000, 0xF);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izpy.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP absolute */
+	e.regs.A = 0xFF;
+	bus_write_1(&b, 0x2010, 0xFE);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_abs.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP absolute X */
+	e.regs.A = 0x55;
+	e.regs.X = 0x2;
+	bus_write_1(&b, 0x2012, 0x55);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_absx.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CMP absolute Y */
+	e.regs.A = 0xAA;
+	e.regs.Y = 0x50;
+	bus_write_1(&b, 0x2065, 0x55);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_absy.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_dex_dey);
 ATF_TC_BODY(emul_dex_dey, tc)
 {
@@ -698,6 +800,7 @@ ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
 	ATF_TP_ADD_TC(tp, emul_bit);
+	ATF_TP_ADD_TC(tp, emul_cmp);
 	ATF_TP_ADD_TC(tp, emul_dec);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
