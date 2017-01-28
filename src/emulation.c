@@ -104,6 +104,42 @@ emul_cmp(rk65c02emu_t *e, void *id, instruction_t *i)
 		e->regs.P &= ~P_CARRY;
 }
 
+/* CPX - compare X and memory location */
+void
+emul_cpx(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val, sr;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+	sr = e->regs.X - val;
+
+	instruction_status_adjust_zero(e, sr);
+	instruction_status_adjust_negative(e, sr);
+	
+	if (e->regs.X < val)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+}
+
+/* CPY - compare Y and memory location */
+void
+emul_cpy(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val, sr;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+	sr = e->regs.Y - val;
+
+	instruction_status_adjust_zero(e, sr);
+	instruction_status_adjust_negative(e, sr);
+	
+	if (e->regs.Y < val)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+}
+
 /* DEC  - decrement memory location/acumulator */
 void
 emul_dec(rk65c02emu_t *e, void *id, instruction_t *i)

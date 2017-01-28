@@ -191,11 +191,11 @@ OP_LDY_ABSX,"ldy",ABSOLUTEX,3,emul_ldy,false
 OP_LDA_ABSX,"lda",ABSOLUTEX,3,emul_lda,false
 OP_LDX_ABSY,"ldx",ABSOLUTEY,3,emul_ldx,false
 OP_BBS3_REL,"bbs3",ZPR,2,NULL,true
-OP_CPY_IMM,"cpy",IMMEDIATE,2,NULL,false
+OP_CPY_IMM,"cpy",IMMEDIATE,2,emul_cpy,false
 OP_CMP_IZPX,"cmp",IZPX,2,emul_cmp,false
 OP_NOPI_C3,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_C4,"nop",IMPLIED,1,NULL,false
-OP_CPY_ZP,"cpy",ZP,2,NULL,false
+OP_CPY_ZP,"cpy",ZP,2,emul_cpy,false
 OP_CMP_ZP,"cmp",ZP,2,emul_cmp,false
 OP_DEC_ZP,"dec",ZP,2,emul_dec,false
 OP_SMB4_ZP,"smb4",ZP,2,NULL,false
@@ -203,7 +203,7 @@ OP_INY,"iny",IMPLIED,1,emul_iny,false
 OP_CMP_IMM,"cmp",IMMEDIATE,2,emul_cmp,false
 OP_DEX,"dex",IMPLIED,1,emul_dex,false
 OP_WAI,"wai",IMPLIED,1,NULL,false
-OP_CPY_ABS,"cpy",ABSOLUTE,3,NULL,false
+OP_CPY_ABS,"cpy",ABSOLUTE,3,emul_cpy,false
 OP_CMP_ABS,"cmp",ABSOLUTE,3,emul_cmp,false
 OP_DEC_ABS,"dec",ABSOLUTE,3,emul_dec,false
 OP_BBS4_REL,"bbs4",ZPR,2,NULL,true
@@ -223,11 +223,11 @@ OP_NOPI_DD,"nop",ABSOLUTE,3,NULL,false
 OP_CMP_ABSX,"cmp",ABSOLUTEX,3,emul_cmp,false
 OP_DEC_ABSX,"dec",ABSOLUTEX,3,emul_dec,false
 OP_BBS5_REL,"bbs5",ZPR,2,NULL,true
-OP_CPX_IMM,"cpx",IMMEDIATE,2,NULL,false
+OP_CPX_IMM,"cpx",IMMEDIATE,2,emul_cpx,false
 OP_SBC_IZPX,"sbc",IZPX,2,NULL,false
 OP_NOPI_E3,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_E4,"nop",IMPLIED,1,NULL,false
-OP_CPX_ZP,"cpx",ZP,2,NULL,false
+OP_CPX_ZP,"cpx",ZP,2,emul_cpx,false
 OP_SBC_ZP,"sbc",ZP,2,NULL,false
 OP_INC_ZP,"inc",ZP,2,emul_inc,false
 OP_SMB6_ZP,"smb6",ZP,2,NULL,false
@@ -235,7 +235,7 @@ OP_INX,"inx",IMPLIED,1,emul_inx,false
 OP_SBC_IMM,"sbc",IMMEDIATE,2,NULL,false
 OP_NOP,"nop",IMPLIED,1,emul_nop,false
 OP_NOPI_EC,"nop",IMPLIED,1,NULL,false
-OP_CPX_ABS,"cpx",ABSOLUTE,3,NULL,false
+OP_CPX_ABS,"cpx",ABSOLUTE,3,emul_cpx,false
 OP_SBC_ABS,"sbc",ABSOLUTE,3,NULL,false
 OP_INC_ABS,"inc",ABSOLUTE,3,emul_inc,false
 OP_BBS6_REL,"bbs6",ZPR,2,NULL,true

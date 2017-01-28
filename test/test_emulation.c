@@ -159,6 +159,80 @@ ATF_TC_BODY(emul_cmp, tc)
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_cpx);
+ATF_TC_BODY(emul_cpx, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* CPX immediate */
+	e.regs.X = 0xAA;
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_imm.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CPX zero page */
+	e.regs.X = 0xAA;
+	bus_write_1(&b, 0x10, 0xAB);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_zp.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* CPX absolute */
+	e.regs.X = 0xFF;
+	bus_write_1(&b, 0x2010, 0xFE);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_abs.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+}
+
+ATF_TC_WITHOUT_HEAD(emul_cpy);
+ATF_TC_BODY(emul_cpy, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* CPY immediate */
+	e.regs.Y = 0xAA;
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_imm.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+	/* CPY zero page */
+	e.regs.Y = 0xAA;
+	bus_write_1(&b, 0x10, 0xAB);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_zp.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+	/* CPY absolute */
+	e.regs.Y = 0xFF;
+	bus_write_1(&b, 0x2010, 0xFE);
+	rk65c02_dump_regs(&e);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_abs.rom", tc));
+	rk65c02_dump_regs(&e);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+}
+
 ATF_TC_WITHOUT_HEAD(emul_dex_dey);
 ATF_TC_BODY(emul_dex_dey, tc)
 {
@@ -801,6 +875,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_and);
 	ATF_TP_ADD_TC(tp, emul_bit);
 	ATF_TP_ADD_TC(tp, emul_cmp);
+	ATF_TP_ADD_TC(tp, emul_cpx);
+	ATF_TP_ADD_TC(tp, emul_cpy);
 	ATF_TP_ADD_TC(tp, emul_dec);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
