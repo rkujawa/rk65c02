@@ -183,7 +183,7 @@ OP_LDY_ZPX,"ldy",ZPX,2,emul_ldy,false
 OP_LDA_ZPX,"lda",ZPX,2,emul_lda,false
 OP_LDX_ZPY,"ldx",ZPY,1,emul_ldx,false
 OP_SMB3_ZP,"smb3",ZP,2,NULL,false
-OP_CLV,"clv",IMPLIED,1,NULL,false
+OP_CLV,"clv",IMPLIED,1,emul_clv,false
 OP_LDA_ABSY,"lda",ABSOLUTEY,3,emul_lda,false
 OP_TSX,"tsx",IMPLIED,1,emul_tsx,false
 OP_NOPI_BC,"nop",IMPLIED,1,NULL,false

@@ -72,6 +72,13 @@ emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P &= ~P_CARRY;
 }
 
+/* CLV - clear overflow flag */
+void
+emul_clv(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P &= ~P_SIGN_OVERFLOW;
+}
+
 /* DEC  - decrement memory location/acumulator */
 void
 emul_dec(rk65c02emu_t *e, void *id, instruction_t *i)

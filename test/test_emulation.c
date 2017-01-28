@@ -287,6 +287,23 @@ ATF_TC_BODY(emul_stz, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_clv);
+ATF_TC_BODY(emul_clv, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	e.regs.P |= P_SIGN_OVERFLOW;
+	/* CLV */
+	ATF_REQUIRE(rom_start(&e, "test_emulation_clv.rom", tc));
+	ATF_CHECK(e.regs.P ^ P_SIGN_OVERFLOW);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_clc_sec);
 ATF_TC_BODY(emul_clc_sec, tc)
 {
@@ -665,6 +682,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_dec);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
+	ATF_TP_ADD_TC(tp, emul_clv);
 	ATF_TP_ADD_TC(tp, emul_inc);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
 	ATF_TP_ADD_TC(tp, emul_jmp);
