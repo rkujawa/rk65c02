@@ -72,6 +72,13 @@ emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P &= ~P_CARRY;
 }
 
+/* CLI - clear interrupt disable flag */
+void
+emul_cli(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P &= ~P_IRQ_DISABLE;
+}
+
 /* CLV - clear overflow flag */
 void
 emul_clv(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -444,6 +451,13 @@ void
 emul_sec(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.P |= P_CARRY;
+}
+
+/* SEI - set the interrupt disable flag */
+void
+emul_sei(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P |= P_IRQ_DISABLE;
 }
 
 /* STP - stop the processor */

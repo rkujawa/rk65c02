@@ -87,7 +87,7 @@ OP_NOPI_55,"nop",ZPX,2,NULL,false
 OP_EOR_ZPX,"eor",ZPX,2,emul_eor,false
 OP_LSR_ZPX,"lsr",ZPX,2,emul_lsr,false
 OP_RMB5_ZP,"rmb5",ZP,2,emul_rmb5,false
-OP_CLI,"cli",IMPLIED,1,NULL,false
+OP_CLI,"cli",IMPLIED,1,emul_cli,false
 OP_EOR_ABSY,"eor",ABSOLUTEY,3,emul_eor,false
 OP_PHY,"phy",IMPLIED,1,emul_phy,false
 OP_NOPI_5C,"nop",IMPLIED,1,NULL,false
@@ -119,7 +119,7 @@ OP_STZ_ZPX,"stz",ZPX,2,emul_stz,false
 OP_ADC_ZPX,"adc",ZPX,2,NULL,false
 OP_ROR_ZPX,"ror",ZPX,2,emul_ror,false
 OP_RMB7_ZP,"rmb7",ZP,2,emul_rmb7,false
-OP_SEI,"sei",IMPLIED,1,NULL,false
+OP_SEI,"sei",IMPLIED,1,emul_sei,false
 OP_ADC_ABSY,"adc",ABSOLUTEY,3,NULL,false
 OP_PLY,"ply",IMPLIED,1,emul_ply,false
 OP_NOPI_7C,"nop",IMPLIED,1,NULL,false
