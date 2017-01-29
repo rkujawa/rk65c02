@@ -134,7 +134,7 @@ OP_NOPI_84,"nop",IMPLIED,1,NULL,false
 OP_STY_ZP,"sty",ZP,2,emul_sty,false
 OP_STA_ZP,"sta",ZP,2,emul_sta,false
 OP_STX_ZP,"stx",ZP,2,emul_stx,false
-OP_SMB0_ZP,"smb0",ZP,2,NULL,false
+OP_SMB0_ZP,"smb0",ZP,2,emul_smb0,false
 OP_DEY,"dey",IMPLIED,1,emul_dey,false
 OP_BIT_IMM,"bit",IMMEDIATE,2,emul_bit,false
 OP_TXA,"txa",IMPLIED,1,emul_txa,false
@@ -150,7 +150,7 @@ OP_NOPI_94,"nop",IMPLIED,1,NULL,false
 OP_STY_ZPX,"sty",ZPX,2,emul_sty,false
 OP_STA_ZPX,"sta",ZPX,2,emul_sta,false
 OP_STX_ZPY,"stx",ZPY,2,emul_stx,false
-OP_SMB1_ZP,"smb1",ZP,2,NULL,false
+OP_SMB1_ZP,"smb1",ZP,2,emul_smb1,false
 OP_TYA,"tya",IMPLIED,1,emul_tya,false
 OP_STA_ABSY,"sta",ABSOLUTEY,3,emul_sta,false
 OP_TXS,"txs",IMPLIED,1,emul_txs,false
@@ -166,7 +166,7 @@ OP_NOPI_A4,"nop",IMPLIED,1,NULL,false
 OP_LDY_ZP,"ldy",ZP,2,emul_ldy,false
 OP_LDA_ZP,"lda",ZP,2,emul_lda,false
 OP_LDX_ZP,"ldx",ZP,2,emul_ldx,false
-OP_SMB2_ZP,"smb2",ZP,2,NULL,false
+OP_SMB2_ZP,"smb2",ZP,2,emul_smb2,false
 OP_TAY,"tay",IMPLIED,1,emul_tay,false
 OP_LDA_IMM,"lda",IMMEDIATE,2,emul_lda,false
 OP_TAX,"tax",IMPLIED,1,emul_tax,false
@@ -182,7 +182,7 @@ OP_NOPI_B4,"nop",IMPLIED,1,NULL,false
 OP_LDY_ZPX,"ldy",ZPX,2,emul_ldy,false
 OP_LDA_ZPX,"lda",ZPX,2,emul_lda,false
 OP_LDX_ZPY,"ldx",ZPY,1,emul_ldx,false
-OP_SMB3_ZP,"smb3",ZP,2,NULL,false
+OP_SMB3_ZP,"smb3",ZP,2,emul_smb3,false
 OP_CLV,"clv",IMPLIED,1,emul_clv,false
 OP_LDA_ABSY,"lda",ABSOLUTEY,3,emul_lda,false
 OP_TSX,"tsx",IMPLIED,1,emul_tsx,false
@@ -198,7 +198,7 @@ OP_NOPI_C4,"nop",IMPLIED,1,NULL,false
 OP_CPY_ZP,"cpy",ZP,2,emul_cpy,false
 OP_CMP_ZP,"cmp",ZP,2,emul_cmp,false
 OP_DEC_ZP,"dec",ZP,2,emul_dec,false
-OP_SMB4_ZP,"smb4",ZP,2,NULL,false
+OP_SMB4_ZP,"smb4",ZP,2,emul_smb4,false
 OP_INY,"iny",IMPLIED,1,emul_iny,false
 OP_CMP_IMM,"cmp",IMMEDIATE,2,emul_cmp,false
 OP_DEX,"dex",IMPLIED,1,emul_dex,false
@@ -214,7 +214,7 @@ OP_NOPI_D4,"nop",IMPLIED,1,NULL,false
 OP_NOPI_D5,"nop",ZPX,2,NULL,false
 OP_CMP_ZPX,"cmp",ZPX,2,emul_cmp,false
 OP_DEC_ZPX,"dec",ZPX,2,emul_dec,false
-OP_SMB5_ZP,"smb5",ZP,2,NULL,false
+OP_SMB5_ZP,"smb5",ZP,2,emul_smb5,false
 OP_CLD,"cld",IMPLIED,1,NULL,false
 OP_CMP_ABSY,"cmp",ABSOLUTEY,3,emul_cmp,false
 OP_PHX,"phx",IMPLIED,1,emul_phx,false
@@ -230,7 +230,7 @@ OP_NOPI_E4,"nop",IMPLIED,1,NULL,false
 OP_CPX_ZP,"cpx",ZP,2,emul_cpx,false
 OP_SBC_ZP,"sbc",ZP,2,NULL,false
 OP_INC_ZP,"inc",ZP,2,emul_inc,false
-OP_SMB6_ZP,"smb6",ZP,2,NULL,false
+OP_SMB6_ZP,"smb6",ZP,2,emul_smb6,false
 OP_INX,"inx",IMPLIED,1,emul_inx,false
 OP_SBC_IMM,"sbc",IMMEDIATE,2,NULL,false
 OP_NOP,"nop",IMPLIED,1,emul_nop,false
@@ -246,7 +246,7 @@ OP_NOPI_F4,"nop",IMPLIED,1,NULL,false
 OP_NOPI_F5,"nop",ZPX,2,NULL,false
 OP_SBC_ZPX,"sbc",ZPX,2,NULL,false
 OP_INC_ZPX,"inc",ZPX,2,emul_inc,false
-OP_SMB7_ZP,"smb7",ZP,2,NULL,false
+OP_SMB7_ZP,"smb7",ZP,2,emul_smb7,false
 OP_SED,"sed",IMPLIED,1,NULL,false
 OP_SBC_ABSY,"sbc",ABSOLUTEY,3,NULL,false
 OP_PLX,"plx",IMPLIED,1,emul_plx,false

@@ -494,7 +494,7 @@ emul_rts(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.PC = retaddr;
 }
 
-/* RMBx - reset or set memory bit (handles RMB0-RMB7) */
+/* RMBx - reset memory bit (handles RMB0-RMB7) */
 void
 emul_rmb(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
@@ -630,6 +630,58 @@ void
 emul_sei(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.P |= P_IRQ_DISABLE;
+}
+
+/* SMBx - set memory bit (handles SMB0-SMB7) */
+void
+emul_smb(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
+{
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	val |= (1 << bit);
+
+	instruction_data_write_1(e, id, i, val);
+}
+void
+emul_smb0(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 0);
+void
+emul_smb1(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 1);
+}
+void
+emul_smb2(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 2);
+}
+void
+emul_smb3(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 3);
+}
+void
+emul_smb4(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 4);
+}
+void
+emul_smb5(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 5);
+}
+void
+emul_smb6(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 6);
+}
+void
+emul_smb7(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_smb(e, id, i, 7);
 }
 
 /* STP - stop the processor */
