@@ -648,6 +648,7 @@ void
 emul_smb0(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	emul_smb(e, id, i, 0);
+}
 void
 emul_smb1(rk65c02emu_t *e, void *id, instruction_t *i)
 {
@@ -738,6 +739,40 @@ emul_tay(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	instruction_status_adjust_zero(e, e->regs.Y);
 	instruction_status_adjust_negative(e, e->regs.Y);
+}
+
+/* TRB - test and reset bits */
+void
+emul_trb(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	if (e->regs.A & val)
+		e->regs.P &= ~P_ZERO;
+	else
+		e->regs.P |= P_ZERO;
+
+	instruction_data_write_1(e, (instrdef_t *) id, i,
+	    val & (e->regs.A ^ 0xFF));
+}
+
+/* TSB - test and set bits */
+void
+emul_tsb(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
+	if (e->regs.A & val)
+		e->regs.P &= ~P_ZERO;
+	else
+		e->regs.P |= P_ZERO;
+
+	instruction_data_write_1(e, (instrdef_t *) id, i,
+	    val | e->regs.A);
 }
 
 /* TSX - transfer stack pointer to X */

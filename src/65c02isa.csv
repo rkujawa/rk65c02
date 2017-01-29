@@ -3,7 +3,7 @@ OP_BRK,"brk",IMPLIED,1,NULL,false
 OP_ORA_IZPX,"ora",IZPX,2,emul_ora,false
 OP_NOPI_3,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_4,"nop",IMPLIED,1,NULL,false
-OP_TSB_ZP,"tsb",ZP,2,NULL,false
+OP_TSB_ZP,"tsb",ZP,2,emul_tsb,false
 OP_ORA_ZP,"ora",ZP,2,emul_ora,false
 OP_ASL_ZP,"asl",ZP,2,emul_asl,false
 OP_RMB0_ZP,"rmb0",ZP,2,emul_rmb0,false
@@ -11,7 +11,7 @@ OP_PHP,"php",IMPLIED,1,emul_php,false
 OP_ORA_IMM,"ora",IMMEDIATE,2,emul_ora,false
 OP_ASL,"asl",ACCUMULATOR,1,emul_asl,false
 OP_NOPI_C,"nop",IMPLIED,1,NULL,false
-OP_TSB_ABS,"tsb",ABSOLUTE,3,NULL,false
+OP_TSB_ABS,"tsb",ABSOLUTE,3,emul_tsb,false
 OP_ORA_ABS,"ora",ABSOLUTE,3,emul_ora,false
 OP_ASL_ABS,"asl",ABSOLUTE,3,emul_asl,false
 OP_BBR0_REL,"bbr0",ZPR,2,NULL,true
@@ -19,7 +19,7 @@ OP_BPL_REL,"bpl",RELATIVE,2,emul_bpl,true
 OP_ORA_IZPY,"ora",IZPY,2,emul_ora,false
 OP_ORA_IZP,"ora",IZP,2,emul_ora,false
 OP_NOPI_14,"nop",IMPLIED,1,NULL,false
-OP_TRB_ZP,"trb",ZP,2,NULL,false
+OP_TRB_ZP,"trb",ZP,2,emul_trb,false
 OP_ORA_ZPX,"ora",ZPX,2,emul_ora,false
 OP_ASL_ZPX,"asl",ZPX,2,emul_asl,false
 OP_RMB1_ZP,"rmb1",ZP,1,emul_rmb1,false
@@ -27,7 +27,7 @@ OP_CLC,"clc",IMPLIED,1,emul_clc,false
 OP_ORA_ABSY,"ora",ABSOLUTEY,3,emul_ora,false
 OP_INC,"inc",ACCUMULATOR,1,emul_inc,false
 OP_NOPI_1C,"nop",IMPLIED,1,NULL,false
-OP_TRB_ABS,"trb",ABSOLUTE,3,NULL,false
+OP_TRB_ABS,"trb",ABSOLUTE,3,emul_trb,false
 OP_ORA_ABSX,"ora",ABSOLUTEX,3,emul_ora,false
 OP_ASL_ABSX,"asl",ABSOLUTEX,3,emul_asl,false
 OP_BBR1_REL,"bbr1",ZPR,2,NULL,true
