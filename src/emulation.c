@@ -65,6 +65,94 @@ emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 		e->regs.P &= ~P_NEGATIVE;
 }
 
+/* BCC - branch on carry clear */
+void
+emul_bcc(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (!(e->regs.P & P_CARRY))
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BCS - branch on carry set */
+void
+emul_bcs(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (e->regs.P & P_CARRY)
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BEQ - branch on equal */
+void
+emul_beq(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (e->regs.P & P_ZERO)
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BMI - branch on result minus */
+void
+emul_bmi(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (e->regs.P & P_NEGATIVE)
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BNE - branch on not equal */
+void
+emul_bne(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (!(e->regs.P & P_ZERO))
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BPL - branch on result plus */
+void
+emul_bpl(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (!(e->regs.P & P_NEGATIVE))
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+
+/* BRA - branch always */
+void
+emul_bra(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	program_counter_branch(e, (int8_t) i->op1);
+}
+
+/* BVC - branch on overflow clear */
+void
+emul_bvc(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (!(e->regs.P & P_SIGN_OVERFLOW))
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
+/* BVS - branch on overflow set */
+void
+emul_bvs(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	if (e->regs.P & P_SIGN_OVERFLOW)
+		program_counter_branch(e, (int8_t) i->op1);
+	else
+		program_counter_increment(e, id);
+}
+
 /* CLC - clear carry flag */
 void
 emul_clc(rk65c02emu_t *e, void *id, instruction_t *i)
