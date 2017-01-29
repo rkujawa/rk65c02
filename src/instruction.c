@@ -326,6 +326,12 @@ program_counter_increment(rk65c02emu_t *e, instrdef_t *id)
 	e->regs.PC += id->size;
 }	
 
+void
+program_counter_branch(rk65c02emu_t *e, int8_t boffset)
+{
+	e->regs.PC += boffset + 2;
+}
+
 /* check whether given instruction modify program counter */
 bool
 instruction_modify_pc(instrdef_t *id)
