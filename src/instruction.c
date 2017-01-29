@@ -110,7 +110,7 @@ instruction_print(instruction_t *i)
 		printf("%s (%#02x%02x,X)", id.mnemonic, i->op2, i->op1);
 		break;
 	case RELATIVE:
-		printf("%s %#02x%02x", id.mnemonic, i->op2, i->op1);
+		printf("%s %#02x", id.mnemonic, i->op1);
 		break;
 	}
 }
