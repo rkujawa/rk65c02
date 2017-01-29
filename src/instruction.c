@@ -71,46 +71,46 @@ instruction_print(instruction_t *i)
 		printf("%s A", id.mnemonic);
 		break;
 	case IMMEDIATE:
-		printf("%s #%X", id.mnemonic, i->op1);
+		printf("%s #%#02x", id.mnemonic, i->op1);
 		break;
 	case ZP:
-		printf("%s %X", id.mnemonic, i->op1);
+		printf("%s %#02x", id.mnemonic, i->op1);
 		break;
 	case ZPX:
-		printf("%s %X,X", id.mnemonic, i->op1);
+		printf("%s %#02x,X", id.mnemonic, i->op1);
 		break;
 	case ZPY:
-		printf("%s %X,Y", id.mnemonic, i->op1);
+		printf("%s %#02x,Y", id.mnemonic, i->op1);
 		break;
 	case IZP:
-		printf("%s (%X)", id.mnemonic, i->op1);
+		printf("%s (%#02x)", id.mnemonic, i->op1);
 		break;
 	case IZPX:
-		printf("%s (%X,X)", id.mnemonic, i->op1);
+		printf("%s (%#02x,X)", id.mnemonic, i->op1);
 		break;
 	case IZPY:
-		printf("%s (%X),Y", id.mnemonic, i->op1);
+		printf("%s (%#02x),Y", id.mnemonic, i->op1);
 		break;
 	case ZPR:
-		printf("%s %X,%X", id.mnemonic, i->op1, i->op2);
+		printf("%s %#02x,%#02x", id.mnemonic, i->op1, i->op2);
 		break;
 	case ABSOLUTE:
-		printf("%s %02X%02X", id.mnemonic, i->op2, i->op1);
+		printf("%s %#02x%02x", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEX:
-		printf("%s %02X%02X,X", id.mnemonic, i->op2, i->op1);
+		printf("%s %#02x%02x,X", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEY:
-		printf("%s %02X%02X,Y", id.mnemonic, i->op2, i->op1);
+		printf("%s %#02x%02x,Y", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTE:
-		printf("%s (%02X%02X)", id.mnemonic, i->op2, i->op1);
+		printf("%s (%#02x%02x)", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTEX:
-		printf("%s (%02X%02X,X)", id.mnemonic, i->op2, i->op1);
+		printf("%s (%#02x%02x,X)", id.mnemonic, i->op2, i->op1);
 		break;
 	case RELATIVE:
-		printf("%s %02X%02X", id.mnemonic, i->op2, i->op1);
+		printf("%s %#02x%02x", id.mnemonic, i->op2, i->op1);
 		break;
 	}
 }
