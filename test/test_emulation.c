@@ -870,6 +870,27 @@ ATF_TC_BODY(emul_jmp, tc)
 	ATF_CHECK(e.regs.PC = 0xC000);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_jsr_rts);
+ATF_TC_BODY(emul_jsr_rts, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* JSR and RTS */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_jsr_rts.rom", tc)));
+
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC006);
+	rk65c02_start(&e); 
+	ATF_CHECK(e.regs.PC = 0xC006);
+
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -885,6 +906,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_inc);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
 	ATF_TP_ADD_TC(tp, emul_jmp);
+	ATF_TP_ADD_TC(tp, emul_jsr_rts);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_nop);
 	ATF_TP_ADD_TC(tp, emul_ora);

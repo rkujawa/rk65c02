@@ -248,6 +248,24 @@ emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.PC = target;
 }
 
+/* JSR - jump to subroutine */
+void
+emul_jsr(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint16_t jumpaddr; /* addres to jump to */
+	uint16_t retaddr; /* return address */
+
+	jumpaddr = i->op1 + (i->op2 << 8);
+	retaddr = e->regs.PC + 2; /* XXX */
+
+	/* push return address to stack */
+	stack_push(e, retaddr >> 8);
+	stack_push(e, retaddr & 0xFF);
+
+	/* change program counter to point to the new location */
+	e->regs.PC = jumpaddr;
+}
+
 /* LDA - load to accumulator */
 void
 emul_lda(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -374,6 +392,18 @@ void
 emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.Y = stack_pop(e);
+}
+
+/* RTS - return from subroutine */
+void
+emul_rts(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint16_t retaddr;
+
+	retaddr = stack_pop(e);
+	retaddr|= stack_pop(e) << 8;
+
+	e->regs.PC = retaddr;
 }
 
 /* RMBx - reset or set memory bit (handles RMB0-RMB7) */

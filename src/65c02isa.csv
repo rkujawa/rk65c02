@@ -31,7 +31,7 @@ OP_TRB_ABS,"trb",ABSOLUTE,3,NULL,false
 OP_ORA_ABSX,"ora",ABSOLUTEX,3,emul_ora,false
 OP_ASL_ABSX,"asl",ABSOLUTEX,3,emul_asl,false
 OP_BBR1_REL,"bbr1",ZPR,2,NULL,true
-OP_JSR,"jsr",ABSOLUTE,3,NULL,true
+OP_JSR,"jsr",ABSOLUTE,3,emul_jsr,true
 OP_AND_IZPX,"and",IZPX,2,emul_and,false
 OP_NOPI_23,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_24,"nop",IMPLIED,1,NULL,false
@@ -95,7 +95,7 @@ OP_NOPI_5D,"nop",ABSOLUTE,3,NULL,false
 OP_EOR_ABSX,"eor",ABSOLUTEX,3,emul_eor,false
 OP_LSR_ABSX,"lsr",ABSOLUTEX,3,emul_lsr,false
 OP_BBR5_REL,"bbr5",ZPR,2,NULL,true
-OP_RTS,"rts",IMPLIED,1,NULL,false
+OP_RTS,"rts",IMPLIED,1,emul_rts,false
 OP_ADC_IZPX,"adc",IZPX,2,NULL,false
 OP_NOPI_63,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_64,"nop",IMPLIED,1,NULL,false
