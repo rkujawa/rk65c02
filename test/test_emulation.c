@@ -891,10 +891,128 @@ ATF_TC_BODY(emul_jsr_rts, tc)
 
 }
 
+ATF_TC_WITHOUT_HEAD(emul_branch);
+ATF_TC_BODY(emul_branch, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	/* BCC */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bcc.rom", tc)));
+
+	e.regs.P &= ~P_CARRY;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BCS */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bcs.rom", tc)));
+
+	e.regs.P |= P_CARRY;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BRA */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_bra.rom", tc)));
+
+	rk65c02_step(&e, 1);
+	ATF_CHECK(e.regs.PC = 0xC004);
+	rk65c02_start(&e); 
+
+	/* BEQ */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_beq.rom", tc)));
+
+	e.regs.P |= P_ZERO;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BMI */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bmi.rom", tc)));
+
+	e.regs.P |= P_NEGATIVE;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BNE */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bne.rom", tc)));
+
+	e.regs.P |= P_NEGATIVE;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BPL */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bpl.rom", tc)));
+
+	e.regs.P &= ~P_NEGATIVE;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BVC */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bvc.rom", tc)));
+
+	e.regs.P &= ~P_SIGN_OVERFLOW;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+	/* BVS */
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
+	    rom_path("test_emulation_bvs.rom", tc)));
+
+	e.regs.P |= P_SIGN_OVERFLOW;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC005);
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.PC = 0xC003);
+	rk65c02_start(&e); 
+
+
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
 	ATF_TP_ADD_TC(tp, emul_bit);
+	ATF_TP_ADD_TC(tp, emul_branch);
 	ATF_TP_ADD_TC(tp, emul_cmp);
 	ATF_TP_ADD_TC(tp, emul_cpx);
 	ATF_TP_ADD_TC(tp, emul_cpy);
