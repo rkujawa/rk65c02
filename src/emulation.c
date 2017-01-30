@@ -3,8 +3,11 @@
 
 #include "emulation.h"
 
-/* RMB, SMB, BBR, BBS are handled specially */
+/* RMB, SMB, BBR, BBS are handled by these */
 void emul_rmb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+void emul_smb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 
 /* Implementation of emulation of instructions follows below */
 
@@ -39,6 +42,110 @@ emul_asl(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, val);
 
 	instruction_data_write_1(e, (instrdef_t *) id, i, val);
+}
+
+/* BBRx - branch on bit reset (handles BBR0-7) */
+void
+emul_bbr(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
+{
+	/* is bit is clear then branch */
+	if (!(BIT(i->op1, bit)))
+		program_counter_branch(e, (int8_t) i->op2);
+	else
+		program_counter_increment(e, id);
+
+}
+void
+emul_bbr0(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 0);
+}
+void
+emul_bbr1(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 1);
+}
+void
+emul_bbr2(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 2);
+}
+void
+emul_bbr3(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 3);
+}
+void
+emul_bbr4(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 4);
+}
+void
+emul_bbr5(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 5);
+}
+void
+emul_bbr6(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 6);
+}
+void
+emul_bbr7(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbr(e, id, i, 7);
+}
+
+/* BBSx - branch on bit set (handles BBS0-7) */
+void
+emul_bbs(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
+{
+	/* is bit is set then branch */
+	if (BIT(i->op1, bit))
+		program_counter_branch(e, (int8_t) i->op2);
+	else
+		program_counter_increment(e, id);
+
+}
+void
+emul_bbs0(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 0);
+}
+void
+emul_bbs1(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 1);
+}
+void
+emul_bbs2(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 2);
+}
+void
+emul_bbs3(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 3);
+}
+void
+emul_bbs4(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 4);
+}
+void
+emul_bbs5(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 5);
+}
+void
+emul_bbs6(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 6);
+}
+void
+emul_bbs7(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	emul_bbs(e, id, i, 7);
 }
 
 /* BIT - check if one or more bits are set */

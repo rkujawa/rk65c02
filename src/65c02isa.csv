@@ -14,7 +14,7 @@ OP_NOPI_C,"nop",IMPLIED,1,NULL,false
 OP_TSB_ABS,"tsb",ABSOLUTE,3,emul_tsb,false
 OP_ORA_ABS,"ora",ABSOLUTE,3,emul_ora,false
 OP_ASL_ABS,"asl",ABSOLUTE,3,emul_asl,false
-OP_BBR0_REL,"bbr0",ZPR,2,NULL,true
+OP_BBR0_REL,"bbr0",ZPR,2,emul_bbr0,true
 OP_BPL_REL,"bpl",RELATIVE,2,emul_bpl,true
 OP_ORA_IZPY,"ora",IZPY,2,emul_ora,false
 OP_ORA_IZP,"ora",IZP,2,emul_ora,false
@@ -30,7 +30,7 @@ OP_NOPI_1C,"nop",IMPLIED,1,NULL,false
 OP_TRB_ABS,"trb",ABSOLUTE,3,emul_trb,false
 OP_ORA_ABSX,"ora",ABSOLUTEX,3,emul_ora,false
 OP_ASL_ABSX,"asl",ABSOLUTEX,3,emul_asl,false
-OP_BBR1_REL,"bbr1",ZPR,2,NULL,true
+OP_BBR1_REL,"bbr1",ZPR,2,emul_bbr1,true
 OP_JSR,"jsr",ABSOLUTE,3,emul_jsr,true
 OP_AND_IZPX,"and",IZPX,2,emul_and,false
 OP_NOPI_23,"nop",IMMEDIATE,2,NULL,false
@@ -46,7 +46,7 @@ OP_NOPI_2C,"nop",IMPLIED,1,NULL,false
 OP_BIT_ABS,"bit",ABSOLUTE,3,emul_bit,false
 OP_AND_ABS,"and",ABSOLUTE,3,emul_and,false
 OP_ROL_ABS,"rol",ABSOLUTE,3,emul_rol,false
-OP_BBR2_REL,"bbr2",ZPR,2,NULL,true
+OP_BBR2_REL,"bbr2",ZPR,2,emul_bbr2,true
 OP_BMI_REL,"bmi",RELATIVE,2,emul_bmi,true
 OP_AND_IZPY,"and",IZPY,2,emul_and,false
 OP_AND_IZP,"and",IZP,2,emul_and,false
@@ -62,7 +62,7 @@ OP_NOPI_3C,"nop",IMPLIED,1,NULL,false
 OP_BIT_ABSX,"bit",ABSOLUTEX,3,emul_bit,false
 OP_AND_ABSX,"and",ABSOLUTEX,3,emul_and,false
 OP_ROL_ABSX,"rol",ABSOLUTEX,3,emul_rol,false
-OP_BBR3_REL,"bbr3",ZPR,2,NULL,true
+OP_BBR3_REL,"bbr3",ZPR,2,emul_bbr3,true
 OP_RTI,"rti",IMPLIED,1,NULL,false
 OP_EOR_IZPX,"eor",IZPX,2,emul_eor,false
 OP_NOPI_43,"nop",IMMEDIATE,2,NULL,false
@@ -78,7 +78,7 @@ OP_NOPI_4C,"nop",IMPLIED,1,NULL,false
 OP_JMP_ABS,"jmp",ABSOLUTE,3,emul_jmp,true
 OP_EOR_ABS,"eor",ABSOLUTE,3,emul_eor,false
 OP_LSR_ABS,"lsr",ABSOLUTE,3,emul_lsr,false
-OP_BBR4_REL,"bbr4",ZPR,2,NULL,true
+OP_BBR4_REL,"bbr4",ZPR,2,emul_bbr4,true
 OP_BVC_REL,"bvc",RELATIVE,2,emul_bvc,true
 OP_EOR_IZPY,"eor",IZPY,2,emul_eor,false
 OP_EOR_IZP,"eor",IZP,2,emul_eor,false
@@ -94,7 +94,7 @@ OP_NOPI_5C,"nop",IMPLIED,1,NULL,false
 OP_NOPI_5D,"nop",ABSOLUTE,3,NULL,false
 OP_EOR_ABSX,"eor",ABSOLUTEX,3,emul_eor,false
 OP_LSR_ABSX,"lsr",ABSOLUTEX,3,emul_lsr,false
-OP_BBR5_REL,"bbr5",ZPR,2,NULL,true
+OP_BBR5_REL,"bbr5",ZPR,2,emul_bbr5,true
 OP_RTS,"rts",IMPLIED,1,emul_rts,false
 OP_ADC_IZPX,"adc",IZPX,2,NULL,false
 OP_NOPI_63,"nop",IMMEDIATE,2,NULL,false
@@ -110,7 +110,7 @@ OP_NOPI_6C,"nop",IMPLIED,1,NULL,false
 OP_JMP_IABS,"jmp",IABSOLUTE,3,emul_jmp,true
 OP_ADC_ABS,"adc",ABSOLUTE,3,NULL,false
 OP_ROR_ABS,"ror",ABSOLUTE,3,emul_ror,false
-OP_BBR6_REL,"bbr6",ZPR,2,NULL,true
+OP_BBR6_REL,"bbr6",ZPR,2,emul_bbr6,true
 OP_BVS_REL,"bvs",RELATIVE,2,emul_bvs,true
 OP_ADC_IZPY,"adc",IZPY,2,NULL,false
 OP_ADC_IZP,"adc",IZP,2,NULL,false
@@ -126,7 +126,7 @@ OP_NOPI_7C,"nop",IMPLIED,1,NULL,false
 OP_JMP_IABSX,"jmp",IABSOLUTEX,3,emul_jmp,true
 OP_ADC_ABSX,"adc",ABSOLUTEX,3,NULL,false
 OP_ROR_ABSX,"ror",ABSOLUTEX,3,emul_ror,false
-OP_BBR7_REL,"bbr7",ZPR,2,NULL,true
+OP_BBR7_REL,"bbr7",ZPR,2,emul_bbr7,true
 OP_BRA_REL,"bra",RELATIVE,2,emul_bra,true
 OP_STA_IZPX,"sta",IZPX,2,emul_sta,false
 OP_NOPI_83,"nop",IMMEDIATE,2,NULL,false
@@ -142,7 +142,7 @@ OP_NOPI_8C,"nop",IMPLIED,1,NULL,false
 OP_STY_ABS,"sty",ABSOLUTE,3,emul_sty,false
 OP_STA_ABS,"sta",ABSOLUTE,3,emul_sta,false
 OP_STX_ABS,"stx",ABSOLUTE,3,emul_stx,false
-OP_BBS0_REL,"bbs0",ZPR,2,NULL,true
+OP_BBS0_REL,"bbs0",ZPR,2,emul_bbs0,true
 OP_BCC_REL,"bcc",RELATIVE,2,emul_bcc,true
 OP_STA_IZPY,"sta",IZPY,2,emul_sta,false
 OP_STA_IZP,"sta",IZP,2,emul_sta,false
@@ -158,7 +158,7 @@ OP_NOPI_9C,"nop",IMPLIED,1,NULL,false
 OP_STZ_ABS,"stz",ABSOLUTE,3,emul_stz,false
 OP_STA_ABSX,"sta",ABSOLUTEX,3,emul_sta,false
 OP_STZ_ABSX,"stz",ABSOLUTEX,3,emul_stz,false
-OP_BBS1_REL,"bbs1",ZPR,2,NULL,true
+OP_BBS1_REL,"bbs1",ZPR,2,emul_bbs1,true
 OP_LDY_IMM,"ldy",IMMEDIATE,2,emul_ldy,false
 OP_LDA_IZPX,"lda",IZPX,2,emul_lda,false
 OP_LDX_IMM,"ldx",IMMEDIATE,2,emul_ldx,false
@@ -174,7 +174,7 @@ OP_NOPI_AC,"nop",IMPLIED,1,NULL,false
 OP_LDY_ABS,"ldy",ABSOLUTE,3,emul_ldy,false
 OP_LDA_ABS,"lda",ABSOLUTE,3,emul_lda,false
 OP_LDX_ABS,"ldx",ABSOLUTE,3,emul_ldx,false
-OP_BBS2_REL,"bbs2",ZPR,2,NULL,true
+OP_BBS2_REL,"bbs2",ZPR,2,emul_bbs2,true
 OP_BCS_REL,"bcs",RELATIVE,2,emul_bcs,true
 OP_LDA_IZPY,"lda",IZPY,2,emul_lda,false
 OP_LDA_IZP,"lda",IZP,2,emul_lda,false
@@ -190,7 +190,7 @@ OP_NOPI_BC,"nop",IMPLIED,1,NULL,false
 OP_LDY_ABSX,"ldy",ABSOLUTEX,3,emul_ldy,false
 OP_LDA_ABSX,"lda",ABSOLUTEX,3,emul_lda,false
 OP_LDX_ABSY,"ldx",ABSOLUTEY,3,emul_ldx,false
-OP_BBS3_REL,"bbs3",ZPR,2,NULL,true
+OP_BBS3_REL,"bbs3",ZPR,2,emul_bbs3,true
 OP_CPY_IMM,"cpy",IMMEDIATE,2,emul_cpy,false
 OP_CMP_IZPX,"cmp",IZPX,2,emul_cmp,false
 OP_NOPI_C3,"nop",IMMEDIATE,2,NULL,false
@@ -206,7 +206,7 @@ OP_WAI,"wai",IMPLIED,1,NULL,false
 OP_CPY_ABS,"cpy",ABSOLUTE,3,emul_cpy,false
 OP_CMP_ABS,"cmp",ABSOLUTE,3,emul_cmp,false
 OP_DEC_ABS,"dec",ABSOLUTE,3,emul_dec,false
-OP_BBS4_REL,"bbs4",ZPR,2,NULL,true
+OP_BBS4_REL,"bbs4",ZPR,2,emul_bbs4,true
 OP_BNE_REL,"bne",RELATIVE,2,emul_bne,true
 OP_CMP_IZPY,"cmp",IZPY,2,emul_cmp,false
 OP_CMP_IZP,"cmp",IZP,2,emul_cmp,false
@@ -222,7 +222,7 @@ OP_STP,"stp",IMPLIED,1,emul_stp,false
 OP_NOPI_DD,"nop",ABSOLUTE,3,NULL,false
 OP_CMP_ABSX,"cmp",ABSOLUTEX,3,emul_cmp,false
 OP_DEC_ABSX,"dec",ABSOLUTEX,3,emul_dec,false
-OP_BBS5_REL,"bbs5",ZPR,2,NULL,true
+OP_BBS5_REL,"bbs5",ZPR,2,emul_bbs5,true
 OP_CPX_IMM,"cpx",IMMEDIATE,2,emul_cpx,false
 OP_SBC_IZPX,"sbc",IZPX,2,NULL,false
 OP_NOPI_E3,"nop",IMMEDIATE,2,NULL,false
@@ -238,7 +238,7 @@ OP_NOPI_EC,"nop",IMPLIED,1,NULL,false
 OP_CPX_ABS,"cpx",ABSOLUTE,3,emul_cpx,false
 OP_SBC_ABS,"sbc",ABSOLUTE,3,NULL,false
 OP_INC_ABS,"inc",ABSOLUTE,3,emul_inc,false
-OP_BBS6_REL,"bbs6",ZPR,2,NULL,true
+OP_BBS6_REL,"bbs6",ZPR,2,emul_bbs6,true
 OP_BEQ_REL,"beq",RELATIVE,2,emul_beq,true
 OP_SBC_IZPY,"sbc",IZPY,2,NULL,false
 OP_SBC_IZP,"sbc",IZP,2,NULL,false
@@ -254,4 +254,4 @@ OP_NOPI_FC,"nop",IMPLIED,1,NULL,false
 OP_NOPI_FD,"nop",ABSOLUTE,3,NULL,false
 OP_SBC_ABSX,"sbc",ABSOLUTEX,3,NULL,false
 OP_INC_ABSX,"inc",ABSOLUTEX,3,emul_inc,false
-OP_BBS7_REL,"bbs7",ZPR,2,NULL,true
+OP_BBS7_REL,"bbs7",ZPR,2,emul_bbs7,true
