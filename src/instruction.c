@@ -211,7 +211,11 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		e->regs.A = val;
 		break;
 	case ZPR:
-		/* XXX */
+		/* 
+		 * This mode is special as both operands have separate meaning.
+		 * Handled withing emulation, as it is used only by BBS and BBR.
+		 */
+		assert(false);
 		break;
 	case IMMEDIATE:
 	case RELATIVE:
@@ -281,7 +285,12 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
 		break;
 	case ZPR:
-		/* XXX */
+		/* 
+		 * This mode is special as both operands have separate meaning.
+		 * Handled withing emulation, as it is used only by BBS and BBR.
+		 */
+		assert(false);
+		break;
 	case IABSOLUTE:
 	case IABSOLUTEX:
 	case RELATIVE:
