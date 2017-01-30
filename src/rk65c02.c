@@ -23,6 +23,8 @@ rk65c02_init(bus_t *b)
 	e.bus = b;
 	e.state = STOPPED;
 	e.regs.P = P_UNDEFINED|P_IRQ_DISABLE;
+	/* reset also clears the decimal flag */
+	e.regs.P &= ~P_DECIMAL;
 
 	return e;
 }
