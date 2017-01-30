@@ -240,6 +240,33 @@ emul_bra(rk65c02emu_t *e, void *id, instruction_t *i)
 	program_counter_branch(e, (int8_t) i->op1);
 }
 
+/* BRK - break! or rather, jump to break vector */
+void
+emul_brk(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint16_t retaddr;
+
+	retaddr = e->regs.PC + 2; 
+
+	/* push return address to the stack */
+	stack_push(e, retaddr >> 8);
+	stack_push(e, retaddr & 0xFF);
+	/* push processor status to the stack with break flag set */
+	stack_push(e, e->regs.P | P_BREAK);
+
+	/* 
+	 * The IRQ disable is set, decimal flags is cleared _after_ pushing
+	 * the P register to the stack.
+	 */
+	e->regs.P |= P_IRQ_DISABLE;
+	e->regs.P &= ~P_DECIMAL;
+
+	/* load address from IRQ vector into program counter */
+	e->regs.PC = bus_read_1(&e->bus, VECTOR_IRQ);
+	e->regs.PC |= bus_read_1(&e->bus, VECTOR_IRQ + 1) << 8;
+
+}
+
 /* BVC - branch on overflow clear */
 void
 emul_bvc(rk65c02emu_t *e, void *id, instruction_t *i)
@@ -568,7 +595,7 @@ emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
-/* PLA - pull from stack to processor flags */
+/* PLP - pull from stack to processor flags */
 void
 emul_plp(rk65c02emu_t *e, void *id, instruction_t *i)
 {

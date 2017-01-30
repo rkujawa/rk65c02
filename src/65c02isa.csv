@@ -1,5 +1,5 @@
 opcode_id,mnemonic,addressing,size,emulation,modify_pc
-OP_BRK,"brk",IMPLIED,1,NULL,false
+OP_BRK,"brk",IMPLIED,2,emul_brk,true
 OP_ORA_IZPX,"ora",IZPX,2,emul_ora,false
 OP_NOPI_3,"nop",IMMEDIATE,2,NULL,false
 OP_NOPI_4,"nop",IMPLIED,1,NULL,false

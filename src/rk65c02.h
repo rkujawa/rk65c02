@@ -42,6 +42,8 @@ struct reg_state {
 #define STACK_START 0x0100
 #define STACK_END 0x01FF
 
+#define VECTOR_IRQ 0xFFFE	/* also used for BRK */
+
 #define BIT(val,n) ((val) & (1 << (n)))
 
 typedef struct reg_state reg_state_t;
