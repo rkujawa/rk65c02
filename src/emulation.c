@@ -262,8 +262,8 @@ emul_brk(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.P &= ~P_DECIMAL;
 
 	/* load address from IRQ vector into program counter */
-	e->regs.PC = bus_read_1(&e->bus, VECTOR_IRQ);
-	e->regs.PC |= bus_read_1(&e->bus, VECTOR_IRQ + 1) << 8;
+	e->regs.PC = bus_read_1(e->bus, VECTOR_IRQ);
+	e->regs.PC |= bus_read_1(e->bus, VECTOR_IRQ + 1) << 8;
 
 }
 
