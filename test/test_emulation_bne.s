@@ -7,4 +7,5 @@ foo:	nop
 foo2:	nop
 	bne foo	
 	nop
+	stp
 
