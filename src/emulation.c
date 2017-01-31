@@ -4,10 +4,10 @@
 #include "emulation.h"
 
 /* RMB, SMB, BBR, BBS are handled by these */
-void emul_rmb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
-void emul_smb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
-void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
-void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+static void emul_rmb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+static void emul_smb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+static void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
+static void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 
 /* Implementation of emulation of instructions follows below */
 
@@ -76,7 +76,7 @@ emul_asl(rk65c02emu_t *e, void *id, instruction_t *i)
 }
 
 /* BBRx - branch on bit reset (handles BBR0-7) */
-void
+static void
 emul_bbr(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	/* is bit is clear then branch */
@@ -128,7 +128,7 @@ emul_bbr7(rk65c02emu_t *e, void *id, instruction_t *i)
 }
 
 /* BBSx - branch on bit set (handles BBS0-7) */
-void
+static void
 emul_bbs(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	/* is bit is set then branch */
@@ -667,7 +667,7 @@ emul_rts(rk65c02emu_t *e, void *id, instruction_t *i)
 }
 
 /* RMBx - reset memory bit (handles RMB0-RMB7) */
-void
+static void
 emul_rmb(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	uint8_t val;
@@ -805,7 +805,7 @@ emul_sei(rk65c02emu_t *e, void *id, instruction_t *i)
 }
 
 /* SMBx - set memory bit (handles SMB0-SMB7) */
-void
+static void
 emul_smb(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	uint8_t val;
