@@ -790,6 +790,36 @@ emul_ror(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_data_write_1(e, (instrdef_t *) id, i, val);
 }
 
+/* SBC - substract with carry */
+void
+emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint8_t arg;
+	uint16_t res;	/* meh */
+
+	arg = instruction_data_read_1(e, (instrdef_t *) id, i);
+	res = e->regs.A - arg;
+
+	if (e->regs.P & P_CARRY)
+		res--;
+
+	if ((e->regs.A ^ res) & (arg ^ res) & 0x80)
+		e->regs.P |= P_SIGN_OVERFLOW;
+	else
+		e->regs.P &= ~P_SIGN_OVERFLOW;
+
+	/* if the result does not fit into 8 bits then set carry */
+	if (res > 0xFF)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	/* squash the result into accumulator's 8 bits, lol */
+	e->regs.A = (uint8_t) res;
+
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
+}
 /* SEC - set the carry flag */
 void
 emul_sec(rk65c02emu_t *e, void *id, instruction_t *i)
