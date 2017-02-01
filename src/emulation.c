@@ -800,7 +800,8 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	arg = instruction_data_read_1(e, (instrdef_t *) id, i);
 	res = e->regs.A - arg;
 
-	if (e->regs.P & P_CARRY)
+	/* if the carry flag is NOT set then "borrow" */
+	if (!(e->regs.P & P_CARRY))
 		res--;
 
 	if ((e->regs.A ^ res) & (arg ^ res) & 0x80)
@@ -808,11 +809,13 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P &= ~P_SIGN_OVERFLOW;
 
-	/* if the result does not fit into 8 bits then set carry */
-	if (res > 0xFF)
-		e->regs.P |= P_CARRY;
-	else
+	printf("res is %x\n", res);
+
+	/* if the result does not fit into 8 bits then clear carry */
+	if (res & 0x8000)
 		e->regs.P &= ~P_CARRY;
+	else
+		e->regs.P |= P_CARRY;
 
 	/* squash the result into accumulator's 8 bits, lol */
 	e->regs.A = (uint8_t) res;
