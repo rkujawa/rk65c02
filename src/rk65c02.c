@@ -97,7 +97,7 @@ rk65c02_dump_regs(rk65c02emu_t *e)
 		printf("-");
 
 	if (e->regs.P & P_SIGN_OVERFLOW)
-		printf("O");
+		printf("V");
 	else
 		printf("-");
 
