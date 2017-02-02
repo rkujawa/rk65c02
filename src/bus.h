@@ -17,6 +17,7 @@ void bus_write_1(bus_t *, uint16_t, uint8_t);
 bus_t bus_init();
 void bus_finish(bus_t *);
 bool bus_load_file(bus_t *, uint16_t, const char *);
+bool bus_load_buf(bus_t *, uint16_t, uint8_t *, uint16_t);
 
 #endif /* _BUS_H_ */
 

@@ -48,6 +48,23 @@ bus_init()
 }
 
 bool
+bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
+{
+	uint16_t i;
+
+	i = 0;
+
+	/* XXX: add sanity checks */
+
+	while (i < bufsize) {
+		t->space[i] = buf[i]; // XXX: overflow addr
+		i++;
+	}
+
+	return true;
+}
+
+bool
 bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 {
 	int fd;
