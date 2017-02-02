@@ -150,12 +150,12 @@ assemble_single(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_
 
 	/* fill the buffer */
 	memset(*buf, 0, id.size);
-	*buf[0] = opcode;
+	(*buf)[0] = opcode;
 	/* XXX */
 	if (id.size > 1) 
-		*buf[1] = op1;
+		(*buf)[1] = op1;
 	if (id.size > 2)
-		*buf[2] = op2;
+		(*buf)[2] = op2;
 
 	return found;
 }
