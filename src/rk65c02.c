@@ -64,6 +64,8 @@ rk65c02_exec(rk65c02emu_t *e)
 void
 rk65c02_start(rk65c02emu_t *e) {
 
+	assert(e != NULL);
+
 	e->state = RUNNING;
 	while (e->state == RUNNING) {
 		rk65c02_exec(e);
@@ -77,6 +79,8 @@ void
 rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
 	uint16_t i = 0;
+
+	assert(e != NULL);
 
 	e->state = STEPPING;
 	while ((e->state == STEPPING) && (i < steps)) {
