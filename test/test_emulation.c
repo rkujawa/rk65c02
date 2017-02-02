@@ -1006,8 +1006,8 @@ ATF_TC_BODY(emul_branch, tc)
 	rk65c02_start(&e); 
 }
 
-ATF_TC_WITHOUT_HEAD(emul_sign_overflow);
-ATF_TC_BODY(emul_sign_overflow, tc)
+ATF_TC_WITHOUT_HEAD(emul_sign_overflow_basic);
+ATF_TC_BODY(emul_sign_overflow_basic, tc)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1015,7 +1015,151 @@ ATF_TC_BODY(emul_sign_overflow, tc)
 	b = bus_init();
 	e = rk65c02_init(&b);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sign_overflow.rom", tc));
+	e.regs.PC = ROM_LOAD_ADDR;
+	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
+	    rom_path("test_emulation_sign_overflow_basic.rom", tc)));
+
+	/* 0x50 + 0x10 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x60);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 + 0x50 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xA0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 + 0x90 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xE0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 + 0xD0 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x20);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 + 0x10 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xE0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 + 0x50 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x20);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 + 0x90 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x60);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 + 0xD0 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xA0);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+
+	/* 0x50 - 0xF0 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x60);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 - 0xB0 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xA0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 - 0x70 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xE0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0x50 - 0x30 */
+	e.regs.A = 0x50;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x20);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 - 0xF0 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xE0);
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 - 0xB0 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x20);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 - 0x70 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0x60);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	rk65c02_dump_regs(&e);
+
+	/* 0xD0 - 0x30 */
+	e.regs.A = 0xD0;
+	rk65c02_step(&e, 2);
+	ATF_CHECK(e.regs.A == 0xA0);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	rk65c02_dump_regs(&e);
+
+}
+
+ATF_TC_WITHOUT_HEAD(emul_sign_overflow_thorough);
+ATF_TC_BODY(emul_sign_overflow_thorough, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sign_overflow_thorough.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x0);
 
 }
@@ -1110,7 +1254,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_sbc);
 	ATF_TP_ADD_TC(tp, emul_sbc_16bit);
 
-	ATF_TP_ADD_TC(tp, emul_sign_overflow);
+	ATF_TP_ADD_TC(tp, emul_sign_overflow_basic);
+	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough);
 
 	return (atf_no_error());
 }

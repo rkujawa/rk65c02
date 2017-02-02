@@ -1,0 +1,36 @@
+start:	clc
+	adc #0x10
+	clc
+	adc #0x50
+	clc
+	adc #0x90
+	clc
+	adc #0xD0
+	clc
+	adc #0x10
+	clc
+	adc #0x50
+	clc
+	adc #0x90
+	clc
+	adc #0xD0
+
+	sec
+	sbc #0xF0
+	sec
+	sbc #0xB0
+	sec
+	sbc #0x70
+	sec
+	sbc #0x30
+	sec
+	sbc #0xF0
+	sec
+	sbc #0xB0
+	sec
+	sbc #0x70
+	sec
+	sbc #0x30
+
+	stp
+
