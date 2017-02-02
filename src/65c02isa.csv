@@ -233,7 +233,7 @@ OP_INC_ZP,"inc",ZP,2,emul_inc,false
 OP_SMB6_ZP,"smb6",ZP,2,emul_smb6,false
 OP_INX,"inx",IMPLIED,1,emul_inx,false
 OP_SBC_IMM,"sbc",IMMEDIATE,2,emul_sbc,false
-OP_NOP,"nop",IMPLIED,1,emul_invalid,false
+OP_NOP,"nop",IMPLIED,1,emul_nop,false
 OP_NOPI_EC,"invalid",IMPLIED,1,NULL,false
 OP_CPX_ABS,"cpx",ABSOLUTE,3,emul_cpx,false
 OP_SBC_ABS,"sbc",ABSOLUTE,3,emul_sbc,false
