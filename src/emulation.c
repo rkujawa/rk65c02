@@ -804,12 +804,10 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	if (!(e->regs.P & P_CARRY))
 		res--;
 
-	if ((e->regs.A ^ res) & (arg ^ res) & 0x80)
+	if ((e->regs.A ^ res) & ((0xFF-arg) ^ res) & 0x80)
 		e->regs.P |= P_SIGN_OVERFLOW;
 	else
 		e->regs.P &= ~P_SIGN_OVERFLOW;
-
-	printf("res is %x\n", res);
 
 	/* if the result does not fit into 8 bits then clear carry */
 	if (res & 0x8000)
