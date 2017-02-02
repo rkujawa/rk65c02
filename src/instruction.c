@@ -111,6 +111,7 @@ instruction_print(instruction_t *i)
 bool
 assemble_single_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
 {
+	/* XXX: does brk needs special handling? */
 	return assemble_single(buf, bsize, mnemonic, IMPLIED, 0, 0);
 }
 
@@ -140,16 +141,21 @@ assemble_single(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_
 		return false;
 	}
 
+	*bsize = id.size;
 	*buf = malloc(id.size);
 	if(*buf == NULL) {
 		fprintf(stderr, "Error allocating assembly buffer\n");
 		return false;
 	}
 
+	/* fill the buffer */
 	memset(*buf, 0, id.size);
-	*bsize = id.size;
-
 	*buf[0] = opcode;
+	/* XXX */
+	if (id.size > 1) 
+		*buf[1] = op1;
+	if (id.size > 2)
+		*buf[2] = op2;
 
 	return found;
 }

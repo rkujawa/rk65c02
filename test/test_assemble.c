@@ -31,6 +31,13 @@ ATF_TC_BODY(asm_single, tc)
 	free(asmbuf);
 	caddr += bsize;
 
+	ATF_REQUIRE(assemble_single(&asmbuf, &bsize, "lda", IMMEDIATE, 0xAA, 0));
+	ATF_CHECK(asmbuf[0] == 0xA9);	/* check if lda really */
+	ATF_CHECK(asmbuf[1] == 0xAA);	/* check the operand */
+	ATF_REQUIRE(bus_load_buf(&b, caddr, asmbuf, bsize));
+	free(asmbuf);
+	caddr += bsize;
+
 	ATF_REQUIRE(assemble_single_implied(&asmbuf, &bsize, "stp"));
 	ATF_CHECK(asmbuf[0] == 0xDB);	/* check if stp really */
 	ATF_REQUIRE(bus_load_buf(&b, caddr, asmbuf, bsize));
