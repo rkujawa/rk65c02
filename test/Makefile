@@ -5,7 +5,7 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -c02
 UTILS=utils.o
 
-TESTS=test_bus test_emulation test_stepping
+TESTS=test_bus test_emulation test_stepping test_assemble
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
@@ -17,6 +17,9 @@ test_bus : test_bus.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 test_emulation : test_emulation.o $(UTILS) $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
+
+test_assemble : test_assemble.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 %.rom : %.s
