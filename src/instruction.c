@@ -50,13 +50,6 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	return i;
 }
 
-/*void
-instruction_execute(rk65c02emu_t *e, instruction_t *i)
-{
-	id.emul();	
-	e->regs.PC += id.size;
-}*/
-
 void
 instruction_print(instruction_t *i)
 {
