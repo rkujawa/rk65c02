@@ -1020,6 +1020,22 @@ ATF_TC_BODY(emul_sign_overflow, tc)
 
 }
 
+ATF_TC_WITHOUT_HEAD(emul_sbc);
+ATF_TC_BODY(emul_sbc, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_imm.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x0);
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0xFF);
+	rk65c02_dump_regs(&e);
+
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -1046,6 +1062,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_stack);
 	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
 	ATF_TP_ADD_TC(tp, emul_sta);
+	ATF_TP_ADD_TC(tp, emul_sbc);
 
 	ATF_TP_ADD_TC(tp, emul_sign_overflow);
 
