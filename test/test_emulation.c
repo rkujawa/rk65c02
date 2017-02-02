@@ -1036,9 +1036,54 @@ ATF_TC_BODY(emul_sbc, tc)
 
 }
 
+ATF_TC_WITHOUT_HEAD(emul_adc_16bit);
+ATF_TC_BODY(emul_adc_16bit, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	bus_write_1(&b, 0x62, 0x55);
+	bus_write_1(&b, 0x63, 0xAA);
+	bus_write_1(&b, 0x64, 0xAA);
+	bus_write_1(&b, 0x65, 0x55);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_16bit.rom", tc));
+
+	ATF_CHECK(bus_read_1(&b, 0x66) == 0xFF);
+	ATF_CHECK(bus_read_1(&b, 0x67) == 0xFF);
+	rk65c02_dump_regs(&e);
+
+}
+
+ATF_TC_WITHOUT_HEAD(emul_sbc_16bit);
+ATF_TC_BODY(emul_sbc_16bit, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init();
+	e = rk65c02_init(&b);
+
+	bus_write_1(&b, 0x62, 0xFF);
+	bus_write_1(&b, 0x63, 0xFF);
+	bus_write_1(&b, 0x64, 0xAA);
+	bus_write_1(&b, 0x65, 0x55);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_16bit.rom", tc));
+
+	printf("%x %x\n", bus_read_1(&b, 0x66), bus_read_1(&b, 0x67)) ;
+	ATF_CHECK(bus_read_1(&b, 0x66) == 0x55);
+	ATF_CHECK(bus_read_1(&b, 0x67) == 0xAA);
+	rk65c02_dump_regs(&e);
+
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
+	ATF_TP_ADD_TC(tp, emul_adc_16bit);
 	ATF_TP_ADD_TC(tp, emul_bit);
 	ATF_TP_ADD_TC(tp, emul_branch);
 	ATF_TP_ADD_TC(tp, emul_cmp);
@@ -1063,6 +1108,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
 	ATF_TP_ADD_TC(tp, emul_sta);
 	ATF_TP_ADD_TC(tp, emul_sbc);
+	ATF_TP_ADD_TC(tp, emul_sbc_16bit);
 
 	ATF_TP_ADD_TC(tp, emul_sign_overflow);
 
