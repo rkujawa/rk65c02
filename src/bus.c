@@ -57,7 +57,7 @@ bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 	/* XXX: add sanity checks */
 
 	while (i < bufsize) {
-		t->space[i] = buf[i]; // XXX: overflow addr
+		t->space[addr+i] = buf[i]; // XXX: overflow addr
 		i++;
 	}
 
