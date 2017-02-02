@@ -108,6 +108,52 @@ instruction_print(instruction_t *i)
 	}
 }
 
+bool
+assemble_single_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
+{
+	return assemble_single(buf, bsize, mnemonic, IMPLIED, 0, 0);
+}
+
+
+bool
+assemble_single(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
+{
+	instrdef_t id;
+	uint8_t opcode;
+	bool found;
+
+	found = false;
+	opcode = 0;
+
+	/* find the opcode for given mnemonic and addressing mode */
+	while (opcode < 0xFF)  {
+		id = instruction_decode(opcode);
+		if ((strcmp(mnemonic, id.mnemonic) == 0) && (id.mode == mode)) {
+			found = true;
+			break;
+		}
+		opcode++;
+	}
+
+	if (!found) {
+		fprintf(stderr, "Couldn't find opcode for mnemonic %s mode %x\n", mnemonic, mode);
+		return false;
+	}
+
+	*buf = malloc(id.size);
+	if(*buf == NULL) {
+		fprintf(stderr, "Error allocating assembly buffer\n");
+		return false;
+	}
+
+	memset(*buf, 0, id.size);
+	*bsize = id.size;
+
+	*buf[0] = opcode;
+
+	return found;
+}
+
 void
 disassemble(bus_t *b, uint16_t addr) 
 {

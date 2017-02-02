@@ -55,4 +55,7 @@ void program_counter_increment(rk65c02emu_t *, instrdef_t *);
 bool instruction_modify_pc(instrdef_t *);
 void program_counter_branch(rk65c02emu_t *, int8_t);
 
+bool assemble_single_implied(uint8_t **, uint8_t *, const char *);
+bool assemble_single(uint8_t **, uint8_t *, const char *, addressing_t, uint8_t, uint8_t);
+
 #endif /* _INSTRUCTION_H_ */
