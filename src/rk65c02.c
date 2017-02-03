@@ -87,6 +87,9 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 		rk65c02_exec(e);
 		i++;
 	}
+
+	e->state = STOPPED;
+	e->stopreason = STEPPED;
 }
 
 void
