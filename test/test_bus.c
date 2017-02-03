@@ -36,10 +36,28 @@ ATF_TC_BODY(bus_load_file, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(bus_load_buf);
+ATF_TC_BODY(bus_load_buf, tc)
+{
+	bus_t b;
+
+	uint8_t buf[] = { 0xEA, 0xDB };
+
+	b = bus_init();
+
+	ATF_REQUIRE(bus_load_buf(&b, 0xC000, buf, 2));
+
+	ATF_CHECK(b.space[0xC000] == 0xEA);
+	ATF_CHECK(b.space[0xC001] == 0xDB);
+
+	bus_finish(&b);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, bus_init);
 	ATF_TP_ADD_TC(tp, bus_load_file);
+	ATF_TP_ADD_TC(tp, bus_load_buf);
 
 	return (atf_no_error());
 }
