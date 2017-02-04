@@ -192,10 +192,12 @@ emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P |= P_ZERO;
 
-	if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 6))
-		e->regs.P |= P_SIGN_OVERFLOW;
-	else
-		e->regs.P &= ~P_SIGN_OVERFLOW;
+	if ( ((instrdef_t *)id)->mode != IMMEDIATE) {
+		if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 6))
+			e->regs.P |= P_SIGN_OVERFLOW;
+		else
+			e->regs.P &= ~P_SIGN_OVERFLOW;
+	}
 
 	if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 7))
 		e->regs.P |= P_NEGATIVE;
