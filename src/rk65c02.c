@@ -26,7 +26,36 @@ rk65c02_init(bus_t *b)
 	/* reset also clears the decimal flag */
 	e.regs.P &= ~P_DECIMAL;
 
+	e.irq = false;
+
 	return e;
+}
+
+/*
+ * Do interrupt'ey things and start the interrupt service routine.
+ */
+void
+rk65c02_irq(rk65c02emu_t *e)
+{
+	/* push return address to the stack */
+	stack_push(e, e->regs.PC >> 8);
+	stack_push(e, e->regs.PC & 0xFF);
+	/* push processor status to the stack with break flag set */
+	stack_push(e, e->regs.P);
+
+	/* 
+	 * The IRQ disable is set, decimal flags is cleared _after_ pushing
+	 * the P register to the stack.
+	 */
+	e->regs.P |= P_IRQ_DISABLE;
+	e->regs.P &= ~P_DECIMAL;
+
+	/* break flag is only saved to the stack, it is not present in the ISR... */
+	e->regs.P &= ~P_BREAK;
+
+	/* load address from IRQ vector into program counter */
+	e->regs.PC = bus_read_1(e->bus, VECTOR_IRQ);
+	e->regs.PC |= bus_read_1(e->bus, VECTOR_IRQ + 1) << 8;
 }
 
 /*
@@ -37,6 +66,9 @@ rk65c02_exec(rk65c02emu_t *e)
 {
 	instruction_t i;
 	instrdef_t id;
+
+	if (e->irq && (!(e->regs.P & P_IRQ_DISABLE)))
+		rk65c02_irq(e);
 
 	/* XXX: handle breakpoints and watch points */
 
