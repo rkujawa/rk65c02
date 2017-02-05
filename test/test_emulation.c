@@ -21,7 +21,6 @@ ATF_TC_BODY(emul_bit, tc)
 	e.regs.A = 0x40;
 	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_imm.rom", tc));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
-	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 	/* BIT zero page */
 	e.regs.A = 0x40;
