@@ -18,7 +18,7 @@ ATF_TC_BODY(step1, tc)
 	e.regs.PC = ROM_LOAD_ADDR;
 
 	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR,
-	    "test_stepping_step1.rom"));
+	    rom_path("test_stepping_step1.rom", tc)));
 
 	rk65c02_step(&e, 1);
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+1);
