@@ -125,6 +125,27 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 }
 
 void
+rk65c02_dump_stack(rk65c02emu_t *e, uint8_t n)
+{
+	uint16_t stackaddr;
+
+	stackaddr = STACK_END-n;
+
+	while (stackaddr <= STACK_END) {
+
+		if ((stackaddr == STACK_END-n) || !((stackaddr % 0x10)))
+			printf("stack %#02x: ", stackaddr);
+
+		printf("%#02x ", bus_read_1(e->bus, stackaddr));
+
+		stackaddr++;
+
+		if (!(stackaddr % 0x10))
+			printf("\n");
+	}
+}
+
+void
 rk65c02_dump_regs(rk65c02emu_t *e)
 {
 	printf("A: %X X: %X Y: %X PC: %X SP: %X P: ", 
