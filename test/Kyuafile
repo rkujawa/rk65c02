@@ -6,4 +6,5 @@ atf_test_program{name='test_bus'}
 atf_test_program{name='test_emulation'}
 atf_test_program{name='test_assemble'}
 atf_test_program{name='test_stepping'}
+atf_test_program{name='test_interrupt'}
 

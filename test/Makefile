@@ -22,8 +22,8 @@ test_emulation : test_emulation.o $(UTILS) $(RK6502LIB)
 test_assemble : test_assemble.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
-#test_interrupt: test_interrupt.o $(UTILS) $(RK6502LIB)
-#	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
+test_interrupt: test_interrupt.o $(UTILS) $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 %.rom : %.s
 	$(VASM) $(VASMFLAGS) -o $@ $< 
