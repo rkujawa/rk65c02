@@ -63,7 +63,7 @@ OP_BIT_ABSX,"bit",ABSOLUTEX,3,emul_bit,false
 OP_AND_ABSX,"and",ABSOLUTEX,3,emul_and,false
 OP_ROL_ABSX,"rol",ABSOLUTEX,3,emul_rol,false
 OP_BBR3_REL,"bbr3",ZPR,2,emul_bbr3,true
-OP_RTI,"rti",IMPLIED,1,NULL,false
+OP_RTI,"rti",IMPLIED,1,emul_rti,true
 OP_EOR_IZPX,"eor",IZPX,2,emul_eor,false
 OP_NOPI_43,"invalid",IMMEDIATE,2,NULL,false
 OP_NOPI_44,"invalid",IMPLIED,1,NULL,false

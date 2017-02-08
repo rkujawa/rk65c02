@@ -639,6 +639,20 @@ emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.Y = stack_pop(e);
 }
 
+/* RTI - return from interrupt */
+void
+emul_rti(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	uint16_t retaddr;
+
+	/* restore processor status from stack */
+	e->regs.P = stack_pop(e) | P_UNDEFINED;
+	/* restore PC */
+	retaddr = stack_pop(e);
+	retaddr|= stack_pop(e) << 8;
+	e->regs.PC = retaddr;
+}
+
 /* RTS - return from subroutine */
 void
 emul_rts(rk65c02emu_t *e, void *id, instruction_t *i)
