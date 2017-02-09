@@ -11,6 +11,7 @@ typedef enum {
 
 typedef enum {
 	STP,		/* due to 65C02 STP instruction */
+	WAI,		/* waiting for interrupt */
 	BREAKPOINT,	/* due to breakpoint set */
 	WATCHPOINT,	/* due to watchpoint set */
 	STEPPED,	/* stepped appropriate number of instructions */

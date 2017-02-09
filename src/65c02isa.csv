@@ -202,7 +202,7 @@ OP_SMB4_ZP,"smb4",ZP,2,emul_smb4,false
 OP_INY,"iny",IMPLIED,1,emul_iny,false
 OP_CMP_IMM,"cmp",IMMEDIATE,2,emul_cmp,false
 OP_DEX,"dex",IMPLIED,1,emul_dex,false
-OP_WAI,"wai",IMPLIED,1,NULL,false
+OP_WAI,"wai",IMPLIED,1,emul_wai,false
 OP_CPY_ABS,"cpy",ABSOLUTE,3,emul_cpy,false
 OP_CMP_ABS,"cmp",ABSOLUTE,3,emul_cmp,false
 OP_DEC_ABS,"dec",ABSOLUTE,3,emul_dec,false

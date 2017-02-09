@@ -22,6 +22,7 @@ rk65c02_init(bus_t *b)
 
 	e.bus = b;
 	e.state = STOPPED;
+	e.stopreason = HOST;
 	e.regs.P = P_UNDEFINED|P_IRQ_DISABLE;
 	/* reset also clears the decimal flag */
 	e.regs.P &= ~P_DECIMAL;
@@ -32,7 +33,25 @@ rk65c02_init(bus_t *b)
 }
 
 /*
- * Do interrupt'ey things and start the interrupt service routine.
+ * Assert the IRQ line.
+ */
+void
+rk65c02_assert_irq(rk65c02emu_t *e)
+{
+	/* 
+	 * Clearly this is too simpleton'ish, because more than one device
+	 * might want to assert the interrupt line (on hardware level it is
+	 * active low, so can just be pulled down by any device connected
+	 * to it.
+	 */
+	e->irq = true;
+
+	if ((e->state == STOPPED) && (e->stopreason == WAI))
+		rk65c02_start(e);
+}
+
+/*
+ * Respond to interrupt and start the interrupt service routine.
  */
 void
 rk65c02_irq(rk65c02emu_t *e)

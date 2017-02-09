@@ -1014,3 +1014,11 @@ emul_tya(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/* WAI - wait for interrupt */
+void
+emul_wai(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->state = STOPPED;
+	e->stopreason = WAI;
+}
+
