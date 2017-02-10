@@ -247,7 +247,7 @@ OP_NOPI_F5,"invalid",ZPX,2,NULL,false
 OP_SBC_ZPX,"sbc",ZPX,2,emul_sbc,false
 OP_INC_ZPX,"inc",ZPX,2,emul_inc,false
 OP_SMB7_ZP,"smb7",ZP,2,emul_smb7,false
-OP_SED,"sed",IMPLIED,1,NULL,false
+OP_SED,"sed",IMPLIED,1,emul_sed,false
 OP_SBC_ABSY,"sbc",ABSOLUTEY,3,emul_sbc,false
 OP_PLX,"plx",IMPLIED,1,emul_plx,false
 OP_NOPI_FC,"invalid",IMPLIED,1,NULL,false

@@ -9,7 +9,20 @@ static void emul_smb(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 static void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 static void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 
-/* Implementation of emulation of instructions follows below */
+/* Convert 8-bit binary value into binary coded decimal. */
+static inline uint8_t to_bcd(uint8_t val)
+{
+	uint8_t rv;
+
+	/* Not really the best way to do it. */
+	rv = 10 * (val >> 4) + (0x0F & val);
+
+	return rv;
+}
+
+/*
+ * Implementation of emulation of instructions follows below.
+ */
 
 /* ADC - add with carry */
 void
@@ -19,7 +32,10 @@ emul_adc(rk65c02emu_t *e, void *id, instruction_t *i)
 	uint16_t res;	/* meh */
 
 	arg = instruction_data_read_1(e, (instrdef_t *) id, i);
-	res = e->regs.A + arg;
+	if (e->regs.P & P_DECIMAL)
+		res = to_bcd(e->regs.A) + to_bcd(arg);
+	else
+		res = e->regs.A + arg;
 
 	if (e->regs.P & P_CARRY)
 		res++;
@@ -29,11 +45,18 @@ emul_adc(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P &= ~P_SIGN_OVERFLOW;
 
-	/* if the result does not fit into 8 bits then set carry */
-	if (res > 0xFF)
-		e->regs.P |= P_CARRY;
+	if (e->regs.P & P_DECIMAL)
+		/* if the result does not fit into two BCD digits then set carry */
+		if (res > 99)	
+			e->regs.P |= P_CARRY;
+		else
+			e->regs.P &= ~P_CARRY;
 	else
-		e->regs.P &= ~P_CARRY;
+		/* if the result does not fit into 8 bits then set carry */
+		if (res > 0xFF)
+			e->regs.P |= P_CARRY;
+		else
+			e->regs.P &= ~P_CARRY;
 
 	/* squash the result into accumulator's 8 bits, lol */
 	e->regs.A = (uint8_t) res;
@@ -820,6 +843,14 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);
 }
+
+/* SED - set the decimal flag */
+void
+emul_sed(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	e->regs.P |= P_DECIMAL;
+}
+
 /* SEC - set the carry flag */
 void
 emul_sec(rk65c02emu_t *e, void *id, instruction_t *i)
