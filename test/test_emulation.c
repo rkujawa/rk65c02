@@ -1190,7 +1190,9 @@ ATF_TC_BODY(emul_adc_bcd, tc)
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_bcd.rom", tc));
 
-	ATF_CHECK(e.regs.A == 0x21);
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x05);
+	ATF_CHECK(bus_read_1(&b, 0x11) & P_CARRY);
+
 	rk65c02_dump_regs(&e);
 
 }
