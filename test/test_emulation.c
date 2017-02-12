@@ -1192,6 +1192,12 @@ ATF_TC_BODY(emul_adc_bcd, tc)
 
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x05);
 	ATF_CHECK(bus_read_1(&b, 0x11) & P_CARRY);
+	ATF_CHECK(bus_read_1(&b, 0x20) == 0x46);
+	ATF_CHECK(!(bus_read_1(&b, 0x21) & P_CARRY));
+	ATF_CHECK(bus_read_1(&b, 0x30) == 0x41);
+	ATF_CHECK(!(bus_read_1(&b, 0x31) & P_CARRY));
+	ATF_CHECK(bus_read_1(&b, 0x40) == 0x73);
+	ATF_CHECK(bus_read_1(&b, 0x41) & P_CARRY);
 
 	rk65c02_dump_regs(&e);
 
