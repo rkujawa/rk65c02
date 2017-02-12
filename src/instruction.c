@@ -120,6 +120,12 @@ assemble_init(bus_t *b, uint16_t pc)
 }
 
 bool
+assemble_single_implied(assembler_t *a, const char *mnemonic)
+{
+	return assemble_single(a, mnemonic, IMPLIED, 0, 0);
+}
+
+bool
 assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
 {
 	uint8_t *asmbuf;
