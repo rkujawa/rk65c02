@@ -60,7 +60,7 @@ ATF_TC_BODY(assemble_single, tc)
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
-	ATF_REQUIRE(assemble_single(&a, "nop", IMPLIED, 0, 0));
+	ATF_REQUIRE(assemble_single_implied(&a, "nop"));
 	ATF_REQUIRE(assemble_single(&a, "stp", IMPLIED, 0, 0));
 
 	ATF_CHECK(bus_read_1(&b, ROM_LOAD_ADDR) == 0xEA);
