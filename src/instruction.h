@@ -67,6 +67,6 @@ bool assemble_single_buf(uint8_t **, uint8_t *, const char *, addressing_t, uint
 
 assembler_t assemble_init(bus_t *, uint16_t);
 bool assemble_single(assembler_t *, const char *, addressing_t, uint8_t, uint8_t);
-bool assemble_single_buf_implied(uint8_t **, uint8_t *, const char *);
+bool assemble_single_implied(uint8_t **, uint8_t *, const char *);
 
 #endif /* _INSTRUCTION_H_ */
