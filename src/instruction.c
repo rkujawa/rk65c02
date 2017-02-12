@@ -108,16 +108,44 @@ instruction_print(instruction_t *i)
 	}
 }
 
-bool
-assemble_single_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
+assembler_t
+assemble_init(bus_t *b, uint16_t pc)
 {
-	/* XXX: does brk needs special handling? */
-	return assemble_single(buf, bsize, mnemonic, IMPLIED, 0, 0);
+	assembler_t asmblr;
+
+	asmblr.bus = b;
+	asmblr.pc = pc;
+
+	return asmblr;
+}
+
+bool
+assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
+{
+	uint8_t *asmbuf;
+	uint8_t bsize;
+	bool rv;
+
+	rv = assemble_single_buf(&asmbuf, &bsize, mnemonic, mode, op1, op2);
+	if (rv == false)
+		return rv;
+
+	rv = bus_load_buf(a->bus, a->pc, asmbuf, bsize);
+	free(asmbuf);
+	a->pc += bsize;
+
+	return rv;
+}
+
+bool
+assemble_single_buf_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
+{
+	return assemble_single_buf(buf, bsize, mnemonic, IMPLIED, 0, 0);
 }
 
 
 bool
-assemble_single(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
+assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
 {
 	instrdef_t id;
 	uint8_t opcode;

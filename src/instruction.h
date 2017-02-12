@@ -41,6 +41,13 @@ struct instrdef {
 
 typedef struct instrdef instrdef_t;
 
+struct assembler {
+	bus_t *bus;
+	uint16_t pc;
+};
+
+typedef struct assembler assembler_t;
+
 instruction_t instruction_fetch(bus_t *, uint16_t);
 instrdef_t instruction_decode(uint8_t);
 void instruction_print(instruction_t *);
@@ -55,7 +62,9 @@ void program_counter_increment(rk65c02emu_t *, instrdef_t *);
 bool instruction_modify_pc(instrdef_t *);
 void program_counter_branch(rk65c02emu_t *, int8_t);
 
-bool assemble_single_implied(uint8_t **, uint8_t *, const char *);
-bool assemble_single(uint8_t **, uint8_t *, const char *, addressing_t, uint8_t, uint8_t);
+bool assemble_single_buf_implied(uint8_t **, uint8_t *, const char *);
+bool assemble_single_buf(uint8_t **, uint8_t *, const char *, addressing_t, uint8_t, uint8_t);
+
+assembler_t assemble_init(bus_t *b, uint16_t pc);
 
 #endif /* _INSTRUCTION_H_ */
