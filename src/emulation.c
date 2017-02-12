@@ -858,9 +858,9 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 
 	if (e->regs.P & P_DECIMAL)
 		if ((res > 99) || (res < 0))
-			e->regs.P |= P_CARRY;
-		else
 			e->regs.P &= ~P_CARRY;
+		else
+			e->regs.P |= P_CARRY;
 	else
 		/* if the result does not fit into 8 bits then clear carry */
 		if (res & 0x8000)
