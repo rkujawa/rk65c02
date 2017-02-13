@@ -6,6 +6,7 @@
 
 #include "bus.h"
 #include "rk65c02.h"
+#include "instruction.h"
 #include "utils.h"
 
 ATF_TC_WITHOUT_HEAD(emul_bit);
@@ -1266,7 +1267,84 @@ ATF_TC_BODY(emul_sbc_16bit, tc)
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0x55);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xAA);
 	rk65c02_dump_regs(&e);
+}
 
+/*
+ * This test tries to check every variant of RMBx instruction by resetting bits within 0x10-0x17 memory range.
+ * This area is filled with 0xFF's before starting the emulator. It is expected that after running code within
+ * the emulator, appropriate bits will be cleared (i.e. bit 0 in 0x10, bit 1 in 0x11, etc.).
+ */
+ATF_TC_WITHOUT_HEAD(emul_rmb);
+ATF_TC_BODY(emul_rmb, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+	uint8_t i;
+
+	char instr[] = "rmb ";
+
+	b = bus_init();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+
+	for (i = 0; i < 8; i++) {
+		instr[3] = '0'+i; 
+		ATF_REQUIRE(assemble_single(&a, instr, ZP, 0x10+i, 0));
+	}
+
+	ATF_REQUIRE(assemble_single_implied(&a, "stp"));
+
+	for (i = 0; i < 8; i++) {
+		bus_write_1(&b, 0x10+i, 0xFF);
+	}
+
+	rk65c02_start(&e);
+
+	for (i = 0; i < 8; i++) {
+		ATF_CHECK(!(BIT(bus_read_1(&b, 0x10+i), i)));
+	}
+}
+
+/*
+ * This test tries to check every variant of SMBx instruction by setting bits within 0x10-0x17 memory range.
+ * This area is filled with 0x00's before starting the emulator. It is expected that after running code within
+ * the emulator, appropriate bits will be set (i.e. bit 0 in 0x10, bit 1 in 0x11, etc.).
+ */
+ATF_TC_WITHOUT_HEAD(emul_smb);
+ATF_TC_BODY(emul_smb, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+	uint8_t i;
+
+	char instr[] = "smb ";
+
+	b = bus_init();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+
+	for (i = 0; i < 8; i++) {
+		instr[3] = '0'+i; 
+		ATF_REQUIRE(assemble_single(&a, instr, ZP, 0x10+i, 0));
+	}
+
+	ATF_REQUIRE(assemble_single_implied(&a, "stp"));
+
+	for (i = 0; i < 8; i++) {
+		bus_write_1(&b, 0x10+i, 0x00);
+	}
+
+	rk65c02_start(&e);
+
+	for (i = 0; i < 8; i++) {
+		ATF_CHECK(BIT(bus_read_1(&b, 0x10+i), i));
+	}
 }
 
 ATF_TP_ADD_TCS(tp)
@@ -1300,6 +1378,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_sbc);
 	ATF_TP_ADD_TC(tp, emul_sbc_16bit);
 	ATF_TP_ADD_TC(tp, emul_sbc_bcd);
+	ATF_TP_ADD_TC(tp, emul_rmb);
+	ATF_TP_ADD_TC(tp, emul_smb);
 
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_basic);
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough);
