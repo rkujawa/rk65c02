@@ -39,6 +39,7 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	case ABSOLUTEY:
 	case IABSOLUTE:
 	case IABSOLUTEX:
+	case ZPR:
 		i.op1 = bus_read_1(b, addr+1);
 		i.op2 = bus_read_1(b, addr+2);
 		break;
