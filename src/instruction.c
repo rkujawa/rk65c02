@@ -252,6 +252,7 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 
 	switch (id->mode) {
 	case ZP:
+	case ZPR:
 		bus_write_1(e->bus, i->op1, val);
 		break;
 	case ZPX:
@@ -290,13 +291,6 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ACCUMULATOR:
 		e->regs.A = val;
 		break;
-	case ZPR:
-		/* 
-		 * This mode is special as both operands have separate meaning.
-		 * Handled withing emulation, as it is used only by BBS and BBR.
-		 */
-		assert(false);
-		break;
 	case IMMEDIATE:
 	case RELATIVE:
 	case IABSOLUTE:
@@ -329,6 +323,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		rv = i->op1;
 		break;
 	case ZP:
+	case ZPR:
 		rv = bus_read_1(e->bus, i->op1);
 		break;
 	case ZPX:
@@ -363,13 +358,6 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		break;
 	case ABSOLUTEY:
 		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
-		break;
-	case ZPR:
-		/* 
-		 * This mode is special as both operands have separate meaning.
-		 * Handled withing emulation, as it is used only by BBS and BBR.
-		 */
-		assert(false);
 		break;
 	case IABSOLUTE:
 	case IABSOLUTEX:
