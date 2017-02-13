@@ -22,7 +22,7 @@ OP_NOPI_14,"invalid",IMPLIED,1,NULL,false
 OP_TRB_ZP,"trb",ZP,2,emul_trb,false
 OP_ORA_ZPX,"ora",ZPX,2,emul_ora,false
 OP_ASL_ZPX,"asl",ZPX,2,emul_asl,false
-OP_RMB1_ZP,"rmb1",ZP,1,emul_rmb1,false
+OP_RMB1_ZP,"rmb1",ZP,2,emul_rmb1,false
 OP_CLC,"clc",IMPLIED,1,emul_clc,false
 OP_ORA_ABSY,"ora",ABSOLUTEY,3,emul_ora,false
 OP_INC,"inc",ACCUMULATOR,1,emul_inc,false
