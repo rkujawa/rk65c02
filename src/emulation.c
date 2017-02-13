@@ -124,8 +124,12 @@ emul_asl(rk65c02emu_t *e, void *id, instruction_t *i)
 static void
 emul_bbr(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
 	/* is bit is clear then branch */
-	if (!(BIT(i->op1, bit)))
+	if (!(BIT(val, bit)))
 		program_counter_branch(e, (int8_t) i->op2);
 	else
 		program_counter_increment(e, id);
@@ -176,8 +180,12 @@ emul_bbr7(rk65c02emu_t *e, void *id, instruction_t *i)
 static void
 emul_bbs(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
+	uint8_t val;
+
+	val = instruction_data_read_1(e, (instrdef_t *) id, i);
+
 	/* is bit is set then branch */
-	if (BIT(i->op1, bit))
+	if (BIT(val, bit))
 		program_counter_branch(e, (int8_t) i->op2);
 	else
 		program_counter_increment(e, id);
