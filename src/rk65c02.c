@@ -9,6 +9,7 @@
 #include "bus.h"
 #include "instruction.h"
 #include "rk65c02.h"
+#include "debug.h"
 
 void rk65c02_exec(rk65c02emu_t *);
 
@@ -28,6 +29,8 @@ rk65c02_init(bus_t *b)
 	e.regs.P &= ~P_DECIMAL;
 
 	e.irq = false;
+
+	e.bps_head = NULL;
 
 	return e;
 }
@@ -89,7 +92,11 @@ rk65c02_exec(rk65c02emu_t *e)
 	if (e->irq && (!(e->regs.P & P_IRQ_DISABLE)))
 		rk65c02_irq(e);
 
-	/* XXX: handle breakpoints and watch points */
+	/* XXX: handle watchpoints toos */
+	if (debug_PC_is_breakpoint(e)) {
+		e->state = STOPPED;
+		e->stopreason = BREAKPOINT;
+	}
 
 	/* if disassembly-when-running enabled */
 	disassemble(e->bus, e->regs.PC);

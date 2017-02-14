@@ -1,7 +1,7 @@
 CLI=rk65c02cli
 CLI_OBJS=rk65c02cli.o
 
-LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o
+LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o
 LIB_SO=librk65c02.so
 LIB_STATIC=librk65c02.a
 
@@ -11,6 +11,7 @@ CFLAGS=-Wall -fpic -ggdb
 
 65C02ISA=65c02isa
 EMULATION=emulation
+# TODO: better include handling
 
 all : $(LIB_SO) $(LIB_STATIC) $(CLI)
 

@@ -29,6 +29,8 @@ struct reg_state {
 	uint8_t P;      /* status */
 };
 
+typedef struct reg_state reg_state_t;
+
 #define P_CARRY 0x1
 #define P_ZERO 0x2
 #define P_IRQ_DISABLE 0x4
@@ -47,7 +49,10 @@ struct reg_state {
 
 #define BIT(val,n) ((val) & (1 << (n)))
 
-typedef struct reg_state reg_state_t;
+typedef struct breakpoint_t {
+	uint16_t address;
+	struct breakpoint_t *next;
+} breakpoint_t;
 
 struct rk65c02emu {
 	emu_state_t state;
@@ -55,6 +60,8 @@ struct rk65c02emu {
 	reg_state_t regs;
 	emu_stop_reason_t stopreason;
 	bool irq;	/* interrupt request line state, true is asserted */
+
+	breakpoint_t *bps_head;	/* pointer to linked list with breakpoints  */
 };
 
 typedef struct rk65c02emu rk65c02emu_t;
