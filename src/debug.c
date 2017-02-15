@@ -29,6 +29,9 @@ debug_breakpoint_add(rk65c02emu_t *e, uint16_t address)
 	breakpoint_t *bp;
 
 	bp = (breakpoint_t *) malloc(sizeof(breakpoint_t));
+	if (bp == NULL)
+		return false;
+
 	bp->address = address;
 
 	LL_APPEND((e->bps_head), bp);
