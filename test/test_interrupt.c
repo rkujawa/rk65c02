@@ -42,12 +42,12 @@ ATF_TC_BODY(intr_brk, tc)
 
 	/* Execute first instruction, of the main program, which is a nop... */
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(&e);
+	rk65c02_dump_regs(e.regs);
 	/* BRK is next, save its address... */
 	//brkaddr = e.regs.PC + 1;
 	/* Execute BRK instruction, which should start ISR (regardless of IRQ disable flag). */
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(&e);
+	rk65c02_dump_regs(e.regs);
 	rk65c02_dump_stack(&e, 0x4);
 	/* Are we in ISR really? */
 	ATF_CHECK(e.regs.PC == isr_addr);
@@ -57,7 +57,7 @@ ATF_TC_BODY(intr_brk, tc)
 
 	/*
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(&e);
+	rk65c02_dump_regs(e.regs);
 	rk65c02_start(&e);
 	*/
 }
@@ -103,12 +103,12 @@ ATF_TC_BODY(intr_rti, tc)
 	e.regs.PC = ISR_ADDR;
 	rk65c02_step(&e, 1);
 	ATF_CHECK(e.regs.PC == ISR_ADDR + 1);
-	rk65c02_dump_regs(&e);
+	rk65c02_dump_regs(e.regs);
 	rk65c02_dump_stack(&e, 0x4);
 
 	/* Step onto RTI. */
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(&e);
+	rk65c02_dump_regs(e.regs);
 	/* Check if we're back in the main program. */
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR);
 
