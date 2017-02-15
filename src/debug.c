@@ -3,7 +3,59 @@
 #include <utlist.h>
 
 #include "rk65c02.h"
+#include "instruction.h"
 #include "debug.h"
+
+void
+debug_trace_set(rk65c02emu_t *e, bool state)
+{
+	e->trace = state;
+}
+
+void
+debug_trace_print_all(rk65c02emu_t *e)
+{
+	trace_t *tr;
+	instruction_t i;
+
+	if (e->trace_head == NULL)
+		return;
+
+	DL_FOREACH(e->trace_head, tr) {
+		i.opcode = tr->opcode;
+		i.op1 = tr->op1;
+		i.op2 = tr->op2;
+
+		printf("TRACE %X:\t", tr->address);
+		instruction_print(&i);
+		printf("\t");
+		rk65c02_dump_regs(tr->regs);
+	}
+
+}
+
+void
+debug_trace_savestate(rk65c02emu_t *e, uint16_t address, instrdef_t *id,
+    instruction_t *i)
+{
+	trace_t *tr;
+
+	tr = (trace_t *) malloc(sizeof(trace_t));
+	if (tr == NULL) {
+		fprintf(stderr, "Error allocating trace structure.\n");
+		return;
+	}
+
+	tr->address = address;
+
+	tr->opcode = i->opcode;
+	tr->op1 = i->op1;
+	tr->op2 = i->op2; 
+
+	tr->regs = e->regs;
+
+	DL_APPEND((e->trace_head), tr);
+}
 
 bool
 debug_breakpoint_remove(rk65c02emu_t *e, uint16_t address)

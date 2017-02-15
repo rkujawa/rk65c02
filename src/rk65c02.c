@@ -31,6 +31,7 @@ rk65c02_init(bus_t *b)
 	e.irq = false;
 
 	e.bps_head = NULL;
+	e.trace_head = NULL;
 
 	return e;
 }
@@ -88,6 +89,9 @@ rk65c02_exec(rk65c02emu_t *e)
 {
 	instruction_t i;
 	instrdef_t id;
+	uint16_t tpc;	/* saved PC for tracing */
+
+	tpc = e->regs.PC;
 
 	if (e->irq && (!(e->regs.P & P_IRQ_DISABLE)))
 		rk65c02_irq(e);
@@ -107,6 +111,7 @@ rk65c02_exec(rk65c02emu_t *e)
 
 	if (id.emul != NULL) {
 		id.emul(e, &id, &i);
+
 		if (!instruction_modify_pc(&id)) 
 			program_counter_increment(e, &id);
 	} else {
@@ -115,6 +120,10 @@ rk65c02_exec(rk65c02emu_t *e)
 		e->state = STOPPED;
 		e->stopreason = EMUERROR;
 	}
+
+	if (e->trace)
+		debug_trace_savestate(e, tpc, &id, &i);
+
 }
 
 /*
@@ -173,47 +182,47 @@ rk65c02_dump_stack(rk65c02emu_t *e, uint8_t n)
 }
 
 void
-rk65c02_dump_regs(rk65c02emu_t *e)
+rk65c02_dump_regs(reg_state_t regs)
 {
 	printf("A: %X X: %X Y: %X PC: %X SP: %X P: ", 
-	    e->regs.A, e->regs.X, e->regs.Y, e->regs.PC, e->regs.SP);
+	    regs.A, regs.X, regs.Y, regs.PC, regs.SP);
 
-	if (e->regs.P & P_NEGATIVE)
+	if (regs.P & P_NEGATIVE)
 		printf("N");
 	else
 		printf("-");
 
-	if (e->regs.P & P_SIGN_OVERFLOW)
+	if (regs.P & P_SIGN_OVERFLOW)
 		printf("V");
 	else
 		printf("-");
 
-	if (e->regs.P & P_UNDEFINED)
+	if (regs.P & P_UNDEFINED)
 		printf("1");
 	else
 		printf("-");
 
-	if (e->regs.P & P_BREAK)
+	if (regs.P & P_BREAK)
 		printf("B");
 	else
 		printf("-");
 
-	if (e->regs.P & P_DECIMAL)
+	if (regs.P & P_DECIMAL)
 		printf("D");
 	else
 		printf("-");
 
-	if (e->regs.P & P_IRQ_DISABLE)
+	if (regs.P & P_IRQ_DISABLE)
 		printf("I");
 	else
 		printf("-");
 
-	if (e->regs.P & P_ZERO)
+	if (regs.P & P_ZERO)
 		printf("Z");
 	else
 		printf("-");
 
-	if (e->regs.P & P_CARRY)
+	if (regs.P & P_CARRY)
 		printf("C");
 	else
 		printf("-");

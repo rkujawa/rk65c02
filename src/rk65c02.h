@@ -54,14 +54,24 @@ typedef struct breakpoint_t {
 	struct breakpoint_t *next;
 } breakpoint_t;
 
+typedef struct trace_t {
+	uint16_t address;
+	uint8_t opcode, op1, op2;
+	reg_state_t regs;
+	struct trace_t *prev,*next;
+} trace_t;
+
 struct rk65c02emu {
 	emu_state_t state;
 	bus_t *bus;
 	reg_state_t regs;
 	emu_stop_reason_t stopreason;
-	bool irq;	/* interrupt request line state, true is asserted */
+	bool irq;		/* interrupt request line state, true is asserted */
 
 	breakpoint_t *bps_head;	/* pointer to linked list with breakpoints  */
+
+	bool trace;		/* tracing mode enable/disable */
+	trace_t *trace_head;	/* pointer to linked list with trace log */
 };
 
 typedef struct rk65c02emu rk65c02emu_t;
@@ -69,7 +79,7 @@ typedef struct rk65c02emu rk65c02emu_t;
 rk65c02emu_t rk65c02_init(bus_t *);
 void rk65c02_start(rk65c02emu_t *);
 void rk65c02_step(rk65c02emu_t *, uint16_t);
-void rk65c02_dump_regs(rk65c02emu_t *);
+void rk65c02_dump_regs(reg_state_t regs);
 void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
 void rk65c02_irq(rk65c02emu_t *e);
 
