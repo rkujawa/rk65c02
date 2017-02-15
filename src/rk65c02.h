@@ -69,7 +69,7 @@ struct rk65c02emu {
 	bool irq;		/* interrupt request line state, true is asserted */
 
 	breakpoint_t *bps_head;	/* pointer to linked list with breakpoints  */
-
+	bool runtime_disassembly; /* disassemble code when emulator is running */
 	bool trace;		/* tracing mode enable/disable */
 	trace_t *trace_head;	/* pointer to linked list with trace log */
 };

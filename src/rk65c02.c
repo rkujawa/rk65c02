@@ -32,6 +32,7 @@ rk65c02_init(bus_t *b)
 
 	e.bps_head = NULL;
 	e.trace_head = NULL;
+	e.runtime_disassembly = false;
 
 	return e;
 }
@@ -103,8 +104,8 @@ rk65c02_exec(rk65c02emu_t *e)
 		return;
 	}
 
-	/* if disassembly-when-running enabled */
-	disassemble(e->bus, e->regs.PC);
+	if (e->runtime_disassembly)
+		disassemble(e->bus, e->regs.PC);
 
 	i = instruction_fetch(e->bus, e->regs.PC);
 	id = instruction_decode(i.opcode);
