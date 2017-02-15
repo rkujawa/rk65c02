@@ -96,6 +96,7 @@ rk65c02_exec(rk65c02emu_t *e)
 	if (debug_PC_is_breakpoint(e)) {
 		e->state = STOPPED;
 		e->stopreason = BREAKPOINT;
+		return;
 	}
 
 	/* if disassembly-when-running enabled */
