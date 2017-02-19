@@ -11,6 +11,7 @@ CFLAGS=-Wall -fpic -ggdb
 
 65C02ISA=65c02isa
 EMULATION=emulation
+DEVICE=device
 # TODO: better include handling
 
 all : $(LIB_SO) $(LIB_STATIC) $(CLI)
@@ -31,7 +32,7 @@ $(EMULATION).h : $(65C02ISA).csv $(EMULATION).awk
 	awk -f $(EMULATION).awk $(65C02ISA).csv > $(EMULATION).h
 
 # XXX: dependency on 65c02isa.h is only for instruction.c ?
-%.o : %.c %.h $(65C02ISA).h $(EMULATION).h
+%.o : %.c %.h $(65C02ISA).h $(EMULATION).h $(DEVICE).h
 	$(CC) $(CFLAGS) -c $<
 
 clean :

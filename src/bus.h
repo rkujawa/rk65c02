@@ -4,10 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "device.h"
+
 #define RK65C02_BUS_SIZE	64*1024
 
 struct bus_tag {
-	uint8_t *space;
+	device_t *device_head;
 };
 
 typedef struct bus_tag bus_t;
