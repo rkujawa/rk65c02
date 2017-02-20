@@ -9,24 +9,69 @@
 
 #include <sys/types.h>
 
+#include <utlist.h>
+
 #include "bus.h"
 
+#include "device_ram.h"
+
 #define RK65C02_BUS_SIZE	64*1024
+
+void
+bus_device_add(bus_t *b, device_t *d, uint16_t addr)
+{
+	device_mapping_t *dm;
+
+	dm = (device_mapping_t *) malloc(sizeof(device_mapping_t));
+
+	dm->dev = d;
+	dm->addr = addr;
+
+	LL_APPEND((b->dm_head), dm);
+}
 
 uint8_t
 bus_read_1(bus_t *t, uint16_t addr)
 {
 	uint8_t val;
-//	val = t->space[addr];
-/*	printf("bus READ @ %x value %x\n", addr, val); */
+	device_mapping_t *dm;
+	device_t *d;
+
+	LL_FOREACH(t->dm_head, dm) {
+		d = dm->dev;
+
+		if (dm->addr == 0)
+			val = d->read_1(d, addr);
+		/* 
+		 * else
+		 * Check if address is inside of given device range, calculate
+		 * offset.
+		 */	
+
+	}
+	printf("bus READ @ %x value %x\n", addr, val); 
 	return val;
 }
 
 void
 bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 {
-/*	printf("bus WRITE @ %x value %x\n", addr, val); */
-//	t->space[addr] = val;
+	device_mapping_t *dm;
+	device_t *d;
+
+	LL_FOREACH(t->dm_head, dm) {
+		d = dm->dev;
+
+		if (dm->addr == 0)
+			d->write_1(d, addr, val);
+		/* 
+		 * else
+		 * Check if address is inside of given device range, calculate
+		 * offset.
+		 */	
+
+	}
+	printf("bus WRITE @ %x value %x\n", addr, val); 
 }
 
 bus_t
@@ -34,15 +79,23 @@ bus_init()
 {
 	bus_t t;
 
-//	t.space = (uint8_t *) malloc(RK65C02_BUS_SIZE);
-
-//	assert(t.space != NULL);
-
-//	memset(t.space, 0, RK65C02_BUS_SIZE);
+	t.dm_head = NULL;
 
 	return t;	
 }
-/*
+
+bus_t
+bus_init_with_default_devs()
+{
+	bus_t t;
+
+	t = bus_init();
+
+	bus_device_add(&t, device_ram_init(), 0x0);
+
+	return t;
+}
+
 bool
 bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 {
@@ -53,13 +106,13 @@ bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 	// XXX: add sanity checks 
 
 	while (i < bufsize) {
-		t->space[addr+i] = buf[i]; // XXX: overflow addr
+		bus_write_1(t, i, buf[i]); // XXX: overflow addr
 		i++;
 	}
 
 	return true;
 }
-
+/*
 bool
 bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 {
