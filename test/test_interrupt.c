@@ -23,7 +23,7 @@ ATF_TC_BODY(intr_brk, tc)
 	rk65c02emu_t e;	
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -74,7 +74,7 @@ ATF_TC_BODY(intr_rti, tc)
 	uint16_t israsmpc;
 	uint8_t bsize;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	israsmpc = ISR_ADDR;

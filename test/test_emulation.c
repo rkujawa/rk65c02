@@ -16,7 +16,7 @@ ATF_TC_BODY(emul_bit, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* BIT immediate  */
@@ -64,7 +64,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* CMP immediate */
@@ -166,7 +166,7 @@ ATF_TC_BODY(emul_cpx, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* CPX immediate */
@@ -203,7 +203,7 @@ ATF_TC_BODY(emul_cpy, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* CPY immediate */
@@ -240,7 +240,7 @@ ATF_TC_BODY(emul_dex_dey, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* DEX  */
@@ -268,7 +268,7 @@ ATF_TC_BODY(emul_dec, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* DEC A */
@@ -324,7 +324,7 @@ ATF_TC_BODY(emul_inc, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* INC A */
@@ -383,7 +383,7 @@ ATF_TC_BODY(emul_inx_iny, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* INX */
@@ -413,7 +413,7 @@ ATF_TC_BODY(emul_lda, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* LDA immediate */
@@ -453,7 +453,7 @@ ATF_TC_BODY(emul_stz, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* STZ zp */
@@ -470,7 +470,7 @@ ATF_TC_BODY(emul_clv, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.P |= P_SIGN_OVERFLOW;
@@ -487,7 +487,7 @@ ATF_TC_BODY(emul_clc_sec, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* SEC */
@@ -507,7 +507,7 @@ ATF_TC_BODY(emul_cli_sei, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* CLI */
@@ -526,7 +526,7 @@ ATF_TC_BODY(emul_and, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* AND immediate */
@@ -548,7 +548,7 @@ ATF_TC_BODY(emul_nop, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -566,7 +566,7 @@ ATF_TC_BODY(emul_sta, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* STA zero page */
@@ -621,7 +621,7 @@ ATF_TC_BODY(emul_ora, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 	/* ORA immediate */
 	e.regs.A = 0x55;
@@ -688,7 +688,7 @@ ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.A = 0x0;
@@ -718,7 +718,7 @@ ATF_TC_BODY(emul_stack, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* place 0xAA on stack */
@@ -761,7 +761,7 @@ ATF_TC_BODY(emul_php_plp, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.SP = 0xFF;
@@ -790,7 +790,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* check push X to stack */
@@ -836,7 +836,7 @@ ATF_TC_BODY(emul_jmp, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* JMP absolute */
@@ -877,7 +877,7 @@ ATF_TC_BODY(emul_jsr_rts, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* JSR and RTS */
@@ -898,7 +898,7 @@ ATF_TC_BODY(emul_branch, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	/* BCC */
@@ -1013,7 +1013,7 @@ ATF_TC_BODY(emul_sign_overflow_basic, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -1157,7 +1157,7 @@ ATF_TC_BODY(emul_sign_overflow_thorough, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_sign_overflow_thorough.rom", tc));
@@ -1171,7 +1171,7 @@ ATF_TC_BODY(emul_sbc, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_imm.rom", tc));
@@ -1187,7 +1187,7 @@ ATF_TC_BODY(emul_adc_bcd, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_bcd.rom", tc));
@@ -1211,7 +1211,7 @@ ATF_TC_BODY(emul_sbc_bcd, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_bcd.rom", tc));
@@ -1233,7 +1233,7 @@ ATF_TC_BODY(emul_adc_16bit, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	bus_write_1(&b, 0x62, 0x55);
@@ -1255,7 +1255,7 @@ ATF_TC_BODY(emul_sbc_16bit, tc)
 	rk65c02emu_t e;
 	bus_t b;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	bus_write_1(&b, 0x62, 0xFF);
@@ -1285,7 +1285,7 @@ ATF_TC_BODY(emul_rmb, tc)
 
 	char instr[] = "rmb ";
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
 
@@ -1324,7 +1324,7 @@ ATF_TC_BODY(emul_smb, tc)
 
 	char instr[] = "smb ";
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
 

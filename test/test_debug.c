@@ -20,7 +20,7 @@ ATF_TC_BODY(breakpoint, tc)
 	bus_t b;
 	assembler_t a;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
 
@@ -54,7 +54,7 @@ ATF_TC_BODY(trace, tc)
 	trace_t *tr;
 	int i;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
 

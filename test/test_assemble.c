@@ -19,7 +19,7 @@ ATF_TC_BODY(assemble_single_buf, tc)
 	uint8_t bsize;
 	uint16_t caddr;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
 	caddr = ROM_LOAD_ADDR;	
@@ -54,7 +54,7 @@ ATF_TC_BODY(assemble_single, tc)
 	bus_t b;
 	assembler_t a;
 
-	b = bus_init();
+	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
 
