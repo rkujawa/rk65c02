@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-//#include <stdbool.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <assert.h>
-//#include <string.h>
-//#include <fcntl.h>
+#include <fcntl.h>
 
 #include <sys/types.h>
 
@@ -25,9 +24,23 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 	dm = (device_mapping_t *) malloc(sizeof(device_mapping_t));
 
 	dm->dev = d;
+	/* TODO: check if addr + size is not bigger than RK65C02_BUS_SIZE */
 	dm->addr = addr;
 
 	LL_APPEND((b->dm_head), dm);
+}
+
+void
+bus_device_dump(bus_t *b)
+{
+	device_mapping_t *dm;
+	device_t *d;
+
+	LL_FOREACH(b->dm_head, dm) {
+		d = dm->dev;
+		printf("@ %x size %x - %s\n", dm->addr, d->size, d->name);
+		/* TODO: device specific info */
+	}
 }
 
 uint8_t
@@ -49,7 +62,7 @@ bus_read_1(bus_t *t, uint16_t addr)
 		 */	
 
 	}
-	printf("bus READ @ %x value %x\n", addr, val); 
+//	printf("bus READ @ %x value %x\n", addr, val); 
 	return val;
 }
 
@@ -71,7 +84,7 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 		 */	
 
 	}
-	printf("bus WRITE @ %x value %x\n", addr, val); 
+//	printf("bus WRITE @ %x value %x\n", addr, val); 
 }
 
 bus_t
@@ -106,13 +119,14 @@ bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 	// XXX: add sanity checks 
 
 	while (i < bufsize) {
-		bus_write_1(t, i, buf[i]); // XXX: overflow addr
+		bus_write_1(t, addr+i, buf[i]); // XXX: overflow addr
 		i++;
 	}
 
 	return true;
 }
-/*
+
+/* TODO: should be moved to ram/rom specific devs */
 bool
 bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 {
@@ -126,20 +140,19 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	}
 
 	while ((read(fd, &data, 1)) > 0) {
-		t->space[addr++] = data; // XXX: overflow addr
+		bus_write_1(t, addr++, data); // XXX: overflow addr
 	}
 
 	close(fd);
 
 	return true;
 }
-*/
+
 void
 bus_finish(bus_t *t)
 {
 	assert(t != NULL);
-//	assert(t->space != NULL);
 
-//	free(t->space);
+	/* TODO: foreach devices free 'em */
 }
 
