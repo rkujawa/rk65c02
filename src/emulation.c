@@ -126,9 +126,10 @@ emul_bbr(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	uint8_t val;
 
+	/* read value from zero page */
 	val = instruction_data_read_1(e, (instrdef_t *) id, i);
 
-	/* is bit is clear then branch */
+	/* if bit is clear then branch */
 	if (!(BIT(val, bit)))
 		program_counter_branch(e, (int8_t) i->op2);
 	else
@@ -182,9 +183,10 @@ emul_bbs(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 {
 	uint8_t val;
 
+	/* read value from zero page */
 	val = instruction_data_read_1(e, (instrdef_t *) id, i);
 
-	/* is bit is set then branch */
+	/* if bit is set then branch */
 	if (BIT(val, bit))
 		program_counter_branch(e, (int8_t) i->op2);
 	else
@@ -245,6 +247,7 @@ emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P |= P_ZERO;
 
+	/* immediate addressing does not affect the overflow flag */
 	if ( ((instrdef_t *)id)->mode != IMMEDIATE) {
 		if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 6))
 			e->regs.P |= P_SIGN_OVERFLOW;
@@ -685,7 +688,7 @@ emul_plx(rk65c02emu_t *e, void *id, instruction_t *i)
 	e->regs.X = stack_pop(e);
 }
 
-/* PLY - pull from stack to X */
+/* PLY - pull from stack to Y */
 void
 emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
 {
