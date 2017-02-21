@@ -8,6 +8,9 @@
 
 #define RAM_SIZE 0xDFFF /* should be configurable */
 
+uint8_t device_ram_read_1(void *, uint16_t);
+void device_ram_write_1(void *, uint16_t, uint8_t);
+
 uint8_t
 device_ram_read_1(void *vd, uint16_t offset)
 {
@@ -53,5 +56,9 @@ device_ram_init()
 	return d;
 }
 
-/* TODO: device_ram_finish */
+void
+device_ram_finish(device_t *d)
+{
+	free(d->aux);
+}
 
