@@ -47,44 +47,54 @@ uint8_t
 bus_read_1(bus_t *t, uint16_t addr)
 {
 	uint8_t val;
+	uint16_t doff;
 	device_mapping_t *dm;
-	device_t *d;
+	device_t *dtmp, *d;
+
+	d = NULL;
 
 	LL_FOREACH(t->dm_head, dm) {
-		d = dm->dev;
-
-		if (dm->addr == 0)
-			val = d->read_1(d, addr);
-		/* 
-		 * else
-		 * Check if address is inside of given device range, calculate
-		 * offset.
-		 */	
-
+		dtmp = dm->dev;
+		if ( (addr >= dm->addr) && (addr < (dm->addr + dtmp->size)) ) {
+			d = dtmp;
+			doff = dm->addr;
+		}
 	}
-//	printf("bus READ @ %x value %x\n", addr, val); 
+
+	if (d == NULL) {
+		fprintf(stderr, "Hitting unmapped bus space @ %x!", addr);
+		return 0xFF;
+	}
+
+	val = d->read_1(d, addr - doff);
+
+	printf("bus READ @ %x (off %x) value %x\n", addr, addr - doff, val); 
 	return val;
 }
 
 void
 bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 {
+	uint16_t doff;
 	device_mapping_t *dm;
-	device_t *d;
+	device_t *dtmp, *d;
+
+	d = NULL;
 
 	LL_FOREACH(t->dm_head, dm) {
-		d = dm->dev;
-
-		if (dm->addr == 0)
-			d->write_1(d, addr, val);
-		/* 
-		 * else
-		 * Check if address is inside of given device range, calculate
-		 * offset.
-		 */	
-
+		dtmp = dm->dev;
+		if ( (addr >= dm->addr) && (addr < (dm->addr + dtmp->size)) ) {
+			d = dtmp;
+			doff = dm->addr;
+		}
 	}
-//	printf("bus WRITE @ %x value %x\n", addr, val); 
+
+	if (d == NULL) {
+		fprintf(stderr, "Hitting unmapped bus space @ %x!", addr);
+	}
+
+	printf("bus WRITE @ %x (off %x) value %x\n", addr, addr - doff, val); 
+	d->write_1(d, addr, val);
 }
 
 bus_t
