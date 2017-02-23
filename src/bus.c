@@ -94,7 +94,7 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 	}
 
 	printf("bus WRITE @ %x (off %x) value %x\n", addr, addr - doff, val); 
-	d->write_1(d, addr, val);
+	d->write_1(d, addr - doff, val);
 }
 
 bus_t
