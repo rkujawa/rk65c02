@@ -104,6 +104,10 @@ device_serial_init()
 void
 device_serial_finish(device_t *d)
 {
+	struct device_serial_priv *dp;
+
+	dp = d->aux;
+
 	close(dp->txpipefd);
 	close(dp->rxpipefd);
 
