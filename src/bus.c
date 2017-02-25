@@ -16,6 +16,8 @@
 
 #define RK65C02_BUS_SIZE	64*1024
 
+static void bus_access_device(bus_t *, uint16_t, device_t **, uint16_t *);
+
 void
 bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 {
@@ -43,58 +45,64 @@ bus_device_dump(bus_t *b)
 	}
 }
 
-uint8_t
-bus_read_1(bus_t *t, uint16_t addr)
+/*
+ * Determine which device is accessed and at what offset. The d argument is 
+ * filled with pointer to accessed device, off with offset.
+ * Returns device NULL when hitting unmapped space.
+ */
+static void
+bus_access_device(bus_t *t, uint16_t addr, device_t **d, uint16_t *off)
 {
-	uint8_t val;
 	uint16_t doff;
 	device_mapping_t *dm;
-	device_t *dtmp, *d;
+	device_t *dtmp;
 
-	d = NULL;
+	*d = NULL;
 
 	LL_FOREACH(t->dm_head, dm) {
 		dtmp = dm->dev;
 		if ( (addr >= dm->addr) && (addr < (dm->addr + dtmp->size)) ) {
-			d = dtmp;
+			*d = dtmp;
 			doff = dm->addr;
 		}
 	}
 
-	if (d == NULL) {
+	if (*d == NULL) {
 		fprintf(stderr, "Hitting unmapped bus space @ %x!", addr);
-		return 0xFF;
+		return;
 	}
 
-	val = d->read_1(d, addr - doff);
+	*off = addr - doff;
+}
 
-	printf("bus READ @ %x (off %x) value %x\n", addr, addr - doff, val); 
+uint8_t
+bus_read_1(bus_t *t, uint16_t addr)
+{
+	uint8_t val;
+	uint16_t off;
+	device_t *d;
+
+	bus_access_device(t, addr, &d, &off);
+
+	if (d == NULL)
+		return 0xFF;
+	else
+		val = d->read_1(d, off);
+
+	printf("bus READ @ %x (off %x) value %x\n", addr, off, val); 
 	return val;
 }
 
 void
 bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 {
-	uint16_t doff;
-	device_mapping_t *dm;
-	device_t *dtmp, *d;
+	uint16_t off;
+	device_t *d;
 
-	d = NULL;
+	bus_access_device(t, addr, &d, &off);
 
-	LL_FOREACH(t->dm_head, dm) {
-		dtmp = dm->dev;
-		if ( (addr >= dm->addr) && (addr < (dm->addr + dtmp->size)) ) {
-			d = dtmp;
-			doff = dm->addr;
-		}
-	}
-
-	if (d == NULL) {
-		fprintf(stderr, "Hitting unmapped bus space @ %x!", addr);
-	}
-
-	printf("bus WRITE @ %x (off %x) value %x\n", addr, addr - doff, val); 
-	d->write_1(d, addr - doff, val);
+	printf("bus WRITE @ %x (off %x) value %x\n", addr, off, val); 
+	d->write_1(d, off, val);
 }
 
 bus_t
