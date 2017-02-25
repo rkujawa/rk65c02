@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-//#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -11,10 +10,12 @@
 #include "bus.h"
 #include "device.h"
 
-const static char *pipepath = "/tmp/serial_tx"; /* should really be configurable */
+const static char *txpipepath = "/tmp/rk65c02_serial_tx"; /* should really be configurable */
+const static char *rxpipepath = "/tmp/rk65c02_serial_rx"; /* should really be configurable */
 
 struct device_serial_priv {
-	int pipefd;
+	int txpipefd;
+	int rxpipefd;
 };
 
 uint8_t device_serial_read_1(void *, uint16_t);
@@ -25,13 +26,24 @@ device_serial_read_1(void *vd, uint16_t offset)
 {
 	device_t *d;
 	struct device_serial_priv *dp;
+	uint8_t val, nread;
 
 	d = (device_t *) vd;
 	dp = d->aux;
 
+	switch (offset) {
+	case 0x1:	
+		nread = read(dp->rxpipefd, &val, 1);;	
+		if (nread == 0)
+			val = 0xFE;
+		if (nread == -1)
+			val = 0xFD;
+	default:
+		break;
+	}
 	// XXX: TODO
 
-	return 0xAA;
+	return 0xFF;
 }
 
 void
@@ -43,10 +55,16 @@ device_serial_write_1(void *vd, uint16_t offset, uint8_t val)
 	d = (device_t *) vd;
 	dp = d->aux;
 
-	/*fprintf(stderr, "writing to fd %d val %x", dp->pipefd, val);*/
-
-	write(dp->pipefd, &val, 1);
-	fsync(dp->pipefd);
+	switch (offset) {
+	case 0x0:
+		/*fprintf(stderr, "writing to fd %d val %x\n", dp->txpipefd, val);*/
+		write(dp->txpipefd, &val, 1);
+		fsync(dp->txpipefd);
+		break;
+	default:
+		/* do nothing */
+		break;
+	}
 }
 
 device_t *
@@ -68,12 +86,17 @@ device_serial_init()
 	dp = (struct device_serial_priv *) malloc(sizeof(struct device_serial_priv));
 	d->aux = dp; 
 		
-	if (mkfifo(pipepath, S_IRUSR | S_IWUSR) != 0) {
+	if (mkfifo(txpipepath, S_IRUSR | S_IWUSR) != 0) {
+		fprintf(stderr, "Creating FIFO for serial port failed!\n");
+		/* perror, handle this failure... */
+	}
+	if (mkfifo(rxpipepath, S_IRUSR | S_IWUSR) != 0) {
 		fprintf(stderr, "Creating FIFO for serial port failed!\n");
 		/* perror, handle this failure... */
 	}
 
-	dp->pipefd = open(pipepath, O_RDWR);
+	dp->txpipefd = open(txpipepath, O_WRONLY);
+	dp->rxpipefd = open(rxpipepath, O_RDONLY | O_NONBLOCK);
 
 	return d;
 }
@@ -81,7 +104,14 @@ device_serial_init()
 void
 device_serial_finish(device_t *d)
 {
+	close(dp->txpipefd);
+	close(dp->rxpipefd);
+
+	unlink(txpipepath);
+	unlink(rxpipepath);
+
 	free(d->aux);
-	//close pipe etc.
+
+	// XXX?
 }
 
