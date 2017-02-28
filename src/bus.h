@@ -10,6 +10,8 @@
 
 struct bus_tag {
 	device_mapping_t *dm_head;
+
+	bool access_debug;
 };
 
 typedef struct bus_tag bus_t;

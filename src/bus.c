@@ -89,7 +89,9 @@ bus_read_1(bus_t *t, uint16_t addr)
 	else
 		val = d->read_1(d, off);
 
-	printf("bus READ @ %x (off %x) value %x\n", addr, off, val); 
+	if (t->access_debug)
+		printf("bus READ @ %x (off %x) value %x\n", addr, off, val); 
+
 	return val;
 }
 
@@ -101,7 +103,9 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 
 	bus_access_device(t, addr, &d, &off);
 
-	printf("bus WRITE @ %x (off %x) value %x\n", addr, off, val); 
+	if (t->access_debug)
+		printf("bus WRITE @ %x (off %x) value %x\n", addr, off, val); 
+
 	d->write_1(d, off, val);
 }
 
@@ -111,6 +115,7 @@ bus_init()
 	bus_t t;
 
 	t.dm_head = NULL;
+	t.access_debug = false;
 
 	return t;	
 }
