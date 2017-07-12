@@ -5,7 +5,7 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -c02
 UTILS=utils.o
 
-TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug test_device_serial
+TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug test_device_serial test_jit
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
@@ -30,6 +30,9 @@ test_debug: test_debug.o $(UTILS) $(RK6502LIB)
 
 test_device_serial: test_device_serial.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
+
+test_jit : test_jit.o $(UTILS) $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) -llightning $< $(UTILS) $(RK6502LIB)
 
 %.rom : %.s
 	$(VASM) $(VASMFLAGS) -o $@ $< 

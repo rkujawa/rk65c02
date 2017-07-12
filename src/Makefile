@@ -1,7 +1,7 @@
 CLI=rk65c02cli
 CLI_OBJS=rk65c02cli.o
 
-LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_serial.o
+LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_serial.o jit_lightning.o
 LIB_SO=librk65c02.so
 LIB_STATIC=librk65c02.a
 
