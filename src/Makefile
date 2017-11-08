@@ -1,13 +1,14 @@
-CLI=rk65c02cli
-CLI_OBJS=rk65c02cli.o
+CLI=g65c02
+CLI_OBJ=$(CLI).o
 
 LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_serial.o
 LIB_SO=librk65c02.so
 LIB_STATIC=librk65c02.a
 
 LDFLAGS_SO=-shared
-LDFLAGS_CLI=-lreadline
-CFLAGS=-Wall -fpic -ggdb
+LDFLAGS_CLI=`pkg-config --libs guile-2.2`
+CFLAGS=-Wall -fpic -ggdb $(CFLAGS_EXTRA)
+CFLAGS_CLI=`pkg-config --cflags guile-2.2`
 
 65C02ISA=65c02isa
 EMULATION=emulation
@@ -16,8 +17,11 @@ DEVICE=device
 
 all : $(LIB_SO) $(LIB_STATIC) $(CLI)
 
-$(CLI) : $(CLI_OBJS)
-	$(CC) -o $(CLI) $(LDFLAGS_CLI) $(CLI_OBJS) $(LIB_STATIC)
+$(CLI) : $(CLI_OBJ)
+	$(CC) -o $(CLI) $(LDFLAGS_CLI) $(CLI_OBJ) $(LIB_STATIC)
+
+$(CLI_OBJ) : $(CLI).c
+	$(CC) $(CFLAGS_CLI) -c $<
 
 $(LIB_SO) : $(LIB_OBJS)
 	$(CC) -o $(LIB_SO) $(LDFLAGS_SO) $(LIB_OBJS)
@@ -37,6 +41,6 @@ $(EMULATION).h : $(65C02ISA).csv $(EMULATION).awk
 
 clean :
 	rm -f $(65C02ISA).h $(EMULATION).h
-	rm -f $(LIB_OBJS) $(CLI_OBJS)
+	rm -f $(LIB_OBJS) $(CLI_OBJ)
 	rm -f $(LIB_SO) $(LIB_STATIC) $(CLI)
 
