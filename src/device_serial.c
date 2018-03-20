@@ -26,7 +26,8 @@ device_serial_read_1(void *vd, uint16_t offset)
 {
 	device_t *d;
 	struct device_serial_priv *dp;
-	uint8_t val, nread;
+	ssize_t nread;
+	uint8_t val;
 
 	d = (device_t *) vd;
 	dp = d->aux;
