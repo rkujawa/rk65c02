@@ -9,6 +9,7 @@
 #include "bus.h"
 #include "instruction.h"
 #include "rk65c02.h"
+#include "log.h"
 #include "debug.h"
 
 void rk65c02_exec(rk65c02emu_t *);
@@ -33,6 +34,8 @@ rk65c02_init(bus_t *b)
 	e.bps_head = NULL;
 	e.trace_head = NULL;
 	e.runtime_disassembly = false;
+
+	rk6502_log(LOG_DEBUG, "Initialized new emulator.");
 
 	return e;
 }
