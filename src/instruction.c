@@ -9,6 +9,7 @@
 #include "bus.h"
 #include "rk65c02.h"
 #include "65c02isa.h"
+#include "log.h"
 #include "instruction.h"
 
 instruction_t
@@ -172,14 +173,16 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, address
 	}
 
 	if (!found) {
-		fprintf(stderr, "Couldn't find opcode for mnemonic %s mode %x\n", mnemonic, mode);
+		rk6502_log(LOG_ERROR,
+		    "Couldn't find opcode for mnemonic %s mode %x.",
+		    mnemonic, mode);
 		return false;
 	}
 
 	*bsize = id.size;
 	*buf = malloc(id.size);
 	if(*buf == NULL) {
-		fprintf(stderr, "Error allocating assembly buffer\n");
+		rk6502_log(LOG_ERROR, "Error allocating assembly buffer.");
 		return false;
 	}
 
@@ -301,8 +304,8 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		printf("unhandled addressing mode for opcode %x\n",
-		    i->opcode);
+		rk6502_log(LOG_ERROR,
+		    "unhandled addressing mode for opcode %x\n", i->opcode);
 		break;
 	}
 }
@@ -368,8 +371,8 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		printf("unhandled addressing mode for opcode %x\n",
-		    i->opcode);
+		rk6502_log(LOG_ERROR,
+		    "unhandled addressing mode for opcode %x\n", i->opcode);
 		break;
 	}
 

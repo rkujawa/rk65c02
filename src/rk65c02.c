@@ -119,8 +119,8 @@ rk65c02_exec(rk65c02emu_t *e)
 		if (!instruction_modify_pc(&id)) 
 			program_counter_increment(e, &id);
 	} else {
-		printf("unimplemented opcode %X @ %X\n", i.opcode,
-		    e->regs.PC);
+		rk6502_log(LOG_ERROR, "unimplemented opcode %X @ %X\n",
+		    i.opcode, e->regs.PC);
 		e->state = STOPPED;
 		e->stopreason = EMUERROR;
 	}

@@ -2,15 +2,18 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <unistd.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <sys/types.h>
 
 #include <utlist.h>
 
 #include "bus.h"
+#include "log.h"
 
 #include "device_ram.h"
 
@@ -68,7 +71,7 @@ bus_access_device(bus_t *t, uint16_t addr, device_t **d, uint16_t *off)
 	}
 
 	if (*d == NULL) {
-		fprintf(stderr, "Hitting unmapped bus space @ %x!", addr);
+		rk6502_log(LOG_WARN, "Hitting unmapped bus space @ %x!", addr);
 		return;
 	}
 
@@ -90,7 +93,8 @@ bus_read_1(bus_t *t, uint16_t addr)
 		val = d->read_1(d, off);
 
 	if (t->access_debug)
-		printf("bus READ @ %x (off %x) value %x\n", addr, off, val); 
+		rk6502_log(LOG_DEBUG, "bus READ @ %x (off %x) value %x\n",
+		    addr, off, val); 
 
 	return val;
 }
@@ -104,7 +108,8 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 	bus_access_device(t, addr, &d, &off);
 
 	if (t->access_debug)
-		printf("bus WRITE @ %x (off %x) value %x\n", addr, off, val); 
+		rk6502_log(LOG_DEBUG, "bus WRITE @ %x (off %x) value %x\n",
+		    addr, off, val); 
 
 	d->write_1(d, off, val);
 }
@@ -158,7 +163,8 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
-		perror("Problem while trying to open file");
+		rk6502_log(LOG_ERROR, "Problem while trying to open file: %s",
+		    strerror(errno));
 		return false;
 	}
 

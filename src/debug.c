@@ -4,6 +4,7 @@
 
 #include "rk65c02.h"
 #include "instruction.h"
+#include "log.h"
 #include "debug.h"
 
 void
@@ -26,7 +27,7 @@ debug_trace_print_all(rk65c02emu_t *e)
 		i.op1 = tr->op1;
 		i.op2 = tr->op2;
 
-		printf("TRACE %X:\t", tr->address);
+		rk6502_log(LOG_TRACE, " %X:\t", tr->address);
 		instruction_print(&i);
 		printf("\t");
 		rk65c02_dump_regs(tr->regs);
