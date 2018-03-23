@@ -193,7 +193,7 @@ rk65c02_dump_regs(reg_state_t regs)
 
 	str = rk65c02_regs_string_get(regs);
 
-	printf ("%s", str);
+	printf ("%s\n", str);
 
 	free(str);
 }
