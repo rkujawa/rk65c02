@@ -55,7 +55,7 @@ ATF_TC_BODY(trace, tc)
 	trace_t *tr;
 	int i;
 
-	rk6502_loglevel_set(LOG_TRACE);
+	rk65c02_loglevel_set(LOG_TRACE);
 
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);

@@ -51,6 +51,7 @@ typedef struct assembler assembler_t;
 instruction_t instruction_fetch(bus_t *, uint16_t);
 instrdef_t instruction_decode(uint8_t);
 void instruction_print(instruction_t *);
+char * instruction_string_get(instruction_t *);
 void disassemble(bus_t *, uint16_t);
 uint8_t instruction_data_read_1(rk65c02emu_t *, instrdef_t *, instruction_t *);
 void instruction_data_write_1(rk65c02emu_t *, instrdef_t *, instruction_t *, uint8_t);

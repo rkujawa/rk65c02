@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #include <assert.h>
 #include <string.h>
@@ -55,59 +56,83 @@ instruction_fetch(bus_t *b, uint16_t addr)
 void
 instruction_print(instruction_t *i)
 {
+	char *str;
+
+	str = instruction_string_get(i);
+
+	printf("%s", str);
+
+	free(str);
+}
+
+char *
+instruction_string_get(instruction_t *i)
+{
+#define INSTR_STR_LEN	16
 	instrdef_t id;
+	char *str;
+
+	str = malloc(INSTR_STR_LEN);
+	if (str == NULL) {
+		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
+		    strerror(errno));
+		return NULL;
+	}
+	memset(str, 0, INSTR_STR_LEN);
 
 	id = instruction_decode(i->opcode);
 	switch (id.mode) {
 	case IMPLIED:
-		printf("%s", id.mnemonic);
+		snprintf(str, INSTR_STR_LEN, "%s", id.mnemonic);
 		break;
 	case ACCUMULATOR:
-		printf("%s A", id.mnemonic);
+		snprintf(str, INSTR_STR_LEN, "%s A", id.mnemonic);
 		break;
 	case IMMEDIATE:
-		printf("%s #%#02x", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s #%#02x", id.mnemonic, i->op1);
 		break;
 	case ZP:
-		printf("%s %#02x", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x", id.mnemonic, i->op1);
 		break;
 	case ZPX:
-		printf("%s %#02x,X", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x,X", id.mnemonic, i->op1);
 		break;
 	case ZPY:
-		printf("%s %#02x,Y", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x,Y", id.mnemonic, i->op1);
 		break;
 	case IZP:
-		printf("%s (%#02x)", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s (%#02x)", id.mnemonic, i->op1);
 		break;
 	case IZPX:
-		printf("%s (%#02x,X)", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s (%#02x,X)", id.mnemonic, i->op1);
 		break;
 	case IZPY:
-		printf("%s (%#02x),Y", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s (%#02x),Y", id.mnemonic, i->op1);
 		break;
 	case ZPR:
-		printf("%s %#02x,%#02x", id.mnemonic, i->op1, i->op2);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x,%#02x", id.mnemonic, i->op1, i->op2);
 		break;
 	case ABSOLUTE:
-		printf("%s %#02x%02x", id.mnemonic, i->op2, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x%02x", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEX:
-		printf("%s %#02x%02x,X", id.mnemonic, i->op2, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x%02x,X", id.mnemonic, i->op2, i->op1);
 		break;
 	case ABSOLUTEY:
-		printf("%s %#02x%02x,Y", id.mnemonic, i->op2, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x%02x,Y", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTE:
-		printf("%s (%#02x%02x)", id.mnemonic, i->op2, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s (%#02x%02x)", id.mnemonic, i->op2, i->op1);
 		break;
 	case IABSOLUTEX:
-		printf("%s (%#02x%02x,X)", id.mnemonic, i->op2, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s (%#02x%02x,X)", id.mnemonic, i->op2, i->op1);
 		break;
 	case RELATIVE:
-		printf("%s %#02x", id.mnemonic, i->op1);
+		snprintf(str, INSTR_STR_LEN, "%s %#02x", id.mnemonic, i->op1);
 		break;
 	}
+
+	return str;
 }
 
 assembler_t
@@ -173,7 +198,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, address
 	}
 
 	if (!found) {
-		rk6502_log(LOG_ERROR,
+		rk65c02_log(LOG_ERROR,
 		    "Couldn't find opcode for mnemonic %s mode %x.",
 		    mnemonic, mode);
 		return false;
@@ -182,7 +207,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, address
 	*bsize = id.size;
 	*buf = malloc(id.size);
 	if(*buf == NULL) {
-		rk6502_log(LOG_ERROR, "Error allocating assembly buffer.");
+		rk65c02_log(LOG_ERROR, "Error allocating assembly buffer.");
 		return false;
 	}
 
@@ -304,7 +329,7 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		rk6502_log(LOG_ERROR,
+		rk65c02_log(LOG_ERROR,
 		    "unhandled addressing mode for opcode %x\n", i->opcode);
 		break;
 	}
@@ -371,7 +396,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		rk6502_log(LOG_ERROR,
+		rk65c02_log(LOG_ERROR,
 		    "unhandled addressing mode for opcode %x\n", i->opcode);
 		break;
 	}

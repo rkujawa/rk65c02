@@ -33,6 +33,9 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 	dm->addr = addr;
 
 	LL_APPEND((b->dm_head), dm);
+
+	rk65c02_log(LOG_INFO, "Bus mapping added: %x device %s size %x.",
+	    addr, d->name, d->size);
 }
 
 void
@@ -71,7 +74,7 @@ bus_access_device(bus_t *t, uint16_t addr, device_t **d, uint16_t *off)
 	}
 
 	if (*d == NULL) {
-		rk6502_log(LOG_WARN, "Hitting unmapped bus space @ %x!", addr);
+		rk65c02_log(LOG_WARN, "Hitting unmapped bus space @ %x!", addr);
 		return;
 	}
 
@@ -93,7 +96,7 @@ bus_read_1(bus_t *t, uint16_t addr)
 		val = d->read_1(d, off);
 
 	if (t->access_debug)
-		rk6502_log(LOG_DEBUG, "bus READ @ %x (off %x) value %x\n",
+		rk65c02_log(LOG_DEBUG, "bus READ @ %x (off %x) value %x\n",
 		    addr, off, val); 
 
 	return val;
@@ -108,7 +111,7 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 	bus_access_device(t, addr, &d, &off);
 
 	if (t->access_debug)
-		rk6502_log(LOG_DEBUG, "bus WRITE @ %x (off %x) value %x\n",
+		rk65c02_log(LOG_DEBUG, "bus WRITE @ %x (off %x) value %x\n",
 		    addr, off, val); 
 
 	d->write_1(d, off, val);
@@ -163,7 +166,7 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
-		rk6502_log(LOG_ERROR, "Problem while trying to open file: %s",
+		rk65c02_log(LOG_ERROR, "Problem while trying to open file: %s",
 		    strerror(errno));
 		return false;
 	}

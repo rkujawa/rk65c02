@@ -18,6 +18,8 @@ debug_trace_print_all(rk65c02emu_t *e)
 {
 	trace_t *tr;
 	instruction_t i;
+	char *instrstr;
+	char *regsstr;
 
 	if (e->trace_head == NULL)
 		return;
@@ -26,11 +28,14 @@ debug_trace_print_all(rk65c02emu_t *e)
 		i.opcode = tr->opcode;
 		i.op1 = tr->op1;
 		i.op2 = tr->op2;
+		instrstr = instruction_string_get(&i);
+		regsstr = rk65c02_regs_string_get(tr->regs);
 
-		rk6502_log(LOG_TRACE, " %X:\t", tr->address);
-		instruction_print(&i);
-		printf("\t");
-		rk65c02_dump_regs(tr->regs);
+		rk65c02_log(LOG_TRACE, "%X: %s\t%s", tr->address, instrstr,
+		    regsstr);
+
+		free(instrstr);
+		free(regsstr);
 	}
 
 }

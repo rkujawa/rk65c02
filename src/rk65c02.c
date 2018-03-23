@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include <errno.h>
 #include <assert.h>
 #include <string.h>
 
@@ -35,7 +36,7 @@ rk65c02_init(bus_t *b)
 	e.trace_head = NULL;
 	e.runtime_disassembly = false;
 
-	rk6502_log(LOG_DEBUG, "Initialized new emulator.");
+	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
 	return e;
 }
@@ -119,7 +120,7 @@ rk65c02_exec(rk65c02emu_t *e)
 		if (!instruction_modify_pc(&id)) 
 			program_counter_increment(e, &id);
 	} else {
-		rk6502_log(LOG_ERROR, "unimplemented opcode %X @ %X\n",
+		rk65c02_log(LOG_ERROR, "unimplemented opcode %X @ %X\n",
 		    i.opcode, e->regs.PC);
 		e->state = STOPPED;
 		e->stopreason = EMUERROR;
@@ -188,50 +189,42 @@ rk65c02_dump_stack(rk65c02emu_t *e, uint8_t n)
 void
 rk65c02_dump_regs(reg_state_t regs)
 {
-	printf("A: %X X: %X Y: %X PC: %X SP: %X P: ", 
-	    regs.A, regs.X, regs.Y, regs.PC, regs.SP);
+	char *str;
 
-	if (regs.P & P_NEGATIVE)
-		printf("N");
-	else
-		printf("-");
+	str = rk65c02_regs_string_get(regs);
 
-	if (regs.P & P_SIGN_OVERFLOW)
-		printf("V");
-	else
-		printf("-");
+	printf ("%s", str);
 
-	if (regs.P & P_UNDEFINED)
-		printf("1");
-	else
-		printf("-");
+	free(str);
+}
 
-	if (regs.P & P_BREAK)
-		printf("B");
-	else
-		printf("-");
+char *
+rk65c02_regs_string_get(reg_state_t regs)
+{
+#define REGS_STR_LEN 50
+	char *str;
 
-	if (regs.P & P_DECIMAL)
-		printf("D");
-	else
-		printf("-");
+	/* XXX: string allocation to a separate utility function? */
+	str = malloc(REGS_STR_LEN);
+	if (str == NULL) {
+		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
+		    strerror(errno));
+		return NULL;
+	}
+	memset(str, 0, REGS_STR_LEN);
 
-	if (regs.P & P_IRQ_DISABLE)
-		printf("I");
-	else
-		printf("-");
+	snprintf(str, REGS_STR_LEN, "A: %X X: %X Y: %X PC: %X SP: %X P: %c%c%c%c%c%c%c%c", 
+	    regs.A, regs.X, regs.Y, regs.PC, regs.SP, 
+	    (regs.P & P_NEGATIVE) ? 'N' : '-',
+	    (regs.P & P_SIGN_OVERFLOW) ? 'V' : '-',
+	    (regs.P & P_UNDEFINED) ? '1' : '-',
+	    (regs.P & P_BREAK) ? 'B' : '-',
+	    (regs.P & P_DECIMAL) ? 'D' : '-',
+	    (regs.P & P_IRQ_DISABLE) ? 'I' : '-',
+	    (regs.P & P_ZERO) ? 'Z' : '-',
+	    (regs.P & P_CARRY) ? 'C' : '-');
 
-	if (regs.P & P_ZERO)
-		printf("Z");
-	else
-		printf("-");
-
-	if (regs.P & P_CARRY)
-		printf("C");
-	else
-		printf("-");
-
-	printf("\n");
+	return str;
 }
 /*
 int
@@ -252,7 +245,7 @@ main(void)
 	bus_write_1(&b, 8, 0x0);
 	bus_write_1(&b, 9, OP_STP);
 
-	rk6502_start(&b, 0);
+	rk65c02_start(&b, 0);
 
 	bus_finish(&b);
 }

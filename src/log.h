@@ -10,6 +10,6 @@
 				   current level, but not when creating new log
 				   messages. */
 
-void rk6502_loglevel_set(uint8_t);
-void rk6502_log(uint8_t, const char *, ...);
+void rk65c02_loglevel_set(uint8_t);
+void rk65c02_log(uint8_t, const char *, ...);
 

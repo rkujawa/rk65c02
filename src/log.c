@@ -16,12 +16,12 @@ static const char *level_str[] = {
 
 static uint8_t level = LOG_INFO;
 
-void rk6502_loglevel_set(uint8_t l)
+void rk65c02_loglevel_set(uint8_t l)
 {
 	level = l;
 }
 
-void rk6502_log(uint8_t l, const char* fmt, ...)
+void rk65c02_log(uint8_t l, const char* fmt, ...)
 {
 	va_list args;
 	struct timeval t;
