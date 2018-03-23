@@ -238,9 +238,6 @@ emul_bbs7(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-/*	uint8_t v = instruction_data_read_1(e, (instrdef_t *) id, i);
-	printf("%x\n", v);*/
-
 	/* zero flag set if acculumator AND memory equals zero */
 	if (e->regs.A & instruction_data_read_1(e, (instrdef_t *) id, i))
 		e->regs.P &= ~P_ZERO;
