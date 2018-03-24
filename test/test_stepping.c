@@ -4,6 +4,8 @@
 
 #include "bus.h"
 #include "rk65c02.h"
+#include "log.h"
+
 #include "utils.h"
 
 ATF_TC_WITHOUT_HEAD(step1);
@@ -11,6 +13,8 @@ ATF_TC_BODY(step1, tc)
 {
 	rk65c02emu_t e;
 	bus_t b;
+
+	rk65c02_loglevel_set(LOG_TRACE);
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
