@@ -8,6 +8,9 @@
 #include "bus.h"
 #include "rk65c02.h"
 #include "instruction.h"
+#include "log.h"
+#include "device_ram.h"
+
 #include "utils.h"
 
 #define ISR_ADDR 0xC100
@@ -23,7 +26,10 @@ ATF_TC_BODY(intr_brk, tc)
 	rk65c02emu_t e;	
 	bus_t b;
 
+	rk65c02_loglevel_set(LOG_TRACE);
+
 	b = bus_init_with_default_devs();
+	bus_device_add(&b, device_ram_init(0x100), 0xFF00);
 	e = rk65c02_init(&b);
 
 	e.regs.PC = ROM_LOAD_ADDR;
