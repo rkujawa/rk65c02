@@ -6,7 +6,7 @@
 #include "log.h"
 
 static const char *level_str[] = {
-	"",
+	"NONE",		/* should never appear in log */
 	"CRITICAL",
 	"ERROR",
 	"INFO",
