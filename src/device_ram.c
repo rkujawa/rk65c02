@@ -6,8 +6,6 @@
 #include "bus.h"
 #include "device.h"
 
-#define RAM_SIZE 0xDFFF /* should be configurable */
-
 uint8_t device_ram_read_1(void *, uint16_t);
 void device_ram_write_1(void *, uint16_t, uint8_t);
 
@@ -36,7 +34,7 @@ device_ram_write_1(void *vd, uint16_t offset, uint8_t val)
 }
 
 device_t *
-device_ram_init()
+device_ram_init(uint16_t size)
 {
 	device_t *d;
 
@@ -45,13 +43,13 @@ device_ram_init()
 	assert(d != NULL);
 
 	d->name = "RAM";
-	d->size = RAM_SIZE;
+	d->size = size;
 
 	d->read_1 = device_ram_read_1;
 	d->write_1 = device_ram_write_1;
 
-	d->aux = malloc(RAM_SIZE);
-	memset(d->aux, 0, RAM_SIZE);
+	d->aux = malloc(size);
+	memset(d->aux, 0, size);
 
 	return d;
 }

@@ -3,7 +3,7 @@
 
 #include "device.h"
 
-device_t * device_ram_init();
+device_t * device_ram_init(uint16_t);
 void device_ram_finish(device_t *);
 
 #endif /* _DEVICE_RAM_H_ */

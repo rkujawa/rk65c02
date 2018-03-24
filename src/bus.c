@@ -135,7 +135,7 @@ bus_init_with_default_devs()
 
 	t = bus_init();
 
-	bus_device_add(&t, device_ram_init(), 0x0);
+	bus_device_add(&t, device_ram_init(0xDFFF), 0x0);
 
 	return t;
 }
@@ -176,6 +176,8 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	}
 
 	close(fd);
+
+	rk65c02_log(LOG_DEBUG, "Loaded file %s at %x.", filename, addr);
 
 	return true;
 }
