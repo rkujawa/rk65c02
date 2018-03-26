@@ -1,12 +1,12 @@
-CLI=rk65c02cli
-CLI_OBJS=rk65c02cli.o
+#CLI=rk65c02cli
+#CLI_OBJS=rk65c02cli.o
 
 LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_fb.o device_serial.o log.o
 LIB_SO=librk65c02.so
 LIB_STATIC=librk65c02.a
 
 LDFLAGS_SO=-shared
-LDFLAGS_CLI=-lreadline
+#LDFLAGS_CLI=-lreadline
 CFLAGS=-Wall -fpic -ggdb
 #CFLAGS=-Wall -fpic -ggdb -I/opt/local/include/uthash
 
@@ -17,8 +17,8 @@ DEVICE=device
 
 all : $(LIB_SO) $(LIB_STATIC) $(CLI)
 
-$(CLI) : $(CLI_OBJS)
-	$(CC) -o $(CLI) $(LDFLAGS_CLI) $(CLI_OBJS) $(LIB_STATIC)
+#$(CLI) : $(CLI_OBJS)
+#	$(CC) -o $(CLI) $(LDFLAGS_CLI) $(CLI_OBJS) $(LIB_STATIC)
 
 $(LIB_SO) : $(LIB_OBJS)
 	$(CC) -o $(LIB_SO) $(LDFLAGS_SO) $(LIB_OBJS)
@@ -38,6 +38,6 @@ $(EMULATION).h : $(65C02ISA).csv $(EMULATION).awk
 
 clean :
 	rm -f $(65C02ISA).h $(EMULATION).h
-	rm -f $(LIB_OBJS) $(CLI_OBJS)
-	rm -f $(LIB_SO) $(LIB_STATIC) $(CLI)
+	rm -f $(LIB_OBJS) #$(CLI_OBJS)
+	rm -f $(LIB_SO) $(LIB_STATIC) #$(CLI)
 
