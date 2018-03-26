@@ -79,9 +79,5 @@ device_fb_init()
 void
 device_fb_finish(device_t *d)
 {
-	struct fb_state *f;
-
-	f = d->aux;
-
 }
 
