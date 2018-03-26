@@ -28,20 +28,17 @@ ATF_TC_BODY(assemble_single_buf, tc)
 	ATF_REQUIRE(assemble_single_buf_implied(&asmbuf, &bsize, "nop"));
 	ATF_CHECK(asmbuf[0] == 0xEA);	/* check if nop really */
 	ATF_REQUIRE(bus_load_buf(&b, caddr, asmbuf, bsize));
-	free(asmbuf);
 	caddr += bsize;
 
 	ATF_REQUIRE(assemble_single_buf(&asmbuf, &bsize, "lda", IMMEDIATE, 0xAA, 0));
 	ATF_CHECK(asmbuf[0] == 0xA9);	/* check if lda really */
 	ATF_CHECK(asmbuf[1] == 0xAA);	/* check the operand */
 	ATF_REQUIRE(bus_load_buf(&b, caddr, asmbuf, bsize));
-	free(asmbuf);
 	caddr += bsize;
 
 	ATF_REQUIRE(assemble_single_buf_implied(&asmbuf, &bsize, "stp"));
 	ATF_CHECK(asmbuf[0] == 0xDB);	/* check if stp really */
 	ATF_REQUIRE(bus_load_buf(&b, caddr, asmbuf, bsize));
-	free(asmbuf);
 	caddr += bsize;
 
 	rk65c02_start(&e);

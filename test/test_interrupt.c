@@ -87,17 +87,14 @@ ATF_TC_BODY(intr_rti, tc)
 
 	ATF_REQUIRE(assemble_single_buf_implied(&asmbuf, &bsize, "nop"));
 	ATF_REQUIRE(bus_load_buf(&b, israsmpc, asmbuf, bsize));
-	free(asmbuf);
 	israsmpc += bsize;
 
 	ATF_REQUIRE(assemble_single_buf_implied(&asmbuf, &bsize, "rti"));
 	ATF_REQUIRE(bus_load_buf(&b, israsmpc, asmbuf, bsize));
-	free(asmbuf);
 	israsmpc += bsize;
 
 	ATF_REQUIRE(assemble_single_buf_implied(&asmbuf, &bsize, "nop"));
 	ATF_REQUIRE(bus_load_buf(&b, ROM_LOAD_ADDR, asmbuf, bsize));
-	free(asmbuf);
 
 	/* There's a return address and saved processor flags on stack. */
 	e.regs.SP = 0xFF;

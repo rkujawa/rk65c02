@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 #include "bus.h"
 #include "instruction.h"
 #include "rk65c02.h"
@@ -195,7 +197,6 @@ rk65c02_dump_regs(reg_state_t regs)
 
 	printf ("%s\n", str);
 
-	free(str);
 }
 
 char *
@@ -205,7 +206,7 @@ rk65c02_regs_string_get(reg_state_t regs)
 	char *str;
 
 	/* XXX: string allocation to a separate utility function? */
-	str = malloc(REGS_STR_LEN);
+	str = GC_MALLOC(REGS_STR_LEN);
 	if (str == NULL) {
 		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
 		    strerror(errno));

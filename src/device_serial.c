@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <gc/gc.h>
+
 #include "bus.h"
 #include "device.h"
 
@@ -74,7 +76,7 @@ device_serial_init()
 	device_t *d;
 	struct device_serial_priv *dp;
 
-	d = (device_t *) malloc(sizeof(device_t));
+	d = (device_t *) GC_MALLOC(sizeof(device_t));
 
 	assert(d != NULL);
 
@@ -84,7 +86,7 @@ device_serial_init()
 	d->read_1 = device_serial_read_1;
 	d->write_1 = device_serial_write_1;
 
-	dp = (struct device_serial_priv *) malloc(sizeof(struct device_serial_priv));
+	dp = (struct device_serial_priv *) GC_MALLOC(sizeof(struct device_serial_priv));
 	d->aux = dp; 
 		
 	if (mkfifo(txpipepath, S_IRUSR | S_IWUSR) != 0) {
@@ -114,8 +116,6 @@ device_serial_finish(device_t *d)
 
 	unlink(txpipepath);
 	unlink(rxpipepath);
-
-	free(d->aux);
 
 	// XXX?
 }

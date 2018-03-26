@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+
 #include <atf-c.h>
+#include <gc/gc.h>
 
 #include "bus.h"
 #include "rk65c02.h"
@@ -15,7 +17,7 @@ rom_path(const char *name, const atf_tc_t *tc)
 	char *rompath;
 	const char *srcdir;
 
-	rompath = malloc(PATH_MAX);
+	rompath = GC_MALLOC(PATH_MAX);
 	srcdir = atf_tc_get_config_var(tc, "srcdir");
 
 	strcpy(rompath, srcdir);

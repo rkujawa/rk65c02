@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 #include "bus.h"
 #include "device.h"
 
@@ -38,7 +40,7 @@ device_ram_init(uint16_t size)
 {
 	device_t *d;
 
-	d = (device_t *) malloc(sizeof(device_t));
+	d = (device_t *) GC_MALLOC(sizeof(device_t));
 
 	assert(d != NULL);
 
@@ -48,7 +50,7 @@ device_ram_init(uint16_t size)
 	d->read_1 = device_ram_read_1;
 	d->write_1 = device_ram_write_1;
 
-	d->aux = malloc(size);
+	d->aux = GC_MALLOC(size);
 	memset(d->aux, 0, size);
 
 	return d;
@@ -57,6 +59,5 @@ device_ram_init(uint16_t size)
 void
 device_ram_finish(device_t *d)
 {
-	free(d->aux);
 }
 

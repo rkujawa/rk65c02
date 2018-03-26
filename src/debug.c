@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <gc/gc.h>
 #include <utlist.h>
 
 #include "rk65c02.h"
@@ -33,9 +35,6 @@ debug_trace_print_all(rk65c02emu_t *e)
 
 		rk65c02_log(LOG_TRACE, "%X: %s\t%s", tr->address, instrstr,
 		    regsstr);
-
-		free(instrstr);
-		free(regsstr);
 	}
 
 }
@@ -46,7 +45,7 @@ debug_trace_savestate(rk65c02emu_t *e, uint16_t address, instrdef_t *id,
 {
 	trace_t *tr;
 
-	tr = (trace_t *) malloc(sizeof(trace_t));
+	tr = (trace_t *) GC_MALLOC(sizeof(trace_t));
 	if (tr == NULL) {
 		fprintf(stderr, "Error allocating trace structure.\n");
 		return;
@@ -86,7 +85,7 @@ debug_breakpoint_add(rk65c02emu_t *e, uint16_t address)
 {
 	breakpoint_t *bp;
 
-	bp = (breakpoint_t *) malloc(sizeof(breakpoint_t));
+	bp = (breakpoint_t *) GC_MALLOC(sizeof(breakpoint_t));
 	if (bp == NULL)
 		return false;
 

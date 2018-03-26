@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 
+#include <gc/gc.h>
 #include <utlist.h>
 
 #include "bus.h"
@@ -26,7 +27,7 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 {
 	device_mapping_t *dm;
 
-	dm = (device_mapping_t *) malloc(sizeof(device_mapping_t));
+	dm = (device_mapping_t *) GC_MALLOC(sizeof(device_mapping_t));
 
 	dm->dev = d;
 	/* TODO: check if addr + size is not bigger than RK65C02_BUS_SIZE */
@@ -186,7 +187,5 @@ void
 bus_finish(bus_t *t)
 {
 	assert(t != NULL);
-
-	/* TODO: foreach devices free 'em */
 }
 

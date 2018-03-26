@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 #include "bus.h"
 #include "rk65c02.h"
 #include "65c02isa.h"
@@ -61,8 +63,6 @@ instruction_print(instruction_t *i)
 	str = instruction_string_get(i);
 
 	printf("%s", str);
-
-	free(str);
 }
 
 char *
@@ -72,7 +72,7 @@ instruction_string_get(instruction_t *i)
 	instrdef_t id;
 	char *str;
 
-	str = malloc(INSTR_STR_LEN);
+	str = GC_MALLOC(INSTR_STR_LEN);
 	if (str == NULL) {
 		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
 		    strerror(errno));
@@ -164,7 +164,6 @@ assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t
 		return rv;
 
 	rv = bus_load_buf(a->bus, a->pc, asmbuf, bsize);
-	free(asmbuf);
 	a->pc += bsize;
 
 	return rv;
@@ -205,7 +204,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, address
 	}
 
 	*bsize = id.size;
-	*buf = malloc(id.size);
+	*buf = GC_MALLOC(id.size);
 	if(*buf == NULL) {
 		rk65c02_log(LOG_ERROR, "Error allocating assembly buffer.");
 		return false;

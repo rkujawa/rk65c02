@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 #include "bus.h"
 #include "device.h"
 
@@ -55,7 +57,7 @@ device_fb_init()
 	device_t *d;
 	struct fb_state *f;
 
-	d = (device_t *) malloc(sizeof(device_t));
+	d = (device_t *) GC_MALLOC(sizeof(device_t));
 
 	assert(d != NULL);
 
@@ -65,10 +67,10 @@ device_fb_init()
 	d->read_1 = device_fb_read_1;
 	d->write_1 = device_fb_write_1;
 
-	f = malloc(sizeof(struct fb_state));
+	f = GC_MALLOC(sizeof(struct fb_state));
 	d->aux = f;
 
-	f->cram = malloc(FB_AS_SIZE);
+	f->cram = GC_MALLOC(FB_AS_SIZE);
 	memset(d->aux, 0, FB_AS_SIZE);
 
 	return d;
@@ -81,7 +83,5 @@ device_fb_finish(device_t *d)
 
 	f = d->aux;
 
-	free(f->cram);
-	free(f);
 }
 
