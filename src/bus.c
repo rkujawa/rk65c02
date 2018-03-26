@@ -164,6 +164,8 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	int fd;
 	uint8_t data;
 
+	rk65c02_log(LOG_DEBUG, "Loading file %s at %x.", filename, addr);
+
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
 		rk65c02_log(LOG_ERROR, "Problem while trying to open file: %s",
@@ -176,8 +178,6 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	}
 
 	close(fd);
-
-	rk65c02_log(LOG_DEBUG, "Loaded file %s at %x.", filename, addr);
 
 	return true;
 }
