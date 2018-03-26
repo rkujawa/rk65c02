@@ -35,6 +35,7 @@ rk65c02_init(bus_t *b)
 	e.irq = false;
 
 	e.bps_head = NULL;
+	e.trace = false;
 	e.trace_head = NULL;
 	e.runtime_disassembly = false;
 
