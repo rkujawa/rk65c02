@@ -109,6 +109,8 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 	uint16_t off;
 	device_t *d;
 
+	off = 0;
+
 	bus_access_device(t, addr, &d, &off);
 
 	if (t->access_debug)
