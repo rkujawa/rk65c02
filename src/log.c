@@ -30,8 +30,8 @@ void rk65c02_log(uint8_t l, const char* fmt, ...)
 
 	clock_gettime(CLOCK_REALTIME, &t);
 
-	fprintf(stderr, "%ld.%ld %s:\t", t.tv_sec, t.tv_nsec,
-	    level_str[l]);
+	fprintf(stderr, "%lld.%lld %s:\t", (long long int) t.tv_sec,
+	    (long long int) t.tv_nsec, level_str[l]);
 
 	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
