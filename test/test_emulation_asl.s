@@ -1,0 +1,7 @@
+start:	asl A
+	asl 0x10
+	asl 0x10,X
+	asl 0x300
+	asl 0x300,X
+	stp
+
