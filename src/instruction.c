@@ -283,8 +283,7 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		bus_write_1(e->bus, i->op1, val);
 		break;
 	case ZPX:
-		/* XXX: wraps around zero page? */
-		bus_write_1(e->bus, i->op1 + e->regs.X, val);
+		bus_write_1(e->bus, (uint8_t) (i->op1 + e->regs.X), val);
 		break;
 	case ZPY:
 		bus_write_1(e->bus, i->op1 + e->regs.Y, val);
