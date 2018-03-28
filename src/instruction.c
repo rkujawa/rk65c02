@@ -353,8 +353,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		rv = bus_read_1(e->bus, i->op1);
 		break;
 	case ZPX:
-		/* XXX: wraps around zero page? */
-		rv = bus_read_1(e->bus, i->op1 + e->regs.X);
+		rv = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
 		break;
 	case ZPY:
 		rv = bus_read_1(e->bus, i->op1 + e->regs.Y);

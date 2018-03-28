@@ -1409,6 +1409,7 @@ ATF_TC_BODY(emul_wrap_zpx, tc)
 {
 	rk65c02emu_t e;
 	bus_t b;
+	uint16_t i;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
@@ -1422,6 +1423,13 @@ ATF_TC_BODY(emul_wrap_zpx, tc)
 	ATF_CHECK(bus_read_1(&b, 0x00) == 0xAA);
 	ATF_CHECK(bus_read_1(&b, 0x01) == 0xAA);
 	ATF_CHECK(bus_read_1(&b, 0x7E) == 0xAA);
+
+	i = 0x200;
+
+	while (i < 0x205) {
+		ATF_CHECK(bus_read_1(&b, i) == 0xAA);
+		i++;
+	}
 }
 
 ATF_TP_ADD_TCS(tp)
