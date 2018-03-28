@@ -8,6 +8,7 @@
 
 #include "bus.h"
 #include "rk65c02.h"
+#include "log.h"
 
 #include "utils.h"
 
@@ -33,7 +34,7 @@ rom_start(rk65c02emu_t *e, const char *name, const atf_tc_t *tc)
 	const char *path;
 
 	path = rom_path(name, tc);
-	printf("%s\n", path);
+	rk65c02_log(LOG_INFO, "Loading ROM: %s", path);
         e->regs.PC = ROM_LOAD_ADDR;
         if(!bus_load_file(e->bus, ROM_LOAD_ADDR, path))
                 return false;
