@@ -570,6 +570,34 @@ ATF_TC_BODY(emul_asl, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_lsr);
+ATF_TC_BODY(emul_lsr, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+
+	e.regs.A = 0x55;
+	e.regs.X = 0x1;
+	bus_write_1(&b, 0x10, 0x55);
+	bus_write_1(&b, 0x11, 0x55);
+	bus_write_1(&b, 0x300, 0xFF);
+	bus_write_1(&b, 0x301, 0xFF);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lsr.rom", tc));
+
+	ATF_CHECK(e.regs.A == 0x2A);
+	ATF_CHECK(bus_read_1(&b, 0x10) == 0x2A);
+	ATF_CHECK(bus_read_1(&b, 0x11) == 0x2A);
+	ATF_CHECK(bus_read_1(&b, 0x300) == 0x7F);
+	ATF_CHECK(bus_read_1(&b, 0x301) == 0x7F);
+	ATF_CHECK(e.regs.P & P_CARRY);
+
+	bus_finish(&b);
+}
+
 ATF_TC_WITHOUT_HEAD(emul_nop);
 ATF_TC_BODY(emul_nop, tc)
 {
@@ -1376,6 +1404,26 @@ ATF_TC_BODY(emul_smb, tc)
 	}
 }
 
+ATF_TC_WITHOUT_HEAD(emul_wrap_zpx);
+ATF_TC_BODY(emul_wrap_zpx, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+
+	e.regs.A = 0xAA;
+	e.regs.X = 0x7F;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_wrap_zpx.rom", tc));
+
+	ATF_CHECK(bus_read_1(&b, 0x8F) == 0xAA);
+	ATF_CHECK(bus_read_1(&b, 0xFF) == 0xAA);
+	ATF_CHECK(bus_read_1(&b, 0x00) == 0xAA);
+	ATF_CHECK(bus_read_1(&b, 0x01) == 0xAA);
+	ATF_CHECK(bus_read_1(&b, 0x7E) == 0xAA);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -1397,6 +1445,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_jmp);
 	ATF_TP_ADD_TC(tp, emul_jsr_rts);
 	ATF_TP_ADD_TC(tp, emul_lda);
+	ATF_TP_ADD_TC(tp, emul_lsr);
 	ATF_TP_ADD_TC(tp, emul_nop);
 	ATF_TP_ADD_TC(tp, emul_ora);
 	ATF_TP_ADD_TC(tp, emul_stz);
@@ -1413,6 +1462,8 @@ ATF_TP_ADD_TCS(tp)
 
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_basic);
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough);
+
+	ATF_TP_ADD_TC(tp, emul_wrap_zpx);
 
 	return (atf_no_error());
 }
