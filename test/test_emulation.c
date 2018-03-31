@@ -122,7 +122,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.Y = 0x01;
 	bus_write_1(&b, 0x22, 0x0);
 	bus_write_1(&b, 0x23, 0x20);
-	bus_write_1(&b, 0x2000, 0xF);
+	bus_write_1(&b, 0x2001, 0x10);
 	rk65c02_dump_regs(e.regs);
 	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izpy.rom", tc));
 	rk65c02_dump_regs(e.regs);
@@ -662,11 +662,11 @@ ATF_TC_BODY(emul_sta, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpx.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA indirect zero page Y */
-	e.regs.A = 0x54;
+	e.regs.A = 0x55;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
 	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpy.rom", tc));
-	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
+	ATF_CHECK(bus_read_1(&b, 0x2011) == 0x55);
 
 	bus_finish(&b);
 }
@@ -729,7 +729,7 @@ ATF_TC_BODY(emul_ora, tc)
 	e.regs.A = 0xAA;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
-	bus_write_1(&b, 0x2A04, 0x54);
+	bus_write_1(&b, 0x2A05, 0x55);
 	bus_write_1(&b, 0x14, 0x04);
 	bus_write_1(&b, 0x15, 0x2A);
 	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpy.rom", tc));
