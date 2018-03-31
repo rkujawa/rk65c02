@@ -8,6 +8,7 @@
 #include "rk65c02.h"
 #include "instruction.h"
 #include "debug.h"
+#include "log.h"
 #include "utils.h"
 
 ATF_TC_WITHOUT_HEAD(emul_bit);
@@ -1404,6 +1405,33 @@ ATF_TC_BODY(emul_smb, tc)
 	}
 }
 
+ATF_TC_WITHOUT_HEAD(emul_wrap_izpx);
+ATF_TC_BODY(emul_wrap_izpx, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+
+	e.regs.A = 0xAA;
+	e.regs.X = 0xA0;
+
+	bus_write_1(&b, 0xB0, 0x10);
+	bus_write_1(&b, 0xB1, 0x20);
+	bus_write_1(&b, 0x90, 0x11);
+	bus_write_1(&b, 0x91, 0x20);
+
+	bus_write_1(&b, 0x2011, 0x55);
+
+	rk65c02_dump_regs(e.regs);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_wrap_izpx.rom", tc));
+	rk65c02_dump_regs(e.regs);
+
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);	
+	ATF_CHECK(e.regs.A == 0x55);	
+}
+
 ATF_TC_WITHOUT_HEAD(emul_wrap_zpx);
 ATF_TC_BODY(emul_wrap_zpx, tc)
 {
@@ -1472,6 +1500,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough);
 
 	ATF_TP_ADD_TC(tp, emul_wrap_zpx);
+	ATF_TP_ADD_TC(tp, emul_wrap_izpx);
 
 	return (atf_no_error());
 }

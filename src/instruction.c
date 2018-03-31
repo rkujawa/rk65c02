@@ -296,10 +296,9 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 	case ABSOLUTE:
 		bus_write_1(e->bus, i->op1 + (i->op2 << 8), val);
 		break;
-	case IZPX:
-		/* XXX */
-		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
-		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
+	case IZPX: /* Zero Page Indexed Indirect with X */
+		iaddr = bus_read_1(e->bus,(uint8_t) (i->op1 + e->regs.X));
+		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
 		bus_write_1(e->bus, iaddr, val);
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */
@@ -362,10 +361,9 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
 		rv = bus_read_1(e->bus, iaddr);
 		break;
-	case IZPX:
-		/* XXX: what about page wraps / roll over */
-		iaddr = bus_read_1(e->bus, i->op1 + e->regs.X);
-		iaddr |= (bus_read_1(e->bus, i->op1 + e->regs.X + 1) << 8);
+	case IZPX: /* Zero Page Indexed Indirect with X */
+		iaddr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
+		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
 		rv = bus_read_1(e->bus, iaddr);
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */

@@ -1,0 +1,7 @@
+start:	sta (0x10,X)
+;	lda (0xF0,X)
+.byte 0xA1,0xF0
+
+	stp
+
+
