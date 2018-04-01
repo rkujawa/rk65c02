@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include <errno.h>
 #include <assert.h>
@@ -129,11 +130,8 @@ rk65c02_exec(rk65c02emu_t *e)
 		 * maturity, let's catch them here to help iron out the
 		 * bugs.
 		 */
-		rk65c02_log(LOG_WARN, "invalid opcode %X @ %X\n",
+		rk65c02_panic(e, "invalid opcode %X @ %X\n",
 		    i.opcode, e->regs.PC);
-
-		e->state = STOPPED;
-		e->stopreason = EMUERROR;
 	}
 
 	if (e->trace)
@@ -235,6 +233,22 @@ rk65c02_regs_string_get(reg_state_t regs)
 
 	return str;
 }
+
+void
+rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...) 
+{
+	va_list args;
+
+	va_start(args, fmt);
+	rk65c02_log(LOG_CRIT, fmt, args);
+	va_end(args);
+
+	e->state = STOPPED;
+	e->stopreason = EMUERROR;
+
+	/* TODO: run some UI callback. */
+}
+
 /*
 int
 main(void)

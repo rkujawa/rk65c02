@@ -82,7 +82,8 @@ void rk65c02_step(rk65c02emu_t *, uint16_t);
 char *rk65c02_regs_string_get(reg_state_t);
 void rk65c02_dump_regs(reg_state_t);
 void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
-void rk65c02_irq(rk65c02emu_t *e);
+void rk65c02_irq(rk65c02emu_t *);
+void rk65c02_panic(rk65c02emu_t *, const char*, ...);
 
 #endif
 

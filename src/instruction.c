@@ -325,8 +325,8 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		rk65c02_log(LOG_ERROR,
-		    "unhandled addressing mode for opcode %x\n", i->opcode);
+		rk65c02_panic(e, "unhandled addressing mode for opcode %x\n",
+		    i->opcode);
 		break;
 	}
 }
@@ -389,8 +389,8 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		 * PC which is handled within emulation of a given opcode.
 		 */
 	default:
-		rk65c02_log(LOG_ERROR,
-		    "unhandled addressing mode for opcode %x\n", i->opcode);
+		rk65c02_panic(e, "unhandled addressing mode for opcode %x\n",
+		    i->opcode);
 		break;
 	}
 
