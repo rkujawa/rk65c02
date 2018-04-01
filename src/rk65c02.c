@@ -123,8 +123,15 @@ rk65c02_exec(rk65c02emu_t *e)
 		if (!instruction_modify_pc(&id)) 
 			program_counter_increment(e, &id);
 	} else {
-		rk65c02_log(LOG_ERROR, "unimplemented opcode %X @ %X\n",
+		/*
+		 * Technically, on a real 65C02, all invalid opcodes
+		 * are NOPs, but until rk65c02 reaches some level of
+		 * maturity, let's catch them here to help iron out the
+		 * bugs.
+		 */
+		rk65c02_log(LOG_WARN, "invalid opcode %X @ %X\n",
 		    i.opcode, e->regs.PC);
+
 		e->state = STOPPED;
 		e->stopreason = EMUERROR;
 	}
