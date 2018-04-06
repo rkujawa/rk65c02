@@ -1,3 +1,7 @@
+.org 0xC000
+start:	jsr min3
+	stp
+
 ; min3
 ; Takes 3 numbers (A, B, C), passed on stack, finds the minimum.
 ; Result is also passed on stack. Assumes it is being called via jsr.
