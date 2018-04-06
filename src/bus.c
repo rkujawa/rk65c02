@@ -35,7 +35,7 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 
 	LL_APPEND((b->dm_head), dm);
 
-	rk65c02_log(LOG_INFO, "Bus mapping added: %x device %s size %x.",
+	rk65c02_log(LOG_DEBUG, "Bus mapping added: %x device %s size %x.",
 	    addr, d->name, d->size);
 }
 
