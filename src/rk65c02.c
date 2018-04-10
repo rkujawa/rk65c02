@@ -18,6 +18,30 @@
 
 void rk65c02_exec(rk65c02emu_t *);
 
+/**
+ * \brief Prep the emulator, load code from file, pass bus config optionally.
+ * \param path Path to ROM file to be loaded.
+ * \param load_addr Address on the bus where ROM should be loaded.
+ * \param b Pre-existing bus configuration, pass NULL if default requested.
+ */
+rk65c02emu_t
+rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
+{
+	rk65c02emu_t e;
+
+	if (b == NULL) {
+		b = GC_MALLOC(sizeof(bus_t));
+		*b = bus_init_with_default_devs();
+	}
+
+	/* XXX: normal error handling instead of assert would be preferred */
+	assert(bus_load_file(b, load_addr, path));
+
+	e = rk65c02_init(b);
+
+	return e;
+}
+
 /*
  * Prepare the emulator for use, set initial CPU state.
  */

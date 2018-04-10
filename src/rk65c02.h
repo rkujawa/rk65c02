@@ -84,6 +84,7 @@ void rk65c02_dump_regs(reg_state_t);
 void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
 void rk65c02_irq(rk65c02emu_t *);
 void rk65c02_panic(rk65c02emu_t *, const char*, ...);
+rk65c02emu_t rk65c02_load_rom(const char *, uint16_t, bus_t *);
 
 #endif
 

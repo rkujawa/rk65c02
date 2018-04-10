@@ -12,13 +12,10 @@ int main(void)
 {
 	uint8_t a, b, c;
 	uint8_t min;
-	bus_t bus;
+
 	rk65c02emu_t e;
 
-	bus = bus_init_with_default_devs();
-	e = rk65c02_init(&bus);
-
-	bus_load_file(e.bus, load_addr, "min3.rom");
+	e = rk65c02_load_rom("min3.rom", load_addr, NULL);
 
 	e.regs.SP = 0xFF;
 	e.regs.PC = load_addr;
@@ -29,6 +26,7 @@ int main(void)
 	stack_push(&e, c);
 
 	rk65c02_start(&e);
+
 	min = stack_pop(&e);
 	printf("Min is: %d\n", min);
 }
