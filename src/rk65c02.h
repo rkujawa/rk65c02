@@ -1,3 +1,6 @@
+/** @file rk65c02.h
+ *  @brief Public functions for managing rk65c02 emulator.
+ */
 #ifndef _RK6502_H_
 #define _RK6502_H_
 
@@ -76,14 +79,43 @@ struct rk65c02emu {
 
 typedef struct rk65c02emu rk65c02emu_t;
 
+/**
+ * @brief Initialize the new emulator instance. Set initial CPU state.
+ */
 rk65c02emu_t rk65c02_init(bus_t *);
+
+/**
+ * @brief Start the emulator.
+ */
 void rk65c02_start(rk65c02emu_t *);
+
+/**
+ * @brief Execute as many instructions as specified in steps argument.
+ */
 void rk65c02_step(rk65c02emu_t *, uint16_t);
 char *rk65c02_regs_string_get(reg_state_t);
 void rk65c02_dump_regs(reg_state_t);
 void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
+
+/*
+ * @brief Assert the IRQ line.
+ */
+void rk65c02_assert_irq(rk65c02emu_t *);
+
+/**
+ * @brief Respond to interrupt and start the interrupt service routine.
+ */
 void rk65c02_irq(rk65c02emu_t *);
+
 void rk65c02_panic(rk65c02emu_t *, const char*, ...);
+
+/**
+ * @brief Prep the emulator, load code from file, pass bus config optionally.
+ * @param path Path to ROM file to be loaded.
+ * @param load_addr Address on the bus where ROM should be loaded.
+ * @param b Pre-existing bus configuration, pass NULL if default requested.
+ * @return New instance of the emulator prepared to run the ROM.
+ */
 rk65c02emu_t rk65c02_load_rom(const char *, uint16_t, bus_t *);
 
 #endif

@@ -18,12 +18,6 @@
 
 void rk65c02_exec(rk65c02emu_t *);
 
-/**
- * \brief Prep the emulator, load code from file, pass bus config optionally.
- * \param path Path to ROM file to be loaded.
- * \param load_addr Address on the bus where ROM should be loaded.
- * \param b Pre-existing bus configuration, pass NULL if default requested.
- */
 rk65c02emu_t
 rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 {
@@ -42,9 +36,6 @@ rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 	return e;
 }
 
-/*
- * Prepare the emulator for use, set initial CPU state.
- */
 rk65c02emu_t
 rk65c02_init(bus_t *b)
 {
@@ -69,9 +60,6 @@ rk65c02_init(bus_t *b)
 	return e;
 }
 
-/*
- * Assert the IRQ line.
- */
 void
 rk65c02_assert_irq(rk65c02emu_t *e)
 {
@@ -87,9 +75,6 @@ rk65c02_assert_irq(rk65c02emu_t *e)
 		rk65c02_start(e);
 }
 
-/*
- * Respond to interrupt and start the interrupt service routine.
- */
 void
 rk65c02_irq(rk65c02emu_t *e)
 {
@@ -163,9 +148,6 @@ rk65c02_exec(rk65c02emu_t *e)
 
 }
 
-/*
- * Start the emulator.
- */
 void
 rk65c02_start(rk65c02emu_t *e) {
 
@@ -177,9 +159,6 @@ rk65c02_start(rk65c02emu_t *e) {
 	}
 }
 
-/*
- * Execute as many instructions as specified in steps argument.
- */
 void
 rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
@@ -273,27 +252,3 @@ rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...)
 	/* TODO: run some UI callback. */
 }
 
-/*
-int
-main(void)
-{
-	bus_t b;
-
-	b = bus_init();
-
-	bus_write_1(&b, 0, OP_INX);
-	bus_write_1(&b, 1, OP_NOP);
-	bus_write_1(&b, 2, OP_LDY_IMM);
-	bus_write_1(&b, 3, 0x1);
-	bus_write_1(&b, 4, OP_TSB_ZP);
-	bus_write_1(&b, 5, 0x3);
-	bus_write_1(&b, 6, OP_JSR);
-	bus_write_1(&b, 7, 0x09);
-	bus_write_1(&b, 8, 0x0);
-	bus_write_1(&b, 9, OP_STP);
-
-	rk65c02_start(&b, 0);
-
-	bus_finish(&b);
-}
-*/
