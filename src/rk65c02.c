@@ -127,21 +127,12 @@ rk65c02_exec(rk65c02emu_t *e)
 	i = instruction_fetch(e->bus, e->regs.PC);
 	id = instruction_decode(i.opcode);
 
-	if (id.emul != NULL) {
-		id.emul(e, &id, &i);
+	assert(id.emul);
 
-		if (!instruction_modify_pc(&id)) 
-			program_counter_increment(e, &id);
-	} else {
-		/*
-		 * Technically, on a real 65C02, all invalid opcodes
-		 * are NOPs, but until rk65c02 reaches some level of
-		 * maturity, let's catch them here to help iron out the
-		 * bugs.
-		 */
-		rk65c02_panic(e, "invalid opcode %X @ %X\n",
-		    i.opcode, e->regs.PC);
-	}
+	id.emul(e, &id, &i);
+
+	if (!instruction_modify_pc(&id))
+		program_counter_increment(e, &id);
 
 	if (e->trace)
 		debug_trace_savestate(e, tpc, &id, &i);

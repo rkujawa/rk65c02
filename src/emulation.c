@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "log.h"
+
 #include "emulation.h"
 
 /* RMB, SMB, BBR, BBS are handled by these */
@@ -1094,5 +1096,15 @@ emul_wai(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->state = STOPPED;
 	e->stopreason = WAI;
+}
+
+/* emulate invalid opcode (variable-lenght NOP) */
+void
+emul_invalid(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	/* Essentially do nothing, but log this. */
+
+	rk65c02_log(LOG_WARN, "Invalid opcode %x at %x", i->opcode,
+		e->regs.PC);
 }
 
