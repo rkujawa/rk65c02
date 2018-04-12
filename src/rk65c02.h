@@ -7,7 +7,7 @@
 #include "bus.h"
 
 /**
- * @brief Current state of the emulator.
+ * @brief State of the emulator.
  */
 typedef enum {
 	STOPPED,	/**< Stopped. */
@@ -29,7 +29,7 @@ typedef enum {
 } emu_stop_reason_t;
 
 /**
- * @brief Current state of emulated CPU registers.
+ * @brief State of the emulated CPU registers.
  */
 struct reg_state {
 	uint8_t A;	/**< Accumulator. */
@@ -45,14 +45,10 @@ typedef struct reg_state reg_state_t;
 
 #define P_CARRY 0x1
 #define P_ZERO 0x2
-/** Status register flag: IRQ disabled */
-#define P_IRQ_DISABLE 0x4
-/** Status register flag: BCD mode */
-#define P_DECIMAL 0x8
-/** Status register flag: BRK was the cause of interrupt */
-#define P_BREAK 0x10
-/** Status register flag: Undefined (always 1) */
-#define P_UNDEFINED 0x20
+#define P_IRQ_DISABLE 0x4	/**< Status register flag: IRQ disabled */
+#define P_DECIMAL 0x8		/**< Status register flag: BCD mode */
+#define P_BREAK 0x10		/**< Status register flag: BRK was the cause of interrupt */
+#define P_UNDEFINED 0x20	/**< Status register flag: Undefined (always 1) */
 #define P_SIGN_OVERFLOW 0x40
 #define P_NEGATIVE 0x80
 
@@ -81,10 +77,10 @@ typedef struct trace_t {
  * @brief Instance of the emulator.
  */
 struct rk65c02emu {
-	emu_state_t state;
-	bus_t *bus;
-	reg_state_t regs;
-	emu_stop_reason_t stopreason;
+	emu_state_t state;	/**< Current emulator status. */
+	bus_t *bus;		/**< Bus to which CPU is attached. */
+	reg_state_t regs;	/**< CPU registers. */
+	emu_stop_reason_t stopreason; /**< Reason for stopping emulation. */
 	bool irq;		/**< Interrupt request line state, true is asserted. */
 
 	breakpoint_t *bps_head;	/**< Pointer to linked list with breakpoints. */
@@ -97,18 +93,23 @@ typedef struct rk65c02emu rk65c02emu_t;
 
 /**
  * @brief Initialize the new emulator instance. Set initial CPU state.
+ * @param b Bus description.
+ * @return New emulator instance.
  */
-rk65c02emu_t rk65c02_init(bus_t *);
+rk65c02emu_t rk65c02_init(bus_t *b);
 
 /**
  * @brief Start the emulator.
+ * @param e Emulator instance.
  */
-void rk65c02_start(rk65c02emu_t *);
+void rk65c02_start(rk65c02emu_t *e);
 
 /**
  * @brief Execute as many instructions as specified in steps argument.
+ * @param e Emulator instance.
+ * @param steps Number of instructions to execute.
  */
-void rk65c02_step(rk65c02emu_t *, uint16_t);
+void rk65c02_step(rk65c02emu_t *e, uint16_t steps);
 
 char *rk65c02_regs_string_get(reg_state_t);
 void rk65c02_dump_regs(reg_state_t);
@@ -116,15 +117,22 @@ void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
 
 /**
  * @brief Assert the IRQ line.
+ * @param e Emulator instance.
  */
-void rk65c02_assert_irq(rk65c02emu_t *);
+void rk65c02_assert_irq(rk65c02emu_t *e);
 
 /**
  * @brief Respond to interrupt and start the interrupt service routine.
+ * @param e Emulator instance.
  */
-void rk65c02_irq(rk65c02emu_t *);
+void rk65c02_irq(rk65c02emu_t *e);
 
-void rk65c02_panic(rk65c02emu_t *, const char*, ...);
+/**
+ * @brief Handle critical error - send message to log and stop emulation.
+ * @param e Emulator instance.
+ * @param fmt Message in printf-like format.
+ */
+void rk65c02_panic(rk65c02emu_t *e, const char *fmt, ...);
 
 /**
  * @brief Prep the emulator, load code from file, pass bus config optionally.
