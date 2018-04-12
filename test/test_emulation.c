@@ -1498,7 +1498,7 @@ ATF_TC_BODY(emul_invalid_opcode, tc)
 	ATF_CHECK(e.regs.SP == rorig.SP);
 	ATF_CHECK(e.regs.P == rorig.P);
 
-	ATF_CHECK(e.regs.PC == 0xC007);
+	ATF_CHECK(e.regs.PC == 0xC00A);
 
 	rk65c02_log(LOG_INFO, "PC: %x", e.regs.PC);
 
