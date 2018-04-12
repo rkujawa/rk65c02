@@ -1474,6 +1474,37 @@ ATF_TC_BODY(emul_wrap_zpx, tc)
 	}
 }
 
+ATF_TC_WITHOUT_HEAD(emul_invalid_opcode);
+ATF_TC_BODY(emul_invalid_opcode, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	struct reg_state rorig;
+
+	rk65c02_loglevel_set(LOG_DEBUG);
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+
+	e.runtime_disassembly = true;
+	rorig = e.regs;
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_invalid_opcode.rom", tc));
+
+	ATF_CHECK(e.regs.A == rorig.A);
+	ATF_CHECK(e.regs.X == rorig.X);
+	ATF_CHECK(e.regs.Y == rorig.Y);
+	ATF_CHECK(e.regs.SP == rorig.SP);
+	ATF_CHECK(e.regs.P == rorig.P);
+
+	ATF_CHECK(e.regs.PC == 0xC007);
+
+	rk65c02_log(LOG_INFO, "PC: %x", e.regs.PC);
+
+}
+
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -1517,6 +1548,8 @@ ATF_TP_ADD_TCS(tp)
 
 	ATF_TP_ADD_TC(tp, emul_wrap_zpx);
 	ATF_TP_ADD_TC(tp, emul_wrap_izpx);
+
+	ATF_TP_ADD_TC(tp, emul_invalid_opcode);
 
 	return (atf_no_error());
 }
