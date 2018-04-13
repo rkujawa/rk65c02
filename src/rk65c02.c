@@ -71,6 +71,14 @@ rk65c02_assert_irq(rk65c02emu_t *e)
 	 */
 	e->irq = true;
 
+	/*
+	 * If the CPU was put to sleep by executing WAI instruction, resume
+	 * operation.
+	 *
+	 * Whether interrupt will immediately be serviced, or not, depends
+	 * on normal "interrupt disable" flag behaviour, so here we just
+	 * need to start the CPU.
+	 */
 	if ((e->state == STOPPED) && (e->stopreason == WAI))
 		rk65c02_start(e);
 }
