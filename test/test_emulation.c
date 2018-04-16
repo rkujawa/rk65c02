@@ -1011,6 +1011,88 @@ ATF_TC_BODY(emul_jsr_rts, tc)
 
 }
 
+ATF_TC_WITHOUT_HEAD(emul_bbr);
+ATF_TC_BODY(emul_bbr, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+
+	uint8_t i, val;
+	uint16_t opc;
+
+	char instr[] = "bbr ";
+
+	b = bus_init_with_default_devs();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+
+	for (i = 0; i < 8; i++) {
+		val = 0xFF & ~(1 << i);
+		bus_write_1(&b, 0x10+i, val);
+	}
+
+	for (i = 0; i < 8; i++) {
+		instr[3] = '0'+i;
+		ATF_REQUIRE(assemble_single(&a, instr, ZPR, 0x10+i, 0x70));
+	}
+
+	e.runtime_disassembly = true;
+
+	for (i = 0; i < 8; i++) {
+		opc = e.regs.PC;
+		rk65c02_step(&e, 1);
+		ATF_CHECK(e.regs.PC == opc + 2 + 0x70);
+		rk65c02_dump_regs(e.regs);
+		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
+	}
+
+
+}
+
+ATF_TC_WITHOUT_HEAD(emul_bbs);
+ATF_TC_BODY(emul_bbs, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+
+	uint8_t i;
+	uint16_t opc;
+
+	char instr[] = "bbs ";
+
+	b = bus_init_with_default_devs();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+
+	for (i = 0; i < 8; i++) {
+		bus_write_1(&b, 0x10+i, 1 << i);
+	}
+
+	for (i = 0; i < 8; i++) {
+		instr[3] = '0'+i;
+		ATF_REQUIRE(assemble_single(&a, instr, ZPR, 0x10+i, 0x70));
+	}
+
+	e.runtime_disassembly = true;
+
+	for (i = 0; i < 8; i++) {
+		opc = e.regs.PC;
+		rk65c02_step(&e, 1);
+		ATF_CHECK(e.regs.PC == opc + 2 + 0x70);
+		rk65c02_dump_regs(e.regs);
+		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
+	}
+
+
+}
+
+
 ATF_TC_WITHOUT_HEAD(emul_branch);
 ATF_TC_BODY(emul_branch, tc)
 {
@@ -1607,6 +1689,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_adc_bcd);
 	ATF_TP_ADD_TC(tp, emul_bit);
 	ATF_TP_ADD_TC(tp, emul_branch);
+	ATF_TP_ADD_TC(tp, emul_bbr);
+	ATF_TP_ADD_TC(tp, emul_bbs);
 	ATF_TP_ADD_TC(tp, emul_cmp);
 	ATF_TP_ADD_TC(tp, emul_cpx);
 	ATF_TP_ADD_TC(tp, emul_cpy);
