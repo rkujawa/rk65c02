@@ -187,7 +187,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, address
 	opcode = 0;
 
 	/* find the opcode for given mnemonic and addressing mode */
-	while (opcode < 0xFF)  {
+	while (opcode <= 0xFF)  { /* this is stupid */
 		id = instruction_decode(opcode);
 		if ((strcmp(mnemonic, id.mnemonic) == 0) && (id.mode == mode)) {
 			found = true;
