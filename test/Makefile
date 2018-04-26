@@ -1,4 +1,4 @@
-CFLAGS=-Wall -I../src -g
+CFLAGS=-Wall -I../src -ggdb -Og
 LDFLAGS=-latf-c -lgc
 RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
