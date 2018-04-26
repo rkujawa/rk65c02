@@ -64,6 +64,7 @@ bus_access_device(bus_t *t, uint16_t addr, device_t **d, uint16_t *off)
 	device_mapping_t *dm;
 	device_t *dtmp;
 
+	doff = 0;
 	*d = NULL;
 
 	LL_FOREACH(t->dm_head, dm) {
