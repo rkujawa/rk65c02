@@ -275,110 +275,71 @@ instruction_status_adjust_negative(rk65c02emu_t *e, uint8_t regval)
 void
 instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint8_t val)
 {
-	uint16_t iaddr;
-
-	switch (id->mode) {
-	case ZP:
-	case ZPR:
-		bus_write_1(e->bus, i->op1, val);
-		break;
-	case ZPX:
-		bus_write_1(e->bus, (uint8_t) (i->op1 + e->regs.X), val);
-		break;
-	case ZPY:
-		bus_write_1(e->bus, i->op1 + e->regs.Y, val);
-		break;
-	case IZP:
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		bus_write_1(e->bus, iaddr, val);
-		break;
-	case ABSOLUTE:
-		bus_write_1(e->bus, i->op1 + (i->op2 << 8), val);
-		break;
-	case IZPX: /* Zero Page Indexed Indirect with X */
-		iaddr = bus_read_1(e->bus,(uint8_t) (i->op1 + e->regs.X));
-		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
-		bus_write_1(e->bus, iaddr, val);
-		break;
-	case IZPY: /* Zero Page Indirect Indexed with Y */
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		bus_write_1(e->bus, iaddr + e->regs.Y, val);
-		break;
-	case ABSOLUTEX:
-		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X, val);
-		break;
-	case ABSOLUTEY:
-		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y, val);
-		break;
-	case ACCUMULATOR:
+	if (id->mode == ACCUMULATOR) {
 		e->regs.A = val;
-		break;
-	case IMMEDIATE:
-	case RELATIVE:
-	case IABSOLUTE:
-	case IABSOLUTEX:
-		/* 
-		 * IABSOLUTE, IABSOLUTEX, RELATIVE are only for branches
-		 * and jumps. They do not read or write anything, only modify
-		 * PC which is handled within emulation of a given opcode.
-		 */
-	default:
-		rk65c02_panic(e, "unhandled addressing mode for opcode %x\n",
-		    i->opcode);
-		break;
+		return;
 	}
+
+	if (id->mode == IMMEDIATE) {
+		rk65c02_panic(e,
+		    "invalid IMMEDIATE addressing mode for opcode %x\n",
+		    i->opcode);
+		return;
+	}
+
+	bus_write_1(e->bus, instruction_data_address(e, id, i), val);
 }
 
 uint8_t
 instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 {
-	uint8_t rv;	/* data read from the bus */
-	uint16_t iaddr; /* indirect address */
+	if (id->mode == ACCUMULATOR)
+		return e->regs.A;
+	else if (id->mode == IMMEDIATE)
+		return i->op1;
 
-	rv = 0;
+	return bus_read_1(e->bus, instruction_data_address(e, id, i));
+}
+
+uint16_t
+instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
+{
+	uint16_t addr;
+
+	addr = 0;
 
 	switch (id->mode) {
-	case ACCUMULATOR:
-		rv = e->regs.A;
-		break;
-	case IMMEDIATE:
-		rv = i->op1;
-		break;
 	case ZP:
 	case ZPR:
-		rv = bus_read_1(e->bus, i->op1);
+		addr = i->op1;
 		break;
 	case ZPX:
-		rv = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
+		addr = ((uint8_t) (i->op1 + e->regs.X));
 		break;
 	case ZPY:
-		rv = bus_read_1(e->bus, i->op1 + e->regs.Y);
+		addr = i->op1 + e->regs.Y;
 		break;
 	case IZP:
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		rv = bus_read_1(e->bus, iaddr);
+		addr = bus_read_1(e->bus, i->op1);
+		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
 		break;
 	case IZPX: /* Zero Page Indexed Indirect with X */
-		iaddr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
-		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
-		rv = bus_read_1(e->bus, iaddr);
+		addr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
+		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		rv = bus_read_1(e->bus, iaddr + e->regs.Y);
+		addr = bus_read_1(e->bus, i->op1);
+		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		addr += e->regs.Y;
 		break;
 	case ABSOLUTE:
-		rv = bus_read_1(e->bus, i->op1 + (i->op2 << 8));
+		addr = i->op1 + (i->op2 << 8);
 		break;
 	case ABSOLUTEX:
-		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X);
+		addr = i->op1 + (i->op2 << 8) + e->regs.X;
 		break;
 	case ABSOLUTEY:
-		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
+		addr = i->op1 + (i->op2 << 8) + e->regs.Y;
 		break;
 	case IABSOLUTE:
 	case IABSOLUTEX:
@@ -394,7 +355,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		break;
 	}
 
-	return rv;
+	return addr;
 }
 
 /* put value onto the stack */

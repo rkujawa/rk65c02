@@ -55,6 +55,7 @@ char * instruction_string_get(instruction_t *);
 void disassemble(bus_t *, uint16_t);
 uint8_t instruction_data_read_1(rk65c02emu_t *, instrdef_t *, instruction_t *);
 void instruction_data_write_1(rk65c02emu_t *, instrdef_t *, instruction_t *, uint8_t);
+uint16_t instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i);
 void instruction_status_adjust_zero(rk65c02emu_t *, uint8_t);
 void instruction_status_adjust_negative(rk65c02emu_t *, uint8_t);
 void stack_push(rk65c02emu_t *, uint8_t);
