@@ -135,93 +135,6 @@ instruction_string_get(instruction_t *i)
 	return str;
 }
 
-assembler_t
-assemble_init(bus_t *b, uint16_t pc)
-{
-	assembler_t asmblr;
-
-	asmblr.bus = b;
-	asmblr.pc = pc;
-
-	return asmblr;
-}
-
-bool
-assemble_single_implied(assembler_t *a, const char *mnemonic)
-{
-	return assemble_single(a, mnemonic, IMPLIED, 0, 0);
-}
-
-bool
-assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
-{
-	uint8_t *asmbuf;
-	uint8_t bsize;
-	bool rv;
-
-	rv = assemble_single_buf(&asmbuf, &bsize, mnemonic, mode, op1, op2);
-	if (rv == false)
-		return rv;
-
-	rv = bus_load_buf(a->bus, a->pc, asmbuf, bsize);
-	a->pc += bsize;
-
-	return rv;
-}
-
-bool
-assemble_single_buf_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
-{
-	return assemble_single_buf(buf, bsize, mnemonic, IMPLIED, 0, 0);
-}
-
-
-bool
-assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
-{
-	instrdef_t id;
-	uint8_t opcode;
-	bool found;
-
-	found = false;
-	opcode = 0;
-
-	/* find the opcode for given mnemonic and addressing mode */
-	while (opcode < 0xFF)  {
-		id = instruction_decode(opcode);
-		if ((strcmp(mnemonic, id.mnemonic) == 0) && (id.mode == mode)) {
-			found = true;
-			break;
-		}
-		opcode++;
-	}
-
-	if (!found) {
-		rk65c02_log(LOG_ERROR,
-		    "Couldn't find opcode for mnemonic %s mode %x.",
-		    mnemonic, mode);
-		return false;
-	}
-
-	*bsize = id.size;
-	*buf = GC_MALLOC(id.size);
-	if(*buf == NULL) {
-		rk65c02_log(LOG_ERROR, "Error allocating assembly buffer.");
-		return false;
-	}
-
-	/* fill the buffer */
-	memset(*buf, 0, id.size);
-	(*buf)[0] = opcode;
-	/* XXX */
-	if (id.size > 1) 
-		(*buf)[1] = op1;
-	if (id.size > 2)
-		(*buf)[2] = op2;
-
-	return found;
-}
-
 void
 disassemble(bus_t *b, uint16_t addr) 
 {
@@ -275,110 +188,71 @@ instruction_status_adjust_negative(rk65c02emu_t *e, uint8_t regval)
 void
 instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint8_t val)
 {
-	uint16_t iaddr;
-
-	switch (id->mode) {
-	case ZP:
-	case ZPR:
-		bus_write_1(e->bus, i->op1, val);
-		break;
-	case ZPX:
-		bus_write_1(e->bus, (uint8_t) (i->op1 + e->regs.X), val);
-		break;
-	case ZPY:
-		bus_write_1(e->bus, i->op1 + e->regs.Y, val);
-		break;
-	case IZP:
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		bus_write_1(e->bus, iaddr, val);
-		break;
-	case ABSOLUTE:
-		bus_write_1(e->bus, i->op1 + (i->op2 << 8), val);
-		break;
-	case IZPX: /* Zero Page Indexed Indirect with X */
-		iaddr = bus_read_1(e->bus,(uint8_t) (i->op1 + e->regs.X));
-		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
-		bus_write_1(e->bus, iaddr, val);
-		break;
-	case IZPY: /* Zero Page Indirect Indexed with Y */
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		bus_write_1(e->bus, iaddr + e->regs.Y, val);
-		break;
-	case ABSOLUTEX:
-		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X, val);
-		break;
-	case ABSOLUTEY:
-		bus_write_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y, val);
-		break;
-	case ACCUMULATOR:
+	if (id->mode == ACCUMULATOR) {
 		e->regs.A = val;
-		break;
-	case IMMEDIATE:
-	case RELATIVE:
-	case IABSOLUTE:
-	case IABSOLUTEX:
-		/* 
-		 * IABSOLUTE, IABSOLUTEX, RELATIVE are only for branches
-		 * and jumps. They do not read or write anything, only modify
-		 * PC which is handled within emulation of a given opcode.
-		 */
-	default:
-		rk65c02_panic(e, "unhandled addressing mode for opcode %x\n",
-		    i->opcode);
-		break;
+		return;
 	}
+
+	if (id->mode == IMMEDIATE) {
+		rk65c02_panic(e,
+		    "invalid IMMEDIATE addressing mode for opcode %x\n",
+		    i->opcode);
+		return;
+	}
+
+	bus_write_1(e->bus, instruction_data_address(e, id, i), val);
 }
 
 uint8_t
 instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 {
-	uint8_t rv;	/* data read from the bus */
-	uint16_t iaddr; /* indirect address */
+	if (id->mode == ACCUMULATOR)
+		return e->regs.A;
+	else if (id->mode == IMMEDIATE)
+		return i->op1;
 
-	rv = 0;
+	return bus_read_1(e->bus, instruction_data_address(e, id, i));
+}
+
+uint16_t
+instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
+{
+	uint16_t addr;
+
+	addr = 0;
 
 	switch (id->mode) {
-	case ACCUMULATOR:
-		rv = e->regs.A;
-		break;
-	case IMMEDIATE:
-		rv = i->op1;
-		break;
 	case ZP:
 	case ZPR:
-		rv = bus_read_1(e->bus, i->op1);
+		addr = i->op1;
 		break;
 	case ZPX:
-		rv = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
+		addr = ((uint8_t) (i->op1 + e->regs.X));
 		break;
 	case ZPY:
-		rv = bus_read_1(e->bus, i->op1 + e->regs.Y);
+		addr = i->op1 + e->regs.Y;
 		break;
 	case IZP:
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		rv = bus_read_1(e->bus, iaddr);
+		addr = bus_read_1(e->bus, i->op1);
+		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
 		break;
 	case IZPX: /* Zero Page Indexed Indirect with X */
-		iaddr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
-		iaddr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
-		rv = bus_read_1(e->bus, iaddr);
+		addr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
+		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */
-		iaddr = bus_read_1(e->bus, i->op1);
-		iaddr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
-		rv = bus_read_1(e->bus, iaddr + e->regs.Y);
+		addr = bus_read_1(e->bus, i->op1);
+		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		addr += e->regs.Y;
 		break;
 	case ABSOLUTE:
-		rv = bus_read_1(e->bus, i->op1 + (i->op2 << 8));
+		addr = i->op1 + (i->op2 << 8);
 		break;
 	case ABSOLUTEX:
-		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.X);
+		addr = i->op1 + (i->op2 << 8) + e->regs.X;
 		break;
 	case ABSOLUTEY:
-		rv = bus_read_1(e->bus, (i->op1 + (i->op2 << 8)) + e->regs.Y);
+		addr = i->op1 + (i->op2 << 8) + e->regs.Y;
 		break;
 	case IABSOLUTE:
 	case IABSOLUTEX:
@@ -394,7 +268,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		break;
 	}
 
-	return rv;
+	return addr;
 }
 
 /* put value onto the stack */

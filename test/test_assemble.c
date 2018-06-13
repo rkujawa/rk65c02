@@ -7,6 +7,7 @@
 
 #include "bus.h"
 #include "rk65c02.h"
+#include "assembler.h"
 #include "instruction.h"
 #include "utils.h"
 
