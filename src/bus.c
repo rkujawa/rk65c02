@@ -27,10 +27,16 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 {
 	device_mapping_t *dm;
 
+	if ((addr + d->size) > RK65C02_BUS_SIZE) {
+		rk65c02_log(LOG_ERROR,
+		    "Bus mapping for %s at %x, size %x exceeding bus size.",
+		    d->name, addr, d->size);
+		return;
+	}
+
 	dm = (device_mapping_t *) GC_MALLOC(sizeof(device_mapping_t));
 
 	dm->dev = d;
-	/* TODO: check if addr + size is not bigger than RK65C02_BUS_SIZE */
 	dm->addr = addr;
 
 	LL_APPEND((b->dm_head), dm);
