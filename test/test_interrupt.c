@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "assembler.h"
 #include "bus.h"
 #include "rk65c02.h"
 #include "instruction.h"
