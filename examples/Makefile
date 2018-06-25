@@ -1,5 +1,16 @@
+UNAME_S := $(shell uname -s)
+
 CFLAGS=-Wall -pedantic -I../src -g
-LDFLAGS=-latf-c -lgc
+LDFLAGS=-lgc
+
+LDFLAGS_MACOSX=-L/opt/local/lib
+CFLAGS_MACOSX=-I/opt/local/include
+
+ifeq ($(UNAME_S),Darwin)
+	CFLAGS+=$(CFLAGS_MACOSX)
+	LDFLAGS+=$(LDFLAGS_MACOSX)
+endif
+
 RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -c02

@@ -1,27 +1,38 @@
-#CLI=rk65c02cli
-#CLI_OBJS=rk65c02cli.o
+# This needs fairly recent GNU Make.
+#
+UNAME_S := $(shell uname -s)
 
 LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_fb.o device_serial.o log.o assembler.o
-LIB_SO=librk65c02.so
+
+ifeq ($(UNAME_S),Darwin)
+    LIB_SO=librk65c02.dylib
+else
+    LIB_SO=librk65c02.so
+endif
+
 LIB_STATIC=librk65c02.a
 
-LDFLAGS_SO=-shared
-#LDFLAGS_CLI=-lreadline
+LDFLAGS=-shared -lgc
+LDFLAGS_MACOSX=-L/opt/local/lib
 CFLAGS=-Wall -fpic -ggdb -Og
-#CFLAGS=-Wall -fpic -ggdb -I/opt/local/include/uthash
+CFLAGS_MACOSX=-I/opt/local/include/uthash -I/opt/local/include
+
+ifeq ($(UNAME_S),Darwin)
+    CFLAGS+=$(CFLAGS_MACOSX)
+    LDFLAGS+=$(LDFLAGS_MACOSX)
+endif
 
 65C02ISA=65c02isa
 EMULATION=emulation
 DEVICE=device
-# TODO: better include handling
 
 all : $(LIB_SO) $(LIB_STATIC) $(CLI)
 
 #$(CLI) : $(CLI_OBJS)
-#	$(CC) -o $(CLI) $(LDFLAGS_CLI) $(CLI_OBJS) $(LIB_STATIC)
+#	$(CC) -o $(CLI) $(LDFLAGS) $(CLI_OBJS) $(LIB_STATIC)
 
 $(LIB_SO) : $(LIB_OBJS)
-	$(CC) -o $(LIB_SO) $(LDFLAGS_SO) $(LIB_OBJS)
+	$(CC) -o $(LIB_SO) $(LDFLAGS) $(LIB_OBJS)
 
 $(LIB_STATIC) : $(LIB_OBJS)
 	$(AR) rcs $(LIB_STATIC) $(LIB_OBJS)
