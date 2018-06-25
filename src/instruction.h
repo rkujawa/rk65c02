@@ -56,5 +56,6 @@ uint8_t stack_pop(rk65c02emu_t *);
 void program_counter_increment(rk65c02emu_t *, instrdef_t *);
 bool instruction_modify_pc(instrdef_t *);
 void program_counter_branch(rk65c02emu_t *, int8_t);
+bool instruction_opcode_by_mnemonic(char *, addressing_t, uint8_t *, instrdef_t *);
 
 #endif /* _INSTRUCTION_H_ */

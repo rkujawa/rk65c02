@@ -27,13 +27,13 @@ assemble_init(bus_t *b, uint16_t pc)
 }
 
 bool
-assemble_single_implied(assembler_t *a, const char *mnemonic)
+assemble_single_implied(assembler_t *a, char *mnemonic)
 {
 	return assemble_single(a, mnemonic, IMPLIED, 0, 0);
 }
 
 bool
-assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
+assemble_single(assembler_t *a, char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
 {
 	uint8_t *asmbuf;
 	uint8_t bsize;
@@ -50,31 +50,22 @@ assemble_single(assembler_t *a, const char *mnemonic, addressing_t mode, uint8_t
 }
 
 bool
-assemble_single_buf_implied(uint8_t **buf, uint8_t *bsize, const char *mnemonic)
+assemble_single_buf_implied(uint8_t **buf, uint8_t *bsize, char *mnemonic)
 {
 	return assemble_single_buf(buf, bsize, mnemonic, IMPLIED, 0, 0);
 }
 
 
 bool
-assemble_single_buf(uint8_t **buf, uint8_t *bsize, const char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
+assemble_single_buf(uint8_t **buf, uint8_t *bsize, char *mnemonic, addressing_t mode, uint8_t op1, uint8_t op2)
 {
 	instrdef_t id;
 	uint8_t opcode;
 	bool found;
 
-	found = false;
 	opcode = 0;
 
-	/* find the opcode for given mnemonic and addressing mode */
-	while (opcode <= 0xFF)  { /* this is stupid */
-		id = instruction_decode(opcode);
-		if ((strcmp(mnemonic, id.mnemonic) == 0) && (id.mode == mode)) {
-			found = true;
-			break;
-		}
-		opcode++;
-	}
+	found = instruction_opcode_by_mnemonic(mnemonic, mode, &opcode, &id);
 
 	if (!found) {
 		rk65c02_log(LOG_ERROR,

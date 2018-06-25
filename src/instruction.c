@@ -311,3 +311,23 @@ instruction_modify_pc(instrdef_t *id)
 	return id->modify_pc;
 }
 
+/* find instr definition (and opcode) searching by mnemonic and addr mode */
+bool
+instruction_opcode_by_mnemonic(char *mnemonic, addressing_t mode, uint8_t *opcode, instrdef_t *id)
+{
+	bool found;
+
+	found = false;
+
+	while ((*opcode) <= 0xFF)  { /* this is stupid */
+		*id = instruction_decode(*opcode);
+		if ((strcmp(mnemonic, id->mnemonic) == 0) && (id->mode == mode)) {
+			found = true;
+			break;
+		}
+		(*opcode)++;
+	}
+
+	return found;
+}
+
