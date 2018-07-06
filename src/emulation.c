@@ -12,7 +12,7 @@ static void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 static void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 
 /* Convert 8-bit BCD to binary value. */
-static inline uint8_t from_bcd(uint8_t val)
+static uint8_t from_bcd(uint8_t val)
 {
 	uint8_t rv;
 
@@ -23,7 +23,7 @@ static inline uint8_t from_bcd(uint8_t val)
 }
 
 /* Convert 8-bit binary to BCD value. */
-static inline uint8_t to_bcd(uint8_t val)
+static uint8_t to_bcd(uint8_t val)
 {
 	uint16_t shift, digit;
 	uint8_t bcd;
