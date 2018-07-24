@@ -8,6 +8,7 @@ typedef struct device_t {
 
 	uint8_t (*read_1)(void *, uint16_t doff);
 	void (*write_1)(void *, uint16_t, uint8_t val);
+	void (*finish)(void *);
 
 	void *config;
 	void *aux;	/* any dev space-specific data */

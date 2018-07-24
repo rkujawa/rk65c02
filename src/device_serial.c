@@ -22,6 +22,7 @@ struct device_serial_priv {
 
 uint8_t device_serial_read_1(void *, uint16_t);
 void device_serial_write_1(void *, uint16_t, uint8_t);
+void device_serial_finish(void *);
 
 uint8_t
 device_serial_read_1(void *vd, uint16_t offset)
@@ -85,6 +86,7 @@ device_serial_init()
 
 	d->read_1 = device_serial_read_1;
 	d->write_1 = device_serial_write_1;
+	d->finish = device_serial_finish;
 
 	dp = (struct device_serial_priv *) GC_MALLOC(sizeof(struct device_serial_priv));
 	d->aux = dp; 
@@ -105,10 +107,12 @@ device_serial_init()
 }
 
 void
-device_serial_finish(device_t *d)
+device_serial_finish(void *dv)
 {
 	struct device_serial_priv *dp;
+	struct device_t *d;
 
+	d = (struct device_t *) dv;
 	dp = d->aux;
 
 	close(dp->txpipefd);
@@ -116,7 +120,5 @@ device_serial_finish(device_t *d)
 
 	unlink(txpipepath);
 	unlink(rxpipepath);
-
-	// XXX?
 }
 

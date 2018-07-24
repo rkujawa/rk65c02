@@ -49,6 +49,7 @@ device_ram_init(uint16_t size)
 
 	d->read_1 = device_ram_read_1;
 	d->write_1 = device_ram_write_1;
+	d->finish = NULL;
 
 	d->aux = GC_MALLOC(size);
 	memset(d->aux, 0, size);
@@ -56,8 +57,4 @@ device_ram_init(uint16_t size)
 	return d;
 }
 
-void
-device_ram_finish(device_t *d)
-{
-}
 

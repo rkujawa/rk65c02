@@ -195,6 +195,15 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 void
 bus_finish(bus_t *t)
 {
+	device_mapping_t *dm;
+	device_t *d;
+
 	assert(t != NULL);
+
+        LL_FOREACH(t->dm_head, dm) {
+		d = dm->dev;
+		if ((d->finish) != NULL)
+			d->finish(d);
+        }
 }
 
