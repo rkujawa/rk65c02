@@ -141,7 +141,8 @@ void rk65c02_panic(rk65c02emu_t *e, const char *fmt, ...);
  * @param b Pre-existing bus configuration, pass NULL if default requested.
  * @return New instance of the emulator prepared to run the ROM.
  */
-rk65c02emu_t rk65c02_load_rom(const char *, uint16_t, bus_t *);
+rk65c02emu_t rk65c02_load_rom(const char *path, uint16_t load_addr,
+    bus_t *b);
 
 #endif
 
