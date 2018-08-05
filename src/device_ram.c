@@ -41,7 +41,6 @@ device_ram_init(uint16_t size)
 	device_t *d;
 
 	d = (device_t *) GC_MALLOC(sizeof(device_t));
-
 	assert(d != NULL);
 
 	d->name = "RAM";
@@ -52,6 +51,8 @@ device_ram_init(uint16_t size)
 	d->finish = NULL;
 
 	d->aux = GC_MALLOC(size);
+	assert(d->aux != NULL);
+
 	memset(d->aux, 0, size);
 
 	return d;

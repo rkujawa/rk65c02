@@ -35,6 +35,7 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 	}
 
 	dm = (device_mapping_t *) GC_MALLOC(sizeof(device_mapping_t));
+	assert(dm != NULL);
 
 	dm->dev = d;
 	dm->addr = addr;

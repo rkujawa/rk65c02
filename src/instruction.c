@@ -73,11 +73,7 @@ instruction_string_get(instruction_t *i)
 	char *str;
 
 	str = GC_MALLOC(INSTR_STR_LEN);
-	if (str == NULL) {
-		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
-		    strerror(errno));
-		return NULL;
-	}
+	assert(str != NULL);
 	memset(str, 0, INSTR_STR_LEN);
 
 	id = instruction_decode(i->opcode);

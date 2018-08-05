@@ -75,11 +75,9 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, char *mnemonic, addressing_t 
 	}
 
 	*bsize = id.size;
+
 	*buf = GC_MALLOC(id.size);
-	if(*buf == NULL) {
-		rk65c02_log(LOG_ERROR, "Error allocating assembly buffer.");
-		return false;
-	}
+	assert(*buf != NULL);
 
 	/* fill the buffer */
 	memset(*buf, 0, id.size);

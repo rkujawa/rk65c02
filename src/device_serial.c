@@ -89,6 +89,7 @@ device_serial_init()
 	d->finish = device_serial_finish;
 
 	dp = (struct device_serial_priv *) GC_MALLOC(sizeof(struct device_serial_priv));
+	assert(dp != NULL);
 	d->aux = dp; 
 		
 	if (mkfifo(txpipepath, S_IRUSR | S_IWUSR) != 0) {

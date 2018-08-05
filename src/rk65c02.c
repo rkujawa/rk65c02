@@ -25,6 +25,7 @@ rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 
 	if (b == NULL) {
 		b = GC_MALLOC(sizeof(bus_t));
+		assert(b != NULL);
 		*b = bus_init_with_default_devs();
 	}
 
@@ -215,11 +216,7 @@ rk65c02_regs_string_get(reg_state_t regs)
 
 	/* XXX: string allocation to a separate utility function? */
 	str = GC_MALLOC(REGS_STR_LEN);
-	if (str == NULL) {
-		rk65c02_log(LOG_CRIT, "Error allocating memory for buffer: %s.",
-		    strerror(errno));
-		return NULL;
-	}
+	assert(str != NULL);
 	memset(str, 0, REGS_STR_LEN);
 
 	snprintf(str, REGS_STR_LEN, "A: %X X: %X Y: %X PC: %X SP: %X P: %c%c%c%c%c%c%c%c", 

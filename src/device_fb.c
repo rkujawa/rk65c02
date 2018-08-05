@@ -68,9 +68,11 @@ device_fb_init()
 	d->write_1 = device_fb_write_1;
 
 	f = GC_MALLOC(sizeof(struct fb_state));
+	assert(f != NULL);
 	d->aux = f;
 
 	f->cram = GC_MALLOC(FB_AS_SIZE);
+	assert(f->cram != NULL);
 	memset(d->aux, 0, FB_AS_SIZE);
 
 	return d;
