@@ -158,7 +158,8 @@ bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 
 	i = 0;
 
-	// XXX: add sanity checks 
+	assert(buf != NULL);
+	assert(bufsize != 0);
 
 	while (i < bufsize) {
 		bus_write_1(t, addr+i, buf[i]); // XXX: overflow addr
