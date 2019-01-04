@@ -16,5 +16,6 @@ uthash.
 On Fedora these can be installed with `gc-devel` and `uthash-devel` packages.
 
 If you want to build tests, `kyua` quality assurance toolkit, `atf` testing
-framework and `vasm` assembler (6502 with std syntax) are also necessary.
+framework and a recent snapshot (1.8f or newer) of `vasm` assembler (6502
+with std syntax) are also necessary.
 
