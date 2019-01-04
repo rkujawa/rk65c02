@@ -13,7 +13,7 @@ endif
 
 RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
-VASMFLAGS=-Fbin -c02
+VASMFLAGS=-Fbin -wdc02
 
 EXAMPLES=min3
 EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
