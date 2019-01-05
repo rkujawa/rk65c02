@@ -472,10 +472,27 @@ ATF_TC_BODY(emul_stz, tc)
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
 
-	/* STZ zp */
+	/* STZ zero page */
 	bus_write_1(&b, 0x10, 0xAA);
 	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zp.rom", tc));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
+
+	/* STZ zero page X */
+	bus_write_1(&b, 0x15, 0x55);
+	e.regs.X = 0x4;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zpx.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x15) == 0x00);
+
+	/* STZ absolute */
+	bus_write_1(&b, 0x2000, 0xAA);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_abs.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x2000) == 0x00);
+
+	/* STZ absolute X */
+	bus_write_1(&b, 0x2005, 0x55);
+	e.regs.X = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_absx.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x2005) == 0x00);
 
 	bus_finish(&b);
 }
