@@ -429,6 +429,20 @@ ATF_TC_BODY(emul_lda, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAE);
 
+	/* LDA indirect zero page X */
+	bus_write_1(&b, 0x20, 0);
+	bus_write_1(&b, 0x21, 0x2E);
+	bus_write_1(&b, 0x2E00, 0x55);
+	e.regs.X = 0x01;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izpx.rom", tc));
+	ATF_CHECK(e.regs.A == 0x55);
+
+	/* LDA indirect zero page Y */
+	bus_write_1(&b, 0x2E10, 0xAA);
+	e.regs.Y = 0x10;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izpy.rom", tc));
+	ATF_CHECK(e.regs.A == 0xAA);
+
 	/* LDA absolute */
 	bus_write_1(&b, 0x2F5A, 0xEA);
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_abs.rom", tc));
@@ -440,7 +454,7 @@ ATF_TC_BODY(emul_lda, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absx.rom", tc));
 	ATF_CHECK(e.regs.A == 0xEB);
 
-	/* LDA absolute X */
+	/* LDA absolute Y */
 	bus_write_1(&b, 0x2F5E, 0xEC);
 	e.regs.Y = 0x5E;
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absy.rom", tc));
