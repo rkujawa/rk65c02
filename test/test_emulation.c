@@ -766,6 +766,31 @@ ATF_TC_BODY(emul_sta, tc)
 	bus_finish(&b);
 }
 
+ATF_TC_WITHOUT_HEAD(emul_stx);
+ATF_TC_BODY(emul_stx, tc)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+
+	/* STX zero page */
+	e.regs.X = 0xAA;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_zp.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x20) == 0xAA);
+	/* STX zero page Y */
+	e.regs.X = 0x55;
+	e.regs.Y = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_zpy.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x20) == 0x55);
+	/* STX absolute */
+	e.regs.X = 0xAA;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_abs.rom", tc));
+	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
+
+}
+
 ATF_TC_WITHOUT_HEAD(emul_sty);
 ATF_TC_BODY(emul_sty, tc)
 {
@@ -1772,6 +1797,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_stack);
 	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
 	ATF_TP_ADD_TC(tp, emul_sta);
+	ATF_TP_ADD_TC(tp, emul_stx);
 	ATF_TP_ADD_TC(tp, emul_sty);
 	ATF_TP_ADD_TC(tp, emul_sbc);
 	ATF_TP_ADD_TC(tp, emul_sbc_16bit);
