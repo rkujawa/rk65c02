@@ -429,6 +429,19 @@ ATF_TC_BODY(emul_lda, tc)
 	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom", tc));
 	ATF_CHECK(e.regs.A == 0xAE);
 
+	/* LDA zero page X */
+	bus_write_1(&b, 0x12, 0xAF);
+	e.regs.X = 0x1;
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zpx.rom", tc));
+	ATF_CHECK(e.regs.A == 0xAF);
+
+	/* LDA indirect zero page */
+	bus_write_1(&b, 0x1A, 0x10);
+	bus_write_1(&b, 0x1B, 0x2E);
+	bus_write_1(&b, 0x2E10, 0xAA);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izp.rom", tc));
+	ATF_CHECK(e.regs.A == 0xAA);
+
 	/* LDA indirect zero page X */
 	bus_write_1(&b, 0x20, 0);
 	bus_write_1(&b, 0x21, 0x2E);
