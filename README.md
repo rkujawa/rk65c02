@@ -19,3 +19,5 @@ If you want to build tests, `kyua` quality assurance toolkit, `atf` testing
 framework and a recent snapshot (1.8f or newer) of `vasm` assembler (6502
 with std syntax) are also necessary.
 
+[![Built by neckbeards](https://forthebadge.com/images/badges/built-by-neckbeards.svg)](https://forthebadge.com)
+
