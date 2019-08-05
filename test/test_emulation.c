@@ -1555,7 +1555,28 @@ ATF_TC_BODY(emul_adc, tc)
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 
-	/*rk65c02_dump_regs(e.regs);*/
+	/* ADC absolute */
+	e.regs.A = 0x55;
+	bus_write_1(&b, 0x2A00, 0xAB);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_abs.rom", tc));
+	ATF_CHECK(e.regs.A == 0x0);
+	ATF_CHECK(e.regs.P & P_ZERO);
+	ATF_CHECK(e.regs.P & P_CARRY);
+	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
+	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
+
+	/* ADC absolute X */
+	e.regs.A = 0x50;
+	e.regs.X = 0x10;
+	bus_write_1(&b, 0x2A10, 0x50);
+	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_absx.rom", tc));
+	ATF_CHECK(e.regs.A == 0xA1);
+	ATF_CHECK(!(e.regs.P & P_ZERO));
+	ATF_CHECK(!(e.regs.P & P_CARRY));
+	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
+	ATF_CHECK(e.regs.P & P_NEGATIVE);
+
+	rk65c02_dump_regs(e.regs);
 
 }
 
@@ -1580,7 +1601,6 @@ ATF_TC_BODY(emul_adc_bcd, tc)
 	ATF_CHECK(bus_read_1(&b, 0x41) & P_CARRY);
 
 	rk65c02_dump_regs(e.regs);
-
 }
 
 ATF_TC_WITHOUT_HEAD(emul_sbc_bcd);
@@ -1623,6 +1643,19 @@ ATF_TC_BODY(emul_adc_16bit, tc)
 
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0xFF);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xFF);
+
+	e = rk65c02_init(&b);
+
+	bus_write_1(&b, 0x62, 0xFF);
+	bus_write_1(&b, 0x63, 0xFF);
+	bus_write_1(&b, 0x64, 0xFF);
+	bus_write_1(&b, 0x65, 0xFF);
+
+	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_16bit.rom", tc));
+
+	ATF_CHECK(bus_read_1(&b, 0x66) == 0xFE);
+	ATF_CHECK(bus_read_1(&b, 0x67) == 0xFF);
+
 	rk65c02_dump_regs(e.regs);
 
 }
