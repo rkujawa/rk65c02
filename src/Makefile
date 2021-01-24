@@ -2,7 +2,7 @@
 #
 UNAME_S := $(shell uname -s)
 
-LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o device_fb.o device_serial.o log.o assembler.o
+LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o log.o assembler.o
 
 ifeq ($(UNAME_S),Darwin)
     LIB_SO=librk65c02.dylib
