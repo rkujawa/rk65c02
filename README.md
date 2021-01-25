@@ -3,13 +3,17 @@
 
 ![rk65c02 logo](https://raw.githubusercontent.com/rkujawa/rk65c02/master/res/rk65c02_small.png)
 
-This project is a work in progress. The rk65c02 is a library implementing an
+This project provides a library implementing a farily complete
 emulator of WDC 65C02S CPU. It does not aim to be cycle-exact emulator, but
 otherwise it tries to mimic behaviour of 65C02S as close as possible. 
 Currently, the following features are implemented:
 - Emulation of all opcodes, including WDC extensions and BCD mode.
 - 16-bit address space.
-- Support for interrupts.
+- Minimal support for interrupts.
+
+The following notable features are missing:
+- Ability to execute callbacks in software utilizing this library.
+- Just-in-Time translation.
 
 The only external dependencies (besides standard C library) are Boehm GC and
 uthash.
