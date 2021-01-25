@@ -118,7 +118,7 @@ bus_read_1(bus_t *t, uint16_t addr)
 	bus_access_device(t, addr, &d, &off);
 
 	if (d == NULL)
-		return 0xFF;
+		return 0xFF; /* simulate floting pins */
 	else
 		val = d->read_1(d, off);
 
@@ -138,6 +138,13 @@ bus_write_1(bus_t *t, uint16_t addr, uint8_t val)
 	off = 0;
 
 	bus_access_device(t, addr, &d, &off);
+
+	if (d == NULL) {
+		if (t->access_debug)
+			rk65c02_log(LOG_DEBUG, "unmapped bus WRITE @ %x (off %x) value %x\n",
+			    addr, off, val);
+		return;
+	}
 
 	if (t->access_debug)
 		rk65c02_log(LOG_DEBUG, "bus WRITE @ %x (off %x) value %x\n",
