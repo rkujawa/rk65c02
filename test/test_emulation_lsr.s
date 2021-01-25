@@ -1,0 +1,7 @@
+start:	lsr A
+	lsr 0x10
+	lsr 0x10,X
+	lsr 0x300
+	lsr 0x300,X
+	stp
+

@@ -1,9 +1,30 @@
+/*
+ *      SPDX-License-Identifier: GPL-3.0-only
+ *
+ *      rk65c02
+ *      Copyright (C) 2017-2021  Radoslaw Kujawa
+ *
+ *      This program is free software: you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation, version 3 of the License.
+ * 
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <gc/gc.h>
 #include <utlist.h>
 
 #include "rk65c02.h"
 #include "instruction.h"
+#include "log.h"
 #include "debug.h"
 
 void
@@ -17,6 +38,8 @@ debug_trace_print_all(rk65c02emu_t *e)
 {
 	trace_t *tr;
 	instruction_t i;
+	char *instrstr;
+	char *regsstr;
 
 	if (e->trace_head == NULL)
 		return;
@@ -25,11 +48,11 @@ debug_trace_print_all(rk65c02emu_t *e)
 		i.opcode = tr->opcode;
 		i.op1 = tr->op1;
 		i.op2 = tr->op2;
+		instrstr = instruction_string_get(&i);
+		regsstr = rk65c02_regs_string_get(tr->regs);
 
-		printf("TRACE %X:\t", tr->address);
-		instruction_print(&i);
-		printf("\t");
-		rk65c02_dump_regs(tr->regs);
+		rk65c02_log(LOG_TRACE, "%X: %s\t%s", tr->address, instrstr,
+		    regsstr);
 	}
 
 }
@@ -40,11 +63,8 @@ debug_trace_savestate(rk65c02emu_t *e, uint16_t address, instrdef_t *id,
 {
 	trace_t *tr;
 
-	tr = (trace_t *) malloc(sizeof(trace_t));
-	if (tr == NULL) {
-		fprintf(stderr, "Error allocating trace structure.\n");
-		return;
-	}
+	tr = (trace_t *) GC_MALLOC(sizeof(trace_t));
+	assert(tr != NULL);
 
 	tr->address = address;
 
@@ -80,7 +100,7 @@ debug_breakpoint_add(rk65c02emu_t *e, uint16_t address)
 {
 	breakpoint_t *bp;
 
-	bp = (breakpoint_t *) malloc(sizeof(breakpoint_t));
+	bp = (breakpoint_t *) GC_MALLOC(sizeof(breakpoint_t));
 	if (bp == NULL)
 		return false;
 

@@ -9,9 +9,11 @@
 
 #include "bus.h"
 #include "rk65c02.h"
+#include "assembler.h"
 #include "instruction.h"
 #include "debug.h"
 #include "utils.h"
+#include "log.h"
 
 ATF_TC_WITHOUT_HEAD(breakpoint);
 ATF_TC_BODY(breakpoint, tc)
@@ -54,9 +56,12 @@ ATF_TC_BODY(trace, tc)
 	trace_t *tr;
 	int i;
 
+	rk65c02_loglevel_set(LOG_TRACE);
+
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+
 
 	e.regs.PC = ROM_LOAD_ADDR;
 	debug_trace_set(&e, true);

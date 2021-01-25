@@ -1,5 +1,25 @@
+/*
+ *      SPDX-License-Identifier: GPL-3.0-only
+ *
+ *      rk65c02
+ *      Copyright (C) 2017-2021  Radoslaw Kujawa
+ *
+ *      This program is free software: you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation, version 3 of the License.
+ * 
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <assert.h>
+
+#include "log.h"
 
 #include "emulation.h"
 
@@ -10,7 +30,7 @@ static void emul_bbr(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 static void emul_bbs(rk65c02emu_t *, void *, instruction_t *, uint8_t);
 
 /* Convert 8-bit BCD to binary value. */
-static inline uint8_t from_bcd(uint8_t val)
+static uint8_t from_bcd(uint8_t val)
 {
 	uint8_t rv;
 
@@ -21,7 +41,7 @@ static inline uint8_t from_bcd(uint8_t val)
 }
 
 /* Convert 8-bit binary to BCD value. */
-static inline uint8_t to_bcd(uint8_t val)
+static uint8_t to_bcd(uint8_t val)
 {
 	uint16_t shift, digit;
 	uint8_t bcd;
@@ -238,9 +258,6 @@ emul_bbs7(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-/*	uint8_t v = instruction_data_read_1(e, (instrdef_t *) id, i);
-	printf("%x\n", v);*/
-
 	/* zero flag set if acculumator AND memory equals zero */
 	if (e->regs.A & instruction_data_read_1(e, (instrdef_t *) id, i))
 		e->regs.P &= ~P_ZERO;
@@ -1097,5 +1114,15 @@ emul_wai(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->state = STOPPED;
 	e->stopreason = WAI;
+}
+
+/* emulate invalid opcode (variable-lenght NOP) */
+void
+emul_invalid(rk65c02emu_t *e, void *id, instruction_t *i)
+{
+	/* Essentially do nothing, but log this. */
+
+	rk65c02_log(LOG_WARN, "Invalid opcode %x at %x", i->opcode,
+		e->regs.PC);
 }
 

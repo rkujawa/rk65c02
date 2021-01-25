@@ -1,8 +1,19 @@
-CFLAGS=-Wall -I../src -g
-LDFLAGS=-latf-c 
+UNAME_S := $(shell uname -s)
+
+CFLAGS=-Wall -I../src -ggdb -Og
+LDFLAGS=-latf-c -lgc
+
+LDFLAGS_MACOSX=-L/opt/local/lib
+CFLAGS_MACOSX=-I/opt/local/include -I/opt/local/include/uthash
+
+ifeq ($(UNAME_S),Darwin)
+	CFLAGS+=$(CFLAGS_MACOSX)
+	LDFLAGS+=$(LDFLAGS_MACOSX)
+endif
+
 RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
-VASMFLAGS=-Fbin -c02
+VASMFLAGS=-Fbin -wdc02
 UTILS=utils.o
 
 TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug test_device_serial test_jit

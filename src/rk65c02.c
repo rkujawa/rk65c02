@@ -1,21 +1,60 @@
+/*
+ *      SPDX-License-Identifier: GPL-3.0-only
+ *
+ *      rk65c02
+ *      Copyright (C) 2017-2021  Radoslaw Kujawa
+ *
+ *      This program is free software: you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation, version 3 of the License.
+ * 
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
+#include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+#include <gc/gc.h>
 
 #include "bus.h"
 #include "instruction.h"
 #include "rk65c02.h"
+#include "log.h"
 #include "debug.h"
 
 void rk65c02_exec(rk65c02emu_t *);
 
-/*
- * Prepare the emulator for use, set initial CPU state.
- */
+rk65c02emu_t
+rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
+{
+	rk65c02emu_t e;
+
+	if (b == NULL) {
+		b = GC_MALLOC(sizeof(bus_t));
+		assert(b != NULL);
+		*b = bus_init_with_default_devs();
+	}
+
+	/* XXX: normal error handling instead of assert would be preferred */
+	assert(bus_load_file(b, load_addr, path));
+
+	e = rk65c02_init(b);
+
+	return e;
+}
+
 rk65c02emu_t
 rk65c02_init(bus_t *b)
 {
@@ -31,15 +70,15 @@ rk65c02_init(bus_t *b)
 	e.irq = false;
 
 	e.bps_head = NULL;
+	e.trace = false;
 	e.trace_head = NULL;
 	e.runtime_disassembly = false;
+
+	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
 	return e;
 }
 
-/*
- * Assert the IRQ line.
- */
 void
 rk65c02_assert_irq(rk65c02emu_t *e)
 {
@@ -51,13 +90,18 @@ rk65c02_assert_irq(rk65c02emu_t *e)
 	 */
 	e->irq = true;
 
+	/*
+	 * If the CPU was put to sleep by executing WAI instruction, resume
+	 * operation.
+	 *
+	 * Whether interrupt will immediately be serviced, or not, depends
+	 * on normal "interrupt disable" flag behaviour, so here we just
+	 * need to start the CPU.
+	 */
 	if ((e->state == STOPPED) && (e->stopreason == WAI))
 		rk65c02_start(e);
 }
 
-/*
- * Respond to interrupt and start the interrupt service routine.
- */
 void
 rk65c02_irq(rk65c02emu_t *e)
 {
@@ -110,26 +154,18 @@ rk65c02_exec(rk65c02emu_t *e)
 	i = instruction_fetch(e->bus, e->regs.PC);
 	id = instruction_decode(i.opcode);
 
-	if (id.emul != NULL) {
-		id.emul(e, &id, &i);
+	assert(id.emul);
 
-		if (!instruction_modify_pc(&id)) 
-			program_counter_increment(e, &id);
-	} else {
-		printf("unimplemented opcode %X @ %X\n", i.opcode,
-		    e->regs.PC);
-		e->state = STOPPED;
-		e->stopreason = EMUERROR;
-	}
+	id.emul(e, &id, &i);
+
+	if (!instruction_modify_pc(&id))
+		program_counter_increment(e, &id);
 
 	if (e->trace)
 		debug_trace_savestate(e, tpc, &id, &i);
 
 }
 
-/*
- * Start the emulator.
- */
 void
 rk65c02_start(rk65c02emu_t *e) {
 
@@ -141,9 +177,6 @@ rk65c02_start(rk65c02emu_t *e) {
 	}
 }
 
-/*
- * Execute as many instructions as specified in steps argument.
- */
 void
 rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
@@ -185,72 +218,51 @@ rk65c02_dump_stack(rk65c02emu_t *e, uint8_t n)
 void
 rk65c02_dump_regs(reg_state_t regs)
 {
-	printf("A: %X X: %X Y: %X PC: %X SP: %X P: ", 
-	    regs.A, regs.X, regs.Y, regs.PC, regs.SP);
+	char *str;
 
-	if (regs.P & P_NEGATIVE)
-		printf("N");
-	else
-		printf("-");
+	str = rk65c02_regs_string_get(regs);
 
-	if (regs.P & P_SIGN_OVERFLOW)
-		printf("V");
-	else
-		printf("-");
+	printf ("%s\n", str);
 
-	if (regs.P & P_UNDEFINED)
-		printf("1");
-	else
-		printf("-");
-
-	if (regs.P & P_BREAK)
-		printf("B");
-	else
-		printf("-");
-
-	if (regs.P & P_DECIMAL)
-		printf("D");
-	else
-		printf("-");
-
-	if (regs.P & P_IRQ_DISABLE)
-		printf("I");
-	else
-		printf("-");
-
-	if (regs.P & P_ZERO)
-		printf("Z");
-	else
-		printf("-");
-
-	if (regs.P & P_CARRY)
-		printf("C");
-	else
-		printf("-");
-
-	printf("\n");
 }
-/*
-int
-main(void)
+
+char *
+rk65c02_regs_string_get(reg_state_t regs)
 {
-	bus_t b;
+#define REGS_STR_LEN 50
+	char *str;
 
-	b = bus_init();
+	/* XXX: string allocation to a separate utility function? */
+	str = GC_MALLOC(REGS_STR_LEN);
+	assert(str != NULL);
+	memset(str, 0, REGS_STR_LEN);
 
-	bus_write_1(&b, 0, OP_INX);
-	bus_write_1(&b, 1, OP_NOP);
-	bus_write_1(&b, 2, OP_LDY_IMM);
-	bus_write_1(&b, 3, 0x1);
-	bus_write_1(&b, 4, OP_TSB_ZP);
-	bus_write_1(&b, 5, 0x3);
-	bus_write_1(&b, 6, OP_JSR);
-	bus_write_1(&b, 7, 0x09);
-	bus_write_1(&b, 8, 0x0);
-	bus_write_1(&b, 9, OP_STP);
+	snprintf(str, REGS_STR_LEN, "A: %X X: %X Y: %X PC: %X SP: %X P: %c%c%c%c%c%c%c%c", 
+	    regs.A, regs.X, regs.Y, regs.PC, regs.SP, 
+	    (regs.P & P_NEGATIVE) ? 'N' : '-',
+	    (regs.P & P_SIGN_OVERFLOW) ? 'V' : '-',
+	    (regs.P & P_UNDEFINED) ? '1' : '-',
+	    (regs.P & P_BREAK) ? 'B' : '-',
+	    (regs.P & P_DECIMAL) ? 'D' : '-',
+	    (regs.P & P_IRQ_DISABLE) ? 'I' : '-',
+	    (regs.P & P_ZERO) ? 'Z' : '-',
+	    (regs.P & P_CARRY) ? 'C' : '-');
 
-	rk6502_start(&b, 0);
-
-	bus_finish(&b);
+	return str;
 }
-*/
+
+void
+rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...) 
+{
+	va_list args;
+
+	va_start(args, fmt);
+	rk65c02_log(LOG_CRIT, fmt, args);
+	va_end(args);
+
+	e->state = STOPPED;
+	e->stopreason = EMUERROR;
+
+	/* TODO: run some UI callback. */
+}
+
