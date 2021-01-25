@@ -2,7 +2,7 @@
  *	SPDX-License-Identifier: GPL-3.0-only
  *
  *	rk65c02
- *	Copyright (C) 2017-2019  Radoslaw Kujawa
+ *	Copyright (C) 2017-2021  Radoslaw Kujawa
  *
  *	This program is free software: you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
