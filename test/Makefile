@@ -16,7 +16,7 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 UTILS=utils.o
 
-TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug test_device_serial
+TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug 
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(TESTS) $(TESTROMS)
