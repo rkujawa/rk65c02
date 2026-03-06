@@ -15,6 +15,7 @@
  */
 
 void rk65c02_run_jit(rk65c02emu_t *e);
+void rk65c02_poll_host_controls(rk65c02emu_t *e);
 
 #ifdef HAVE_LIGHTNING
 /* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */

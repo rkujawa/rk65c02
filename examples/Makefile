@@ -1,6 +1,6 @@
 UNAME_S := $(shell uname -s)
 
-CFLAGS=-Wall -pedantic -I../src -g
+CFLAGS=-Wall -pedantic -I../src -g -MMD -MP
 LDFLAGS=-lgc -llightning
 
 LDFLAGS_MACOSX=-L/opt/local/lib
@@ -15,7 +15,7 @@ RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 
-EXAMPLES=min3 mul_8bit_to_8bits
+EXAMPLES=min3 mul_8bit_to_8bits host_control
 EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(EXAMPLES) $(EXAMPLES_ROMS)
@@ -26,6 +26,9 @@ min3 : min3.o $(RK6502LIB)
 mul_8bit_to_8bits : mul_8bit_to_8bits.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
+host_control : host_control.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
 %.rom : %.s
 	$(VASM) $(VASMFLAGS) -o $@ $<
 
@@ -33,5 +36,8 @@ mul_8bit_to_8bits : mul_8bit_to_8bits.o $(RK6502LIB)
 	$(CC) $(CFLAGS) -c $<
 clean :
 	rm -f *.o
+	rm -f *.d
 	rm -f $(EXAMPLES) $(EXAMPLES_ROMS)
+
+-include $(wildcard *.d)
 

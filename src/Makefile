@@ -14,7 +14,8 @@ LIB_STATIC=librk65c02.a
 
 LDFLAGS=-shared -lgc -llightning
 LDFLAGS_MACOSX=-L/opt/local/lib
-CFLAGS=-Wall -fpic -ggdb -Og -DHAVE_LIGHTNING
+#CFLAGS=-Wall -fpic -ggdb -Og -DHAVE_LIGHTNING -MMD -MP
+CFLAGS=-Wall -fpic -O3 -DHAVE_LIGHTNING -MMD -MP
 #CFLAGS=-Wall -fpic -Os -fplugin=annobin
 CFLAGS_MACOSX=-I/opt/local/include/uthash -I/opt/local/include
 
@@ -50,6 +51,9 @@ $(EMULATION).h : $(65C02ISA).csv $(EMULATION).awk
 
 clean :
 	rm -f $(65C02ISA).h $(EMULATION).h
+	rm -f *.d
 	rm -f $(LIB_OBJS) #$(CLI_OBJS)
 	rm -f $(LIB_SO) $(LIB_STATIC) #$(CLI)
+
+-include $(wildcard *.d)
 

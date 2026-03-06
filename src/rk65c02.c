@@ -37,6 +37,87 @@
 
 void rk65c02_exec(rk65c02emu_t *);
 
+static void
+rk65c02_maybe_call_on_stop(rk65c02emu_t *e)
+{
+	if (e->on_stop != NULL)
+		e->on_stop(e, e->stopreason, e->on_stop_ctx);
+}
+
+static void
+rk65c02_apply_host_stop_request(rk65c02emu_t *e)
+{
+	if (!(e->stop_requested))
+		return;
+
+	e->state = STOPPED;
+	e->stopreason = HOST;
+	e->stop_requested = false;
+}
+
+static void
+rk65c02_maybe_tick(rk65c02emu_t *e)
+{
+	if (e->tick == NULL)
+		return;
+
+	if ((e->state != RUNNING) && (e->state != STEPPING))
+		return;
+
+	if (e->tick_interval == 0) {
+		e->tick(e, e->tick_ctx);
+		return;
+	}
+
+	if (e->tick_countdown > 0)
+		e->tick_countdown--;
+
+	if (e->tick_countdown == 0) {
+		e->tick(e, e->tick_ctx);
+		e->tick_countdown = e->tick_interval;
+	}
+}
+
+static bool
+rk65c02_can_use_jit(const rk65c02emu_t *e)
+{
+	return e->use_jit && e->jit != NULL && !(e->trace)
+	    && !(e->runtime_disassembly) && (e->bps_head == NULL);
+}
+
+void
+rk65c02_poll_host_controls(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	rk65c02_apply_host_stop_request(e);
+	rk65c02_maybe_tick(e);
+	rk65c02_apply_host_stop_request(e);
+}
+
+const char *
+rk65c02_stop_reason_string(emu_stop_reason_t reason)
+{
+	switch (reason) {
+	case STP:
+		return "STP";
+	case WAI:
+		return "WAI";
+	case BREAKPOINT:
+		return "BREAKPOINT";
+	case WATCHPOINT:
+		return "WATCHPOINT";
+	case STEPPED:
+		return "STEPPED";
+	case HOST:
+		return "HOST";
+	case EMUERROR:
+		return "EMUERROR";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 rk65c02emu_t
 rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 {
@@ -77,6 +158,13 @@ rk65c02_init(bus_t *b)
 
 	e.use_jit = false;
 	e.jit = NULL;
+	e.stop_requested = false;
+	e.on_stop = NULL;
+	e.on_stop_ctx = NULL;
+	e.tick = NULL;
+	e.tick_ctx = NULL;
+	e.tick_interval = 0;
+	e.tick_countdown = 0;
 
 	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
@@ -180,14 +268,26 @@ rk65c02_start(rk65c02emu_t *e) {
 	 * and no debugging features that rely on per-instruction interpreter
 	 * state are active. Otherwise fall back to the interpreter loop.
 	 */
-	if (e->use_jit && e->jit != NULL && !(e->trace) && !(e->runtime_disassembly)
-	    && (e->bps_head == NULL))
+	e->stop_requested = false;
+	e->tick_countdown = e->tick_interval;
+
+	if (rk65c02_can_use_jit(e))
 		rk65c02_run_jit(e);
 	else {
 		e->state = RUNNING;
-		while (e->state == RUNNING)
+		while (e->state == RUNNING) {
+			rk65c02_poll_host_controls(e);
+			if (e->state != RUNNING)
+				break;
+
 			rk65c02_exec(e);
+			rk65c02_poll_host_controls(e);
+		}
 	}
+
+	rk65c02_poll_host_controls(e);
+	if (e->state == STOPPED)
+		rk65c02_maybe_call_on_stop(e);
 }
 
 void
@@ -197,14 +297,76 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
 	assert(e != NULL);
 
+	e->stop_requested = false;
+	e->tick_countdown = e->tick_interval;
 	e->state = STEPPING;
 	while ((e->state == STEPPING) && (i < steps)) {
+		rk65c02_poll_host_controls(e);
+		if (e->state != STEPPING)
+			break;
+
 		rk65c02_exec(e);
+		rk65c02_poll_host_controls(e);
 		i++;
 	}
 
-	e->state = STOPPED;
-	e->stopreason = STEPPED;
+	rk65c02_poll_host_controls(e);
+	if (e->state == STEPPING) {
+		e->state = STOPPED;
+		e->stopreason = STEPPED;
+	}
+
+	if (e->state == STOPPED)
+		rk65c02_maybe_call_on_stop(e);
+}
+
+void
+rk65c02_on_stop_set(rk65c02emu_t *e, rk65c02_on_stop_cb_t cb, void *ctx)
+{
+	assert(e != NULL);
+
+	e->on_stop = cb;
+	e->on_stop_ctx = ctx;
+}
+
+void
+rk65c02_on_stop_clear(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	e->on_stop = NULL;
+	e->on_stop_ctx = NULL;
+}
+
+void
+rk65c02_tick_set(rk65c02emu_t *e, rk65c02_tick_cb_t cb, uint32_t interval,
+    void *ctx)
+{
+	assert(e != NULL);
+
+	e->tick = cb;
+	e->tick_ctx = ctx;
+	e->tick_interval = interval;
+	e->tick_countdown = interval;
+}
+
+void
+rk65c02_tick_clear(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	e->tick = NULL;
+	e->tick_ctx = NULL;
+	e->tick_interval = 0;
+	e->tick_countdown = 0;
+}
+
+void
+rk65c02_request_stop(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	e->stop_requested = true;
 }
 
 void
@@ -268,14 +430,19 @@ void
 rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...) 
 {
 	va_list args;
+	bool was_active;
+
+	assert(e != NULL);
 
 	va_start(args, fmt);
 	rk65c02_logv(LOG_CRIT, fmt, args);
 	va_end(args);
 
+	was_active = ((e->state == RUNNING) || (e->state == STEPPING));
 	e->state = STOPPED;
 	e->stopreason = EMUERROR;
-
-	/* TODO: run some UI callback. */
+	e->stop_requested = false;
+	if (!was_active)
+		rk65c02_maybe_call_on_stop(e);
 }
 

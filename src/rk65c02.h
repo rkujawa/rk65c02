@@ -7,6 +7,8 @@
 #include "bus.h"
 
 struct rk65c02_jit;
+struct rk65c02emu;
+typedef struct rk65c02emu rk65c02emu_t;
 
 /**
  * @brief State of the emulator.
@@ -29,6 +31,17 @@ typedef enum {
 	HOST,		/**< Due to host stop function called. */
 	EMUERROR	/**< Due to emulator error. */
 } emu_stop_reason_t;
+
+/**
+ * @brief Callback executed when emulation stops.
+ */
+typedef void (*rk65c02_on_stop_cb_t)(rk65c02emu_t *e, emu_stop_reason_t reason,
+    void *ctx);
+
+/**
+ * @brief Callback executed periodically while emulation is running.
+ */
+typedef void (*rk65c02_tick_cb_t)(rk65c02emu_t *e, void *ctx);
 
 /**
  * @brief State of the emulated CPU registers.
@@ -91,9 +104,14 @@ struct rk65c02emu {
 	trace_t *trace_head;	/**< Pointer to linked list with trace log. */
 	bool use_jit;		/**< Enable/disable JIT execution. */
 	struct rk65c02_jit *jit; /**< Opaque JIT backend state. */
+	bool stop_requested;	/**< Host requested stop at next safe boundary. */
+	rk65c02_on_stop_cb_t on_stop; /**< Callback executed after stop. */
+	void *on_stop_ctx;	/**< Host context for on_stop callback. */
+	rk65c02_tick_cb_t tick;	/**< Interpreter tick callback. */
+	void *tick_ctx;		/**< Host context for tick callback. */
+	uint32_t tick_interval; /**< Tick period in instructions (0 = every insn). */
+	uint32_t tick_countdown; /**< Internal countdown used by tick callback. */
 };
-
-typedef struct rk65c02emu rk65c02emu_t;
 
 /**
  * @brief Initialize the new emulator instance. Set initial CPU state.
@@ -114,6 +132,49 @@ void rk65c02_start(rk65c02emu_t *e);
  * @param steps Number of instructions to execute.
  */
 void rk65c02_step(rk65c02emu_t *e, uint16_t steps);
+
+/**
+ * @brief Convert stop reason enum value to a static string.
+ * @param reason Stop reason value.
+ * @return Human-readable reason name.
+ */
+const char *rk65c02_stop_reason_string(emu_stop_reason_t reason);
+
+/**
+ * @brief Register callback executed whenever emulation stops.
+ * @param e Emulator instance.
+ * @param cb Callback function.
+ * @param ctx Opaque host context passed back to callback.
+ */
+void rk65c02_on_stop_set(rk65c02emu_t *e, rk65c02_on_stop_cb_t cb, void *ctx);
+
+/**
+ * @brief Unregister on-stop callback.
+ * @param e Emulator instance.
+ */
+void rk65c02_on_stop_clear(rk65c02emu_t *e);
+
+/**
+ * @brief Register periodic interpreter tick callback.
+ * @param e Emulator instance.
+ * @param cb Callback function.
+ * @param interval Number of instructions between callbacks (0 = every insn).
+ * @param ctx Opaque host context passed back to callback.
+ */
+void rk65c02_tick_set(rk65c02emu_t *e, rk65c02_tick_cb_t cb,
+    uint32_t interval, void *ctx);
+
+/**
+ * @brief Unregister tick callback.
+ * @param e Emulator instance.
+ */
+void rk65c02_tick_clear(rk65c02emu_t *e);
+
+/**
+ * @brief Request stop at the next safe execution boundary.
+ * @param e Emulator instance.
+ */
+void rk65c02_request_stop(rk65c02emu_t *e);
 
 char *rk65c02_regs_string_get(reg_state_t);
 void rk65c02_dump_regs(reg_state_t);

@@ -1353,8 +1353,13 @@ rk65c02_run_jit(rk65c02emu_t *e)
 	    || e->trace || e->runtime_disassembly
 	    || (e->bps_head != NULL)) {
 		e->state = RUNNING;
-		while (e->state == RUNNING)
+		while (e->state == RUNNING) {
+			rk65c02_poll_host_controls(e);
+			if (e->state != RUNNING)
+				break;
 			rk65c02_exec(e);
+			rk65c02_poll_host_controls(e);
+		}
 		return;
 	}
 
@@ -1363,6 +1368,10 @@ rk65c02_run_jit(rk65c02emu_t *e)
 	while (e->state == RUNNING) {
 		struct rk65c02_jit_block *b;
 		uint16_t pc;
+
+		rk65c02_poll_host_controls(e);
+		if (e->state != RUNNING)
+			break;
 
 		/*
 		 * Honour any runtime changes in debugging state by
@@ -1383,6 +1392,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		}
 
 		b->fn(e);
+		rk65c02_poll_host_controls(e);
 	}
 }
 

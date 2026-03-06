@@ -1,6 +1,7 @@
 UNAME_S := $(shell uname -s)
 
-CFLAGS=-Wall -I../src -ggdb -Og
+CFLAGS=-Wall -I../src -O3 -MMD -MP
+#CFLAGS=-Wall -I../src -ggdb -Og -MMD -MP
 LDFLAGS=-latf-c -lgc -llightning
 
 LDFLAGS_MACOSX=-L/opt/local/lib
@@ -54,6 +55,9 @@ test_device_serial: test_device_serial.o $(UTILS) $(RK6502LIB)
 
 clean :
 	rm -f *.o
+	rm -f *.d
 	rm -f $(TESTS) $(BENCH)
 	rm -f $(TESTROMS)
+
+-include $(wildcard *.d)
 
