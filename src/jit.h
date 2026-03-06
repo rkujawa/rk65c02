@@ -16,5 +16,11 @@
 
 void rk65c02_run_jit(rk65c02emu_t *e);
 
+#ifdef HAVE_LIGHTNING
+/* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */
+void rk65c02_do_adc_bcd(rk65c02emu_t *e, uint8_t operand);
+void rk65c02_do_sbc_bcd(rk65c02emu_t *e, uint8_t operand);
+#endif
+
 #endif /* _JIT_H_ */
 

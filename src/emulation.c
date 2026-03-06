@@ -914,6 +914,65 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	instruction_status_adjust_negative(e, e->regs.A);
 }
 
+/*
+ * BCD ADC/SBC helpers for JIT: same semantics as the decimal branch of
+ * emul_adc/emul_sbc, but take (e, operand) and do not advance PC.
+ * Used when P_DECIMAL is set so the JIT can call out instead of inlining BCD.
+ */
+void
+rk65c02_do_adc_bcd(rk65c02emu_t *e, uint8_t operand)
+{
+	uint16_t res;
+
+	res = from_bcd(e->regs.A) + from_bcd(operand);
+	if (e->regs.P & P_CARRY)
+		res++;
+
+	if ((e->regs.A ^ res) & (operand ^ res) & 0x80)
+		e->regs.P |= P_SIGN_OVERFLOW;
+	else
+		e->regs.P &= ~P_SIGN_OVERFLOW;
+
+	if (res > 99)
+		e->regs.P |= P_CARRY;
+	else
+		e->regs.P &= ~P_CARRY;
+
+	e->regs.A = to_bcd((uint8_t)res);
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
+}
+
+void
+rk65c02_do_sbc_bcd(rk65c02emu_t *e, uint8_t operand)
+{
+	uint16_t res;
+	int16_t res_signed;
+	int bcd_val;
+
+	res = from_bcd(e->regs.A) - from_bcd(operand);
+	if (!(e->regs.P & P_CARRY))
+		res--;
+
+	if ((e->regs.A ^ res) & ((0xFF - operand) ^ res) & 0x80)
+		e->regs.P |= P_SIGN_OVERFLOW;
+	else
+		e->regs.P &= ~P_SIGN_OVERFLOW;
+
+	if ((res > 99) || (res & 0xFF00))
+		e->regs.P &= ~P_CARRY;
+	else
+		e->regs.P |= P_CARRY;
+
+	res_signed = (int16_t)res;
+	bcd_val = (res_signed + 100) % 100;
+	if (bcd_val < 0)
+		bcd_val += 100;
+	e->regs.A = to_bcd((uint8_t)bcd_val);
+	instruction_status_adjust_zero(e, e->regs.A);
+	instruction_status_adjust_negative(e, e->regs.A);
+}
+
 /* SED - set the decimal flag */
 void
 emul_sed(rk65c02emu_t *e, void *id, instruction_t *i)

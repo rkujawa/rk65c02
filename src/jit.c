@@ -388,6 +388,18 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
+	case 0xD8: /* CLD */
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R1, JIT_R1, ~P_DECIMAL);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
+		jit_emit_advance_pc(size);
+		return NULL;
+	case 0xF8: /* SED */
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
+		jit_ori(JIT_R1, JIT_R1, P_DECIMAL);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
+		jit_emit_advance_pc(size);
+		return NULL;
 
 	/* --- Transfer --- */
 	case JIT_OP_TAX:
@@ -579,6 +591,65 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_emit_advance_pc(size);
 		return NULL;
 
+	/* --- ADC (all modes): A = A + M + C, update N/Z/C/V; BCD when P_DECIMAL --- */
+	case 0x69: case 0x65: case 0x75: case 0x6D: case 0x7D: case 0x79:
+	case 0x61: case 0x71: case 0x72: {
+		jit_node_t *binary_path, *adc_done;
+		if (!jit_emit_load_operand(bi, arg_node))
+			break;
+		/* If decimal mode, call BCD helper and advance PC. */
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, P_DECIMAL);
+		binary_path = jit_beqi(JIT_R2, 0);
+		jit_prepare();
+		jit_pushargr(JIT_R0);
+		jit_pushargr(JIT_R1);
+		jit_finishi((void *)rk65c02_do_adc_bcd);
+		jit_movr(JIT_R0, JIT_V0);
+		jit_emit_advance_pc(size);
+		adc_done = jit_jmpi();
+		jit_patch(binary_path);
+		/* Binary path: R1 = operand (M), save M and A, compute A+M+carry. */
+		jit_movr(JIT_V1, JIT_R1);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_A);
+		jit_movr(JIT_V2, JIT_R2);
+		jit_addr(JIT_R1, JIT_R2, JIT_R1);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, P_CARRY);
+		{
+			jit_node_t *no_carry = jit_beqi(JIT_R2, 0);
+			jit_addi(JIT_R1, JIT_R1, 1);
+			jit_patch(no_carry);
+		}
+		/* R2 = carry bit (0x100), R1 = 8-bit result. */
+		jit_movr(JIT_R2, JIT_R1);
+		jit_andi(JIT_R2, JIT_R2, 0x100);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		/* V = (A ^ res) & (M ^ res) & 0x80 */
+		jit_xorr(JIT_V2, JIT_V2, JIT_R1);
+		jit_xorr(JIT_V1, JIT_V1, JIT_R1);
+		jit_andr(JIT_V2, JIT_V2, JIT_V1);
+		jit_andi(JIT_V2, JIT_V2, 0x80);
+		jit_ldxi_uc(JIT_V1, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_V1, JIT_V1, ~(P_CARRY | P_SIGN_OVERFLOW));
+		{
+			jit_node_t *no_c = jit_beqi(JIT_R2, 0);
+			jit_ori(JIT_V1, JIT_V1, P_CARRY);
+			jit_patch(no_c);
+		}
+		{
+			jit_node_t *no_v = jit_beqi(JIT_V2, 0);
+			jit_ori(JIT_V1, JIT_V1, P_SIGN_OVERFLOW);
+			jit_patch(no_v);
+		}
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_V1);
+		jit_stxi_c(OFFSET_E_A, JIT_R0, JIT_R1);
+		jit_emit_update_zn();
+		jit_emit_advance_pc(size);
+		jit_patch(adc_done);
+		return NULL;
+	}
+
 	/* --- CMP (all modes): A - M, update C/Z/N --- */
 	case 0xC9: case 0xC5: case 0xD5: case 0xCD: case 0xDD: case 0xD9:
 	case 0xC1: case 0xD1: case 0xD2: {
@@ -654,6 +725,66 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_patch(no_carry);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_V1);
 		jit_emit_advance_pc(size);
+		return NULL;
+	}
+
+	/* --- SBC (all modes): A = A - M - (1-C), update N/Z/C/V; BCD when P_DECIMAL --- */
+	case 0xE9: case 0xE5: case 0xF5: case 0xED: case 0xFD: case 0xF9:
+	case 0xE1: case 0xF1: case 0xF2: {
+		jit_node_t *binary_path, *sbc_done;
+		if (!jit_emit_load_operand(bi, arg_node))
+			break;
+		/* If decimal mode, call BCD helper and advance PC. */
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, P_DECIMAL);
+		binary_path = jit_beqi(JIT_R2, 0);
+		jit_prepare();
+		jit_pushargr(JIT_R0);
+		jit_pushargr(JIT_R1);
+		jit_finishi((void *)rk65c02_do_sbc_bcd);
+		jit_movr(JIT_R0, JIT_V0);
+		jit_emit_advance_pc(size);
+		sbc_done = jit_jmpi();
+		jit_patch(binary_path);
+		/* Binary path: SBC is A + (~M) + C. R1 = operand (M), then ~M. */
+		jit_xori(JIT_R1, JIT_R1, 0xFF);
+		jit_movr(JIT_V1, JIT_R1);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_A);
+		jit_movr(JIT_V2, JIT_R2);
+		jit_addr(JIT_R1, JIT_R2, JIT_R1);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, P_CARRY);
+		{
+			jit_node_t *no_carry = jit_beqi(JIT_R2, 0);
+			jit_addi(JIT_R1, JIT_R1, 1);
+			jit_patch(no_carry);
+		}
+		/* R2 = carry bit (0x100), R1 = 8-bit result. */
+		jit_movr(JIT_R2, JIT_R1);
+		jit_andi(JIT_R2, JIT_R2, 0x100);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		/* V = (A ^ res) & (~M ^ res) & 0x80 (operand was complemented). */
+		jit_xorr(JIT_V2, JIT_V2, JIT_R1);
+		jit_xorr(JIT_V1, JIT_V1, JIT_R1);
+		jit_andr(JIT_V2, JIT_V2, JIT_V1);
+		jit_andi(JIT_V2, JIT_V2, 0x80);
+		jit_ldxi_uc(JIT_V1, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_V1, JIT_V1, ~(P_CARRY | P_SIGN_OVERFLOW));
+		{
+			jit_node_t *no_c = jit_beqi(JIT_R2, 0);
+			jit_ori(JIT_V1, JIT_V1, P_CARRY);
+			jit_patch(no_c);
+		}
+		{
+			jit_node_t *no_v = jit_beqi(JIT_V2, 0);
+			jit_ori(JIT_V1, JIT_V1, P_SIGN_OVERFLOW);
+			jit_patch(no_v);
+		}
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_V1);
+		jit_stxi_c(OFFSET_E_A, JIT_R0, JIT_R1);
+		jit_emit_update_zn();
+		jit_emit_advance_pc(size);
+		jit_patch(sbc_done);
 		return NULL;
 	}
 
@@ -762,6 +893,105 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_orr(JIT_R1, JIT_R1, JIT_V1);
 		jit_stxi_c(OFFSET_E_A, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
+		jit_emit_advance_pc(size);
+		return NULL;
+	}
+
+	/* --- ASL memory (read-modify-write) --- */
+	case 0x06: case 0x16: case 0x0E: case 0x1E: {
+		jit_node_t *nc;
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, ~P_CARRY);
+		nc = jit_bmci(JIT_R1, 0x80);
+		jit_ori(JIT_R2, JIT_R2, P_CARRY);
+		jit_patch(nc);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R2);
+		jit_lshi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_movr(JIT_V2, JIT_R1);
+		jit_emit_update_zn();
+		jit_movr(JIT_R1, JIT_V1);
+		jit_movr(JIT_R2, JIT_V2);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return NULL;
+	}
+
+	/* --- LSR memory --- */
+	case 0x46: case 0x56: case 0x4E: case 0x5E: {
+		jit_node_t *nc;
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, ~P_CARRY);
+		nc = jit_bmci(JIT_R1, 0x01);
+		jit_ori(JIT_R2, JIT_R2, P_CARRY);
+		jit_patch(nc);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R2);
+		jit_rshi_u(JIT_R1, JIT_R1, 1);
+		jit_movr(JIT_V2, JIT_R1);
+		jit_emit_update_zn();
+		jit_movr(JIT_R1, JIT_V1);
+		jit_movr(JIT_R2, JIT_V2);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return NULL;
+	}
+
+	/* --- ROL memory --- */
+	case 0x26: case 0x36: case 0x2E: case 0x3E: {
+		jit_node_t *nc;
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_V2, JIT_R2, P_CARRY);
+		jit_andi(JIT_R2, JIT_R2, ~P_CARRY);
+		nc = jit_bmci(JIT_R1, 0x80);
+		jit_ori(JIT_R2, JIT_R2, P_CARRY);
+		jit_patch(nc);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R2);
+		jit_lshi(JIT_R1, JIT_R1, 1);
+		jit_orr(JIT_R1, JIT_R1, JIT_V2);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_movr(JIT_V2, JIT_R1);
+		jit_emit_update_zn();
+		jit_movr(JIT_R1, JIT_V1);
+		jit_movr(JIT_R2, JIT_V2);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return NULL;
+	}
+
+	/* --- ROR memory --- */
+	case 0x66: case 0x76: case 0x6E: case 0x7E: {
+		jit_node_t *nc;
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_V2, JIT_R2, P_CARRY);
+		jit_lshi(JIT_V2, JIT_V2, 7);
+		jit_andi(JIT_R2, JIT_R2, ~P_CARRY);
+		nc = jit_bmci(JIT_R1, 0x01);
+		jit_ori(JIT_R2, JIT_R2, P_CARRY);
+		jit_patch(nc);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R2);
+		jit_rshi_u(JIT_R1, JIT_R1, 1);
+		jit_orr(JIT_R1, JIT_R1, JIT_V2);
+		jit_movr(JIT_V2, JIT_R1);
+		jit_emit_update_zn();
+		jit_movr(JIT_R1, JIT_V1);
+		jit_movr(JIT_R2, JIT_V2);
+		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
 		return NULL;
 	}
@@ -922,6 +1152,80 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 	case 0x4C: {
 		uint16_t addr = bi->i.op1 | (bi->i.op2 << 8);
 		jit_movi(JIT_R1, addr);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		return NULL;
+	}
+
+	/* --- JMP indirect (0x6C): PC = (mem[addr+1]<<8) | mem[addr] --- */
+	case 0x6C: {
+		uint16_t iaddr = bi->i.op1 | (bi->i.op2 << 8);
+		uint16_t iaddr2 = (uint16_t)(iaddr + 1);
+		jit_movi(JIT_R1, iaddr);
+		jit_emit_bus_read(arg_node);
+		jit_movr(JIT_V1, JIT_R1);
+		jit_movi(JIT_R1, iaddr2);
+		jit_emit_bus_read(arg_node);
+		jit_lshi(JIT_R1, JIT_R1, 8);
+		jit_orr(JIT_R1, JIT_R1, JIT_V1);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		return NULL;
+	}
+
+	/* --- JSR (0x20): push (PC+2) high then low, PC = target --- */
+	case 0x20: {
+		uint16_t jumpaddr = bi->i.op1 | (bi->i.op2 << 8);
+		/* retaddr = PC + 2 (address of byte after JSR) */
+		jit_ldxi_us(JIT_R1, JIT_R0, OFFSET_E_PC);
+		jit_addi(JIT_R1, JIT_R1, 2);
+		jit_andi(JIT_R1, JIT_R1, 0xFFFF);
+		/* Keep retaddr in V2: bus_write uses V1 internally. */
+		jit_movr(JIT_V2, JIT_R1);
+		/* Push high: addr = 0x100+SP, write high, SP-- */
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_SP);
+		jit_addi(JIT_R1, JIT_R2, 0x100);
+		jit_rshi_u(JIT_R2, JIT_V2, 8);
+		jit_emit_bus_write(arg_node);
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_SP);
+		jit_subi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
+		/* Push low: addr = 0x100+SP, write low, SP-- */
+		jit_addi(JIT_R1, JIT_R1, 0x100);
+		jit_andi(JIT_V2, JIT_V2, 0xFF);
+		jit_movr(JIT_R2, JIT_V2);
+		jit_emit_bus_write(arg_node);
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_SP);
+		jit_subi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
+		/* PC = jumpaddr */
+		jit_movi(JIT_R1, jumpaddr);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		return NULL;
+	}
+
+	/* --- RTS (0x60): PC = pop() | (pop()<<8) --- */
+	case 0x60: {
+		/* SP++, read from 0x100+SP -> low */
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_SP);
+		jit_addi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
+		jit_addi(JIT_R1, JIT_R1, 0x100);
+		jit_emit_bus_read(arg_node);
+		jit_movr(JIT_V1, JIT_R1);
+		/* SP++, read from 0x100+SP -> high */
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_SP);
+		jit_addi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFF);
+		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
+		jit_addi(JIT_R1, JIT_R1, 0x100);
+		jit_emit_bus_read(arg_node);
+		jit_lshi(JIT_R1, JIT_R1, 8);
+		jit_orr(JIT_R1, JIT_R1, JIT_V1);
+		/* Interpreter increments PC by 1 after RTS (modify_pc=false). */
+		jit_addi(JIT_R1, JIT_R1, 1);
+		jit_andi(JIT_R1, JIT_R1, 0xFFFF);
 		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
 		return NULL;
 	}
