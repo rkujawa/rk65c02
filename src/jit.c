@@ -72,6 +72,7 @@ static jit_state_t *_jit;
 
 struct rk65c02_jit_block {
 	uint16_t start_pc;
+	uint16_t end_pc_exclusive;
 	void (*fn)(rk65c02emu_t *);
 #ifdef HAVE_LIGHTNING
 	jit_state_t *lightning_state;  /* one state per block: stable fn, no buffer realloc */
@@ -82,6 +83,16 @@ struct rk65c02_jit {
 	unsigned int magic;
 	size_t active_blocks;
 	bool needs_flush;
+	bool write_event_pending;
+	uint16_t last_write_addr;
+	/* Per-run counters for profiling fallback pressure. */
+	uint64_t run_blocks_executed;
+	uint64_t run_fallback_calls;
+	uint64_t run_write_events;
+	uint64_t run_invalidation_events;
+	uint64_t run_invalidated_blocks;
+	uint64_t run_fallback_by_opcode[256];
+	uint16_t compiled_page_refcnt[256];
 	struct rk65c02_jit_block *blocks[JIT_CACHE_SIZE];
 };
 
@@ -93,6 +104,11 @@ struct jit_block_insn {
 
 /* Forward declaration from rk65c02.c */
 void rk65c02_exec(rk65c02emu_t *e);
+
+#ifdef HAVE_LIGHTNING
+static void jit_block_page_refs_update(struct rk65c02_jit *j,
+    const struct rk65c02_jit_block *b, bool add);
+#endif
 
 /*
  * Build a block of instructions starting at start_pc. Stops at the first
@@ -153,6 +169,15 @@ jit_backend_create(void)
 	j->magic = JIT_MAGIC;
 	j->active_blocks = 0;
 	j->needs_flush = false;
+	j->write_event_pending = false;
+	j->last_write_addr = 0;
+	j->run_blocks_executed = 0;
+	j->run_fallback_calls = 0;
+	j->run_write_events = 0;
+	j->run_invalidation_events = 0;
+	j->run_invalidated_blocks = 0;
+	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->blocks, 0, sizeof(j->blocks));
 
 	return j;
@@ -177,12 +202,17 @@ jit_backend_flush(struct rk65c02_jit *j)
 			_jit_destroy_state(b->lightning_state);
 			b->lightning_state = NULL;
 		}
+		if (b->fn != NULL)
+			jit_block_page_refs_update(j, b, false);
 		b->fn = NULL;
 	}
 #endif
 
 	j->active_blocks = 0;
 	j->needs_flush = false;
+	j->write_event_pending = false;
+	j->last_write_addr = 0;
+	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 }
 
 static struct rk65c02_jit_block *
@@ -195,6 +225,138 @@ jit_find_block(struct rk65c02_jit *j, uint16_t pc)
 }
 
 #ifdef HAVE_LIGHTNING
+static void
+jit_block_page_refs_update(struct rk65c02_jit *j,
+    const struct rk65c02_jit_block *b, bool add)
+{
+	uint16_t addr;
+	uint8_t seen[256];
+	int delta;
+
+	if ((j == NULL) || (b == NULL))
+		return;
+	memset(seen, 0, sizeof(seen));
+	if (b->start_pc == b->end_pc_exclusive) {
+		memset(seen, 1, sizeof(seen));
+	} else {
+		addr = b->start_pc;
+		while (addr != b->end_pc_exclusive) {
+			seen[addr >> 8] = 1;
+			addr = (uint16_t)(addr + 1);
+		}
+	}
+	delta = add ? 1 : -1;
+	for (addr = 0; addr < 256; addr++) {
+		int next;
+
+		if (!seen[addr])
+			continue;
+		next = (int)j->compiled_page_refcnt[addr] + delta;
+		if (next < 0)
+			next = 0;
+		j->compiled_page_refcnt[addr] = (uint16_t)next;
+	}
+}
+
+static void
+jit_run_counters_reset(struct rk65c02_jit *j)
+{
+	if (j == NULL)
+		return;
+	j->run_blocks_executed = 0;
+	j->run_fallback_calls = 0;
+	j->run_write_events = 0;
+	j->run_invalidation_events = 0;
+	j->run_invalidated_blocks = 0;
+	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+}
+
+static void
+jit_run_counters_log(const struct rk65c02_jit *j)
+{
+	int k;
+
+	if (j == NULL)
+		return;
+	rk65c02_log(LOG_DEBUG,
+	    "JIT run stats: blocks=%llu fallback=%llu writes=%llu invalidations=%llu invalidated_blocks=%llu",
+	    (unsigned long long)j->run_blocks_executed,
+	    (unsigned long long)j->run_fallback_calls,
+	    (unsigned long long)j->run_write_events,
+	    (unsigned long long)j->run_invalidation_events,
+	    (unsigned long long)j->run_invalidated_blocks);
+	for (k = 0; k < 256; k++) {
+		if (j->run_fallback_by_opcode[k] == 0)
+			continue;
+		rk65c02_log(LOG_DEBUG, "JIT fallback opcode $%02X: %llu",
+		    k, (unsigned long long)j->run_fallback_by_opcode[k]);
+	}
+}
+
+static bool
+jit_block_contains_addr(const struct rk65c02_jit_block *b, uint16_t addr)
+{
+	uint16_t start, end;
+
+	if (b == NULL)
+		return false;
+	start = b->start_pc;
+	end = b->end_pc_exclusive;
+	if (start < end)
+		return addr >= start && addr < end;
+	if (start > end)
+		return (addr >= start) || (addr < end);
+	/* start == end means full 64K coverage by wrap; treat as all addresses. */
+	return true;
+}
+
+static void
+jit_invalidate_blocks_for_addr(struct rk65c02_jit *j, uint16_t addr)
+{
+	size_t i;
+
+	if ((j == NULL) || (j->magic != JIT_MAGIC))
+		return;
+	j->run_invalidation_events++;
+	for (i = 0; i < JIT_CACHE_SIZE; i++) {
+		struct rk65c02_jit_block *b;
+
+		b = j->blocks[i];
+		if ((b == NULL) || (b->fn == NULL))
+			continue;
+		if (!jit_block_contains_addr(b, addr))
+			continue;
+		if (b->lightning_state != NULL) {
+			_jit_destroy_state(b->lightning_state);
+			b->lightning_state = NULL;
+		}
+		jit_block_page_refs_update(j, b, false);
+		b->fn = NULL;
+		if (j->active_blocks > 0)
+			j->active_blocks--;
+		j->run_invalidated_blocks++;
+	}
+}
+
+static bool
+jit_has_block_covering_addr(const struct rk65c02_jit *j, uint16_t addr)
+{
+	size_t i;
+
+	if ((j == NULL) || (j->magic != JIT_MAGIC))
+		return false;
+	for (i = 0; i < JIT_CACHE_SIZE; i++) {
+		const struct rk65c02_jit_block *b;
+
+		b = j->blocks[i];
+		if ((b == NULL) || (b->fn == NULL))
+			continue;
+		if (jit_block_contains_addr(b, addr))
+			return true;
+	}
+	return false;
+}
+
 /* Write helper for JIT-native stores. */
 static void
 jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
@@ -202,15 +364,26 @@ jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 	assert(e != NULL);
 
 	bus_write_1(e->bus, addr, val);
-	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)) {
-		/*
-		 * Self-modifying code invalidation in this backend is expensive and
-		 * can lead to pathological compile churn. Drop to interpreter mode
-		 * for the remainder of this run after the first native store.
-		 */
+	if ((e->jit != NULL) && (e->jit->magic == JIT_MAGIC))
+		e->jit->run_write_events++;
+	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
+	    && (e->jit->compiled_page_refcnt[addr >> 8] != 0)
+	    && jit_has_block_covering_addr(e->jit, addr)) {
+		/* Force immediate block bail-out; dispatcher will invalidate spans. */
 		e->use_jit = false;
-		e->jit->needs_flush = true;
+		e->jit->write_event_pending = true;
+		e->jit->last_write_addr = addr;
 	}
+}
+
+static void
+jit_exec_fallback(rk65c02emu_t *e, uint8_t opcode)
+{
+	if ((e != NULL) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)) {
+		e->jit->run_fallback_calls++;
+		e->jit->run_fallback_by_opcode[opcode]++;
+	}
+	rk65c02_exec(e);
 }
 
 /*
@@ -1080,6 +1253,99 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		return NULL;
 	}
 
+	/* --- RMBx: clear bit in zero page memory --- */
+	case 0x07: case 0x17: case 0x27: case 0x37:
+	case 0x47: case 0x57: case 0x67: case 0x77: {
+		uint8_t mask = (uint8_t)~(1u << ((op >> 4) & 0x07));
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_andi(JIT_R2, JIT_R1, mask);
+		jit_movr(JIT_R1, JIT_V1);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return jit_emit_bail_if_jit_disabled();
+	}
+
+	/* --- SMBx: set bit in zero page memory --- */
+	case 0x87: case 0x97: case 0xA7: case 0xB7:
+	case 0xC7: case 0xD7: case 0xE7: case 0xF7: {
+		uint8_t mask = (uint8_t)(1u << ((op >> 4) & 0x07));
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);
+		jit_emit_bus_read(arg_node);
+		jit_ori(JIT_R2, JIT_R1, mask);
+		jit_movr(JIT_R1, JIT_V1);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return jit_emit_bail_if_jit_disabled();
+	}
+
+	/* --- TRB/TSB: test memory with A; update Z; then reset/set bits --- */
+	case 0x14: case 0x1C: /* TRB ZP/ABS */
+	case 0x04: case 0x0C: { /* TSB ZP/ABS */
+		jit_node_t *nz;
+		bool is_trb = (op == 0x14 || op == 0x1C);
+		if (!jit_emit_effaddr(bi, arg_node))
+			break;
+		jit_movr(JIT_V1, JIT_R1);             /* save effective address */
+		jit_emit_bus_read(arg_node);          /* R1 = mem */
+		jit_movr(JIT_V2, JIT_R1);             /* save mem */
+		/* Update Z based on (A & mem) == 0; only Z changes. */
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_P);
+		jit_andi(JIT_R2, JIT_R2, (uint8_t)~P_ZERO);
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_A);
+		jit_andr(JIT_R1, JIT_R1, JIT_V2);
+		nz = jit_bnei(JIT_R1, 0);
+		jit_ori(JIT_R2, JIT_R2, P_ZERO);
+		jit_patch(nz);
+		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R2);
+		/* Compute written value into R2. */
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_A);
+		if (is_trb) {
+			jit_xori(JIT_R2, JIT_R2, 0xFF); /* ~A */
+			jit_andr(JIT_R2, JIT_V2, JIT_R2);
+		} else {
+			jit_orr(JIT_R2, JIT_V2, JIT_R2);
+		}
+		jit_movr(JIT_R1, JIT_V1);
+		jit_emit_bus_write(arg_node);
+		jit_emit_advance_pc(size);
+		return jit_emit_bail_if_jit_disabled();
+	}
+
+	/* --- BBRx/BBSx: test ZP bit and branch relative --- */
+	case 0x0F: case 0x1F: case 0x2F: case 0x3F:
+	case 0x4F: case 0x5F: case 0x6F: case 0x7F: /* BBR0..7 */
+	case 0x8F: case 0x9F: case 0xAF: case 0xBF:
+	case 0xCF: case 0xDF: case 0xEF: case 0xFF: { /* BBS0..7 */
+		jit_node_t *take, *done;
+		uint8_t bit = (op >> 4) & 0x07;
+		uint8_t mask = (uint8_t)(1u << bit);
+		int8_t rel = (int8_t)bi->i.op2;
+		bool is_bbs = (op & 0x80) != 0;
+		/* Read zero page operand for bit test. */
+		jit_movi(JIT_R1, bi->i.op1);
+		jit_emit_bus_read(arg_node);
+		if (is_bbs)
+			take = jit_bmsi(JIT_R1, mask); /* branch if tested bit is set */
+		else
+			take = jit_bmci(JIT_R1, mask); /* branch if tested bit is clear */
+		/* Not taken path. */
+		jit_emit_advance_pc(size);
+		done = jit_jmpi();
+		/* Taken path. */
+		jit_patch(take);
+		jit_ldxi_us(JIT_R1, JIT_R0, OFFSET_E_PC);
+		jit_addi(JIT_R1, JIT_R1, (int)size + (int)rel);
+		jit_andi(JIT_R1, JIT_R1, 0xFFFF);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		jit_patch(done);
+		return NULL;
+	}
+
 	/* --- Stack push: PHA, PHX, PHY, PHP --- */
 	case 0x48: case 0xDA: case 0x5A: case 0x08: {
 		int reg_off;
@@ -1291,12 +1557,20 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 	jit_movr(JIT_R0, JIT_V0);
 	jit_prepare();
 	jit_pushargr(JIT_R0);
-	jit_finishi((void *)rk65c02_exec);
+	jit_pushargi(op);
+	jit_finishi((void *)jit_exec_fallback);
 	jit_movr(JIT_R0, JIT_V0);
 
-	/* Bail out if the emulator is no longer RUNNING (e.g. STP, WAI, BRK). */
-	jit_ldxi_i(JIT_R1, JIT_R0, OFFSET_E_STATE);
-	bail = jit_bnei(JIT_R1, RUNNING);
+	/*
+	 * Fallback opcodes that modify PC must end the current native block.
+	 * For others we continue, but still bail if execution stopped.
+	 */
+	if (bi->id.modify_pc) {
+		bail = jit_jmpi();
+	} else {
+		jit_ldxi_i(JIT_R1, JIT_R0, OFFSET_E_STATE);
+		bail = jit_bnei(JIT_R1, RUNNING);
+	}
 
 	return bail;
 }
@@ -1309,6 +1583,7 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 	struct jit_block_insn insns[JIT_BLOCK_MAX_INSNS];
 	size_t num_insns;
 	size_t k;
+	uint16_t block_end;
 
 	if (j == NULL || j->magic != JIT_MAGIC || bus == NULL)
 		return NULL;
@@ -1318,6 +1593,7 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		b = (struct rk65c02_jit_block *)GC_MALLOC(sizeof(struct rk65c02_jit_block));
 		assert(b != NULL);
 		b->start_pc = pc;
+		b->end_pc_exclusive = pc;
 		b->fn = NULL;
 #ifdef HAVE_LIGHTNING
 		b->lightning_state = NULL;
@@ -1335,6 +1611,10 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 
 		jit_build_block_insns(bus, pc, insns, JIT_BLOCK_MAX_INSNS,
 		    &num_insns);
+		block_end = pc;
+		for (k = 0; k < num_insns; k++)
+			block_end = (uint16_t)(block_end + insns[k].id.size);
+		b->end_pc_exclusive = block_end;
 
 		state = jit_new_state();
 		b->lightning_state = state;
@@ -1358,8 +1638,10 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		jit_epilog();
 
 		b->fn = (void (*)(rk65c02emu_t *))jit_emit();
-		if (b->fn != NULL)
+		if (b->fn != NULL) {
+			jit_block_page_refs_update(j, b, true);
 			j->active_blocks++;
+		}
 	}
 #else
 	(void)bus;
@@ -1428,6 +1710,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 	}
 
 	e->state = RUNNING;
+	jit_run_counters_reset(e->jit);
 
 	while (e->state == RUNNING) {
 		struct rk65c02_jit_block *b;
@@ -1452,6 +1735,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 				rk65c02_exec(e);
 				rk65c02_poll_host_controls(e);
 			}
+			jit_run_counters_log(e->jit);
 			return;
 		}
 
@@ -1473,10 +1757,17 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			continue;
 		}
 
+		e->jit->run_blocks_executed++;
 		b->fn(e);
+		if (e->jit->write_event_pending) {
+			jit_invalidate_blocks_for_addr(e->jit, e->jit->last_write_addr);
+			e->jit->write_event_pending = false;
+			e->use_jit = e->jit_requested;
+		}
 		if (e->jit->needs_flush)
 			jit_backend_flush(e->jit);
 		rk65c02_poll_host_controls(e);
 	}
+	jit_run_counters_log(e->jit);
 }
 

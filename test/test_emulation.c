@@ -1214,6 +1214,57 @@ static void do_emul_selfmod_code(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_selfmod_code, do_emul_selfmod_code)
 
+/*
+ * Self-modifying code regression (different-entry block):
+ * compile block at $C020 first, then patch byte at $C021 from another block.
+ * JIT must invalidate the $C020 block span even though modified address != start PC.
+ */
+static void do_emul_selfmod_code_other_entry(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+
+	/* Main: JSR $C020 ; JSR $C010 ; JSR $C020 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x10);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0xDB);
+
+	/* Patcher at $C010: LDA #$37 ; STA $C021 ; RTS */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x10, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x11, 0x37);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x12, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x13, 0x21);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x14, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x15, 0x60);
+
+	/* Callee at $C020: LDX #$00 ; RTS (patched to LDX #$37 ; RTS). */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x20, 0xA2);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x21, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0x22, 0x60);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_code_other_entry, do_emul_selfmod_code_other_entry)
+
 static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
@@ -2063,6 +2114,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_jsr_rts_jit);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry);
+	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry_jit);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_lda_jit);
 	ATF_TP_ADD_TC(tp, emul_lsr);
