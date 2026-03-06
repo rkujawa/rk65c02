@@ -10,14 +10,16 @@ Currently, the following features are implemented:
 - Emulation of all opcodes, including WDC extensions and BCD mode.
 - 16-bit address space.
 - Minimal support for interrupts.
+- JIT using GNU Lightning.
 
 The following notable features are missing:
 - Ability to execute callbacks in software utilizing this library.
-- Just-in-Time translation.
 
 The only external dependencies (besides standard C library) are Boehm GC and
-uthash.
-On Fedora these can be installed with `gc-devel` and `uthash-devel` packages.
+uthash. GNU Lightning is required for JIT support, but the library can be built 
+without it.
+On Fedora these can be installed with `gc-devel`, `uthash-devel`, 
+`lightning` and `lightning-devel` packages.
 
 If you want to build tests, `kyua` quality assurance toolkit, `atf` testing
 framework and a recent snapshot (1.8f or newer) of `vasm` assembler (6502
