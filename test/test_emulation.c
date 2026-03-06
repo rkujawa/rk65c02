@@ -1165,6 +1165,55 @@ static void do_emul_jsr_rts(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_jsr_rts, do_emul_jsr_rts)
 
+/*
+ * Self-modifying code regression:
+ * patch two NOP bytes into "LDX #$37" and execute immediately afterwards.
+ * JIT must not run stale native code for the patched bytes in the same block.
+ */
+static void do_emul_selfmod_code(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0x00;
+
+	/* LDA #$A2 ; opcode for LDX #imm */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0xA2);
+	/* STA $C00C ; patch opcode byte */
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0x0C);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0xC0);
+	/* LDA #$37 */
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x37);
+	/* STA $C00D ; patch immediate byte */
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x0D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0xC0);
+	/* LDX #$00 */
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xA2);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0x00);
+	/* Patched in-place to LDX #$37 */
+	bus_write_1(&b, ROM_LOAD_ADDR + 12, 0xEA);
+	bus_write_1(&b, ROM_LOAD_ADDR + 13, 0xEA);
+	/* STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 14, 0xDB);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_code, do_emul_selfmod_code)
+
 static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
@@ -2012,6 +2061,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_jmp_jit);
 	ATF_TP_ADD_TC(tp, emul_jsr_rts);
 	ATF_TP_ADD_TC(tp, emul_jsr_rts_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_code);
+	ATF_TP_ADD_TC(tp, emul_selfmod_code_jit);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_lda_jit);
 	ATF_TP_ADD_TC(tp, emul_lsr);

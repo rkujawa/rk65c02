@@ -102,7 +102,8 @@ struct rk65c02emu {
 	bool runtime_disassembly; /**< Disassemble code when emulator is running. */
 	bool trace;		/**< Tracing mode enable/disable. */
 	trace_t *trace_head;	/**< Pointer to linked list with trace log. */
-	bool use_jit;		/**< Enable/disable JIT execution. */
+	bool use_jit;		/**< Current JIT execution state (may change at runtime). */
+	bool jit_requested;	/**< Host-requested JIT preference across start() calls. */
 	struct rk65c02_jit *jit; /**< Opaque JIT backend state. */
 	bool stop_requested;	/**< Host requested stop at next safe boundary. */
 	rk65c02_on_stop_cb_t on_stop; /**< Callback executed after stop. */

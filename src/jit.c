@@ -56,6 +56,7 @@ static jit_state_t *_jit;
 #define OFFSET_E_STATE  offsetof(struct rk65c02emu, state)
 #define OFFSET_E_REGS   offsetof(struct rk65c02emu, regs)
 #define OFFSET_E_BUS    offsetof(struct rk65c02emu, bus)
+#define OFFSET_E_USE_JIT offsetof(struct rk65c02emu, use_jit)
 #define OFFSET_REGS_A   offsetof(struct reg_state, A)
 #define OFFSET_REGS_X   offsetof(struct reg_state, X)
 #define OFFSET_REGS_Y   offsetof(struct reg_state, Y)
@@ -275,6 +276,18 @@ jit_emit_bus_write(jit_node_t *arg_node)
 	jit_pushargr(JIT_R2);
 	jit_finishi((void *)jit_bus_write_1);
 	jit_movr(JIT_R0, JIT_V0);
+}
+
+/*
+ * If this instruction disabled JIT (e.g. due to self-modifying code write),
+ * branch to block return so modified bytes are not executed stale in this
+ * same compiled block.
+ */
+static jit_node_t *
+jit_emit_bail_if_jit_disabled(void)
+{
+	jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_USE_JIT);
+	return jit_beqi(JIT_R1, 0);
 }
 
 /*
@@ -566,7 +579,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_A);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- STX (all modes) --- */
 	case 0x86: case 0x96: case 0x8E:
@@ -575,7 +588,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_X);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- STY (all modes) --- */
 	case 0x84: case 0x94: case 0x8C:
@@ -584,7 +597,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_Y);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- STZ (all modes) --- */
 	case 0x64: case 0x74: case 0x9C: case 0x9E:
@@ -593,7 +606,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movi(JIT_R2, 0);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- AND (all modes) --- */
 	case 0x29: case 0x25: case 0x35: case 0x2D: case 0x3D: case 0x39:
@@ -843,7 +856,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R1, JIT_V2);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- DEC memory --- */
 	case 0xC6: case 0xD6: case 0xCE: case 0xDE:
@@ -860,7 +873,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R1, JIT_V2);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 
 	/* --- ASL accumulator --- */
 	case 0x0A: {
@@ -958,7 +971,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R2, JIT_V2);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- LSR memory --- */
@@ -981,7 +994,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R2, JIT_V2);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- ROL memory --- */
@@ -1007,7 +1020,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R2, JIT_V2);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- ROR memory --- */
@@ -1033,7 +1046,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_movr(JIT_R2, JIT_V2);
 		jit_emit_bus_write(arg_node);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- BIT --- */
@@ -1087,7 +1100,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_andi(JIT_R1, JIT_R1, 0xFF);
 		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- Stack pull: PLA, PLX, PLY --- */
@@ -1241,7 +1254,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		/* PC = jumpaddr */
 		jit_movi(JIT_R1, jumpaddr);
 		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
-		return NULL;
+		return jit_emit_bail_if_jit_disabled();
 	}
 
 	/* --- RTS (0x60): PC = pop() | (pop()<<8) --- */
@@ -1367,12 +1380,15 @@ rk65c02_jit_enable(rk65c02emu_t *e, bool enable)
 	if (enable) {
 		if (e->jit == NULL)
 			e->jit = jit_backend_create();
+		e->jit_requested = true;
 		e->use_jit = true;
 	} else {
+		e->jit_requested = false;
 		e->use_jit = false;
 	}
 #else
 	(void)enable;
+	e->jit_requested = false;
 	e->use_jit = false;
 #endif
 }

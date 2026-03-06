@@ -157,6 +157,7 @@ rk65c02_init(bus_t *b)
 	e.runtime_disassembly = false;
 
 	e.use_jit = false;
+	e.jit_requested = false;
 	e.jit = NULL;
 	e.stop_requested = false;
 	e.on_stop = NULL;
@@ -268,6 +269,7 @@ rk65c02_start(rk65c02emu_t *e) {
 	 * and no debugging features that rely on per-instruction interpreter
 	 * state are active. Otherwise fall back to the interpreter loop.
 	 */
+	e->use_jit = e->jit_requested;
 	e->stop_requested = false;
 	e->tick_countdown = e->tick_interval;
 
