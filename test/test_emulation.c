@@ -1198,7 +1198,7 @@ static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 	for (i = 0; i < 8; i++) {
 		opc = e.regs.PC;
 		rk65c02_step(&e, 1);
-		ATF_CHECK(e.regs.PC == opc + 2 + 0x70);
+		ATF_CHECK(e.regs.PC == opc + 3 + 0x70);
 		rk65c02_dump_regs(e.regs);
 		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
 	}
@@ -1239,7 +1239,7 @@ static void do_emul_bbs(const atf_tc_t *tc, bool use_jit)
 	for (i = 0; i < 8; i++) {
 		opc = e.regs.PC;
 		rk65c02_step(&e, 1);
-		ATF_CHECK(e.regs.PC == opc + 2 + 0x70);
+		ATF_CHECK(e.regs.PC == opc + 3 + 0x70);
 		rk65c02_dump_regs(e.regs);
 		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
 	}

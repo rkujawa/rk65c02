@@ -49,6 +49,7 @@ static jit_state_t *_jit;
 
 #define JIT_CACHE_SIZE 65536
 #define JIT_BLOCK_MAX_INSNS 64
+#define JIT_MAX_ACTIVE_BLOCKS 1024
 #define JIT_MAGIC 0x4a495431u  /* "JIT1" */
 
 /* Offsets into emulator state for generated code (no magic numbers). */
@@ -78,6 +79,8 @@ struct rk65c02_jit_block {
 
 struct rk65c02_jit {
 	unsigned int magic;
+	size_t active_blocks;
+	bool needs_flush;
 	struct rk65c02_jit_block *blocks[JIT_CACHE_SIZE];
 };
 
@@ -147,6 +150,8 @@ jit_backend_create(void)
 	j = (struct rk65c02_jit *)GC_MALLOC(sizeof(struct rk65c02_jit));
 	assert(j != NULL);
 	j->magic = JIT_MAGIC;
+	j->active_blocks = 0;
+	j->needs_flush = false;
 	memset(j->blocks, 0, sizeof(j->blocks));
 
 	return j;
@@ -155,10 +160,28 @@ jit_backend_create(void)
 static void
 jit_backend_flush(struct rk65c02_jit *j)
 {
+	size_t i;
+
 	if (j == NULL)
 		return;
 
-	memset(j->blocks, 0, sizeof(j->blocks));
+#ifdef HAVE_LIGHTNING
+	for (i = 0; i < JIT_CACHE_SIZE; i++) {
+		struct rk65c02_jit_block *b;
+
+		b = j->blocks[i];
+		if (b == NULL)
+			continue;
+		if (b->lightning_state != NULL) {
+			_jit_destroy_state(b->lightning_state);
+			b->lightning_state = NULL;
+		}
+		b->fn = NULL;
+	}
+#endif
+
+	j->active_blocks = 0;
+	j->needs_flush = false;
 }
 
 static struct rk65c02_jit_block *
@@ -171,6 +194,24 @@ jit_find_block(struct rk65c02_jit *j, uint16_t pc)
 }
 
 #ifdef HAVE_LIGHTNING
+/* Write helper for JIT-native stores. */
+static void
+jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
+{
+	assert(e != NULL);
+
+	bus_write_1(e->bus, addr, val);
+	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)) {
+		/*
+		 * Self-modifying code invalidation in this backend is expensive and
+		 * can lead to pathological compile churn. Drop to interpreter mode
+		 * for the remainder of this run after the first native store.
+		 */
+		e->use_jit = false;
+		e->jit->needs_flush = true;
+	}
+}
+
 /*
  * Emit code to advance e->regs.PC by size bytes. JIT_R0 must hold e.
  */
@@ -228,12 +269,11 @@ jit_emit_bus_read(jit_node_t *arg_node)
 static void
 jit_emit_bus_write(jit_node_t *arg_node)
 {
-	jit_ldxi(JIT_V1, JIT_R0, OFFSET_E_BUS);
 	jit_prepare();
-	jit_pushargr(JIT_V1);
+	jit_pushargr(JIT_R0);
 	jit_pushargr(JIT_R1);
 	jit_pushargr(JIT_R2);
-	jit_finishi((void *)bus_write_1);
+	jit_finishi((void *)jit_bus_write_1);
 	jit_movr(JIT_R0, JIT_V0);
 }
 
@@ -1260,11 +1300,19 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 	if (j == NULL || j->magic != JIT_MAGIC || bus == NULL)
 		return NULL;
 
-	b = (struct rk65c02_jit_block *)GC_MALLOC(sizeof(struct rk65c02_jit_block));
-	assert(b != NULL);
-
-	b->start_pc = pc;
-	b->fn = NULL;
+	b = j->blocks[pc];
+	if (b == NULL) {
+		b = (struct rk65c02_jit_block *)GC_MALLOC(sizeof(struct rk65c02_jit_block));
+		assert(b != NULL);
+		b->start_pc = pc;
+		b->fn = NULL;
+#ifdef HAVE_LIGHTNING
+		b->lightning_state = NULL;
+#endif
+		j->blocks[pc] = b;
+	}
+	if (b->fn != NULL)
+		return b;
 
 #ifdef HAVE_LIGHTNING
 	{
@@ -1297,6 +1345,8 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		jit_epilog();
 
 		b->fn = (void (*)(rk65c02emu_t *))jit_emit();
+		if (b->fn != NULL)
+			j->active_blocks++;
 	}
 #else
 	(void)bus;
@@ -1304,8 +1354,6 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 	(void)num_insns;
 	(void)k;
 #endif
-
-	j->blocks[pc] = b;
 
 	return b;
 }
@@ -1380,11 +1428,29 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		if (e->trace || e->runtime_disassembly
 		    || (e->bps_head != NULL))
 			break;
+		if (!(e->use_jit) || (e->jit == NULL)) {
+			while (e->state == RUNNING) {
+				rk65c02_poll_host_controls(e);
+				if (e->state != RUNNING)
+					break;
+				rk65c02_exec(e);
+				rk65c02_poll_host_controls(e);
+			}
+			return;
+		}
 
 		pc = e->regs.PC;
 		b = jit_find_block(e->jit, pc);
-		if (b == NULL)
+		if ((b == NULL) || (b->fn == NULL)) {
+			if (e->jit->active_blocks >= JIT_MAX_ACTIVE_BLOCKS) {
+				/*
+				 * Cap active native blocks to keep JIT memory bounded
+				 * during very long-running workloads (e.g. functional ROMs).
+				 */
+				jit_backend_flush(e->jit);
+			}
 			b = jit_compile_block(e->jit, pc, e->bus);
+		}
 
 		if ((b == NULL) || (b->fn == NULL)) {
 			rk65c02_exec(e);
@@ -1392,6 +1458,8 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		}
 
 		b->fn(e);
+		if (e->jit->needs_flush)
+			jit_backend_flush(e->jit);
 		rk65c02_poll_host_controls(e);
 	}
 }

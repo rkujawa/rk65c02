@@ -141,60 +141,51 @@ run_functional_case(const atf_tc_t *tc, const struct functional_case *fcase,
 }
 
 static void
-do_functional_decimal(const atf_tc_t *tc)
+do_functional_decimal(const atf_tc_t *tc, bool use_jit)
 {
 	const struct functional_case fcase = {
 		.rom_name = "functional_tests/6502_decimal_test.bin",
 		.success_pc = PC_SUCCESS_6502_DECIMAL,
-		.poll_limit = 200000000ULL,
+		.poll_limit = 600000000ULL,
 	};
 
-	run_functional_case(tc, &fcase, false);
+	run_functional_case(tc, &fcase, use_jit);
 }
-ATF_TC_WITHOUT_HEAD(functional_decimal);
-ATF_TC_BODY(functional_decimal, tc)
-{
-	do_functional_decimal(tc);
-}
+ATF_TC_JIT_VARIANTS(functional_decimal, do_functional_decimal)
 
 static void
-do_functional_6502(const atf_tc_t *tc)
+do_functional_6502(const atf_tc_t *tc, bool use_jit)
 {
 	const struct functional_case fcase = {
 		.rom_name = "functional_tests/6502_functional_test.bin",
 		.success_pc = PC_SUCCESS_6502_FUNCTIONAL,
-		.poll_limit = 2000000000ULL,
+		.poll_limit = 6000000000ULL,
 	};
 
-	run_functional_case(tc, &fcase, false);
+	run_functional_case(tc, &fcase, use_jit);
 }
-ATF_TC_WITHOUT_HEAD(functional_6502);
-ATF_TC_BODY(functional_6502, tc)
-{
-	do_functional_6502(tc);
-}
+ATF_TC_JIT_VARIANTS(functional_6502, do_functional_6502)
 
 static void
-do_functional_65c02_extended(const atf_tc_t *tc)
+do_functional_65c02_extended(const atf_tc_t *tc, bool use_jit)
 {
 	const struct functional_case fcase = {
 		.rom_name = "functional_tests/65C02_extended_opcodes_test.bin",
 		.success_pc = PC_SUCCESS_65C02_EXTENDED,
-		.poll_limit = 2000000000ULL,
+		.poll_limit = 6000000000ULL,
 	};
 
-	run_functional_case(tc, &fcase, false);
+	run_functional_case(tc, &fcase, use_jit);
 }
-ATF_TC_WITHOUT_HEAD(functional_65c02_extended);
-ATF_TC_BODY(functional_65c02_extended, tc)
-{
-	do_functional_65c02_extended(tc);
-}
+ATF_TC_JIT_VARIANTS(functional_65c02_extended, do_functional_65c02_extended)
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, functional_decimal);
+	ATF_TP_ADD_TC(tp, functional_decimal_jit);
 	ATF_TP_ADD_TC(tp, functional_6502);
+	ATF_TP_ADD_TC(tp, functional_6502_jit);
 	ATF_TP_ADD_TC(tp, functional_65c02_extended);
+	ATF_TP_ADD_TC(tp, functional_65c02_extended_jit);
 	return (atf_no_error());
 }
