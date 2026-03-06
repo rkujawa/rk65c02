@@ -152,7 +152,7 @@ emul_bbr(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 
 	/* if bit is clear then branch */
 	if (!(BIT(val, bit)))
-		program_counter_branch(e, (int8_t) i->op2);
+		e->regs.PC += (int8_t) i->op2 + 3;
 	else
 		program_counter_increment(e, id);
 
@@ -209,7 +209,7 @@ emul_bbs(rk65c02emu_t *e, void *id, instruction_t *i, uint8_t bit)
 
 	/* if bit is set then branch */
 	if (BIT(val, bit))
-		program_counter_branch(e, (int8_t) i->op2);
+		e->regs.PC += (int8_t) i->op2 + 3;
 	else
 		program_counter_increment(e, id);
 
@@ -704,6 +704,8 @@ void
 emul_plx(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.X = stack_pop(e);
+	instruction_status_adjust_zero(e, e->regs.X);
+	instruction_status_adjust_negative(e, e->regs.X);
 }
 
 /* PLY - pull from stack to Y */
@@ -711,6 +713,8 @@ void
 emul_ply(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	e->regs.Y = stack_pop(e);
+	instruction_status_adjust_zero(e, e->regs.Y);
+	instruction_status_adjust_negative(e, e->regs.Y);
 }
 
 /* RTI - return from interrupt */

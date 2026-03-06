@@ -17,11 +17,15 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 UTILS=utils.o
 
-TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug
+TESTS=test_bus test_emulation test_stepping test_assemble test_interrupt test_debug test_functional
 BENCH=bench_emulation
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
+FUNCTIONAL_DIR=functional_tests
 
-all : $(TESTS) $(BENCH) $(TESTROMS)
+all : $(TESTS) $(BENCH) $(TESTROMS) functional_bins
+
+functional_bins:
+	$(MAKE) -C $(FUNCTIONAL_DIR)
 
 test_stepping : test_stepping.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
@@ -41,6 +45,9 @@ test_interrupt: test_interrupt.o $(UTILS) $(RK6502LIB)
 test_debug: test_debug.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
+test_functional: test_functional.o $(UTILS) $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
+
 bench_emulation: bench_emulation.o $(RK6502LIB)
 	$(CC) -o $@ $< $(RK6502LIB) -lgc -llightning
 
@@ -54,6 +61,7 @@ test_device_serial: test_device_serial.o $(UTILS) $(RK6502LIB)
 	$(CC) $(CFLAGS) -c $< 
 
 clean :
+	$(MAKE) -C $(FUNCTIONAL_DIR) clean
 	rm -f *.o
 	rm -f *.d
 	rm -f $(TESTS) $(BENCH)

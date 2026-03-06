@@ -264,11 +264,11 @@ instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		addr = ((uint8_t) (i->op1 + e->regs.X));
 		break;
 	case ZPY:
-		addr = i->op1 + e->regs.Y;
+		addr = (uint8_t) (i->op1 + e->regs.Y);
 		break;
 	case IZP:
 		addr = bus_read_1(e->bus, i->op1);
-		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + 1)) << 8);
 		break;
 	case IZPX: /* Zero Page Indexed Indirect with X */
 		addr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
@@ -276,7 +276,7 @@ instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */
 		addr = bus_read_1(e->bus, i->op1);
-		addr |= (bus_read_1(e->bus, i->op1 + 1) << 8);
+		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + 1)) << 8);
 		addr += e->regs.Y;
 		break;
 	case ABSOLUTE:
