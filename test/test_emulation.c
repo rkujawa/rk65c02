@@ -1946,6 +1946,26 @@ static void do_emul_invalid_opcode(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_invalid_opcode, do_emul_invalid_opcode)
 
+/*
+ * Compute-intensive benchmark ROM: correctness only.
+ * For timing comparison run: ./bench_emulation [rom_path [runs]]
+ */
+static void do_emul_bench_loop(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bench_loop.rom", tc, use_jit));
+	ATF_CHECK(e.state == STOPPED);
+
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_bench_loop, do_emul_bench_loop)
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
@@ -1962,6 +1982,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_bit_jit);
 	ATF_TP_ADD_TC(tp, emul_branch);
 	ATF_TP_ADD_TC(tp, emul_branch_jit);
+	ATF_TP_ADD_TC(tp, emul_bench_loop);
+	ATF_TP_ADD_TC(tp, emul_bench_loop_jit);
 	ATF_TP_ADD_TC(tp, emul_bbr);
 	ATF_TP_ADD_TC(tp, emul_bbr_jit);
 	ATF_TP_ADD_TC(tp, emul_bbs);
