@@ -17,6 +17,7 @@
  *      along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
+#include <stdint.h>
 #include <assert.h>
 
 #include "log.h"
@@ -264,18 +265,18 @@ emul_bit(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P |= P_ZERO;
 
-	/* immediate addressing does not affect the overflow flag */
-	if ( ((instrdef_t *)id)->mode != IMMEDIATE) {
-		if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 6))
+	/* immediate addressing does not affect overflow or negative flags */
+	if (((instrdef_t *)id)->mode != IMMEDIATE) {
+		uint8_t mem = instruction_data_read_1(e, (instrdef_t *) id, i);
+		if (BIT(mem, 6))
 			e->regs.P |= P_SIGN_OVERFLOW;
 		else
 			e->regs.P &= ~P_SIGN_OVERFLOW;
+		if (BIT(mem, 7))
+			e->regs.P |= P_NEGATIVE;
+		else
+			e->regs.P &= ~P_NEGATIVE;
 	}
-
-	if (BIT(instruction_data_read_1(e, (instrdef_t *) id, i), 7))
-		e->regs.P |= P_NEGATIVE;
-	else
-		e->regs.P &= ~P_NEGATIVE;
 }
 
 /* BCC - branch on carry clear */
@@ -664,7 +665,7 @@ emul_pha(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_php(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	stack_push(e, e->regs.P);
+	stack_push(e, e->regs.P | P_BREAK | P_UNDEFINED);
 }
 
 /* PHX - push X to stack */
@@ -695,7 +696,7 @@ emul_pla(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_plp(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	e->regs.P = stack_pop(e) | P_UNDEFINED;
+	e->regs.P = (stack_pop(e) | P_UNDEFINED) & ~P_BREAK;
 }
 
 /* PLX - pull from stack to X */
@@ -719,7 +720,7 @@ emul_rti(rk65c02emu_t *e, void *id, instruction_t *i)
 	uint16_t retaddr;
 
 	/* restore processor status from stack */
-	e->regs.P = stack_pop(e) | P_UNDEFINED;
+	e->regs.P = (stack_pop(e) | P_UNDEFINED) & ~P_BREAK;
 	/* restore PC */
 	retaddr = stack_pop(e);
 	retaddr|= stack_pop(e) << 8;
@@ -884,24 +885,30 @@ emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 	else
 		e->regs.P &= ~P_SIGN_OVERFLOW;
 
-	if (e->regs.P & P_DECIMAL)
-		if ((res > 99) || (res < 0))
+	if (e->regs.P & P_DECIMAL) {
+		/* borrow when high byte of 16-bit result is set */
+		if ((res > 99) || (res & 0xFF00))
 			e->regs.P &= ~P_CARRY;
 		else
 			e->regs.P |= P_CARRY;
-	else
+	} else {
 		/* if the result does not fit into 8 bits then clear carry */
-		if (res & 0x8000)
+		if (res & 0xFF00)
 			e->regs.P &= ~P_CARRY;
 		else
 			e->regs.P |= P_CARRY;
+	}
 
-
-	/* squash the result into accumulator's 8 bits, lol */
-	if (e->regs.P & P_DECIMAL)
-		e->regs.A = to_bcd(res);
-	else 
+	/* squash the result into accumulator's 8 bits */
+	if (e->regs.P & P_DECIMAL) {
+		int16_t res_signed = (int16_t) res;
+		int bcd_val = (res_signed + 100) % 100;
+		if (bcd_val < 0)
+			bcd_val += 100;
+		e->regs.A = to_bcd((uint8_t) bcd_val);
+	} else {
 		e->regs.A = (uint8_t) res;
+	}
 
 	instruction_status_adjust_zero(e, e->regs.A);
 	instruction_status_adjust_negative(e, e->regs.A);

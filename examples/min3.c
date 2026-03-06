@@ -17,6 +17,8 @@ int main(void)
 
 	e = rk65c02_load_rom("min3.rom", load_addr, NULL);
 
+	rk65c02_jit_enable(&e, true);
+
 	e.regs.SP = 0xFF;
 	e.regs.PC = load_addr;
 	a = 5; b = 9; c = 4;

@@ -1,6 +1,7 @@
 #include <atf-c.h>
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "bus.h"
 #include "rk65c02.h"
@@ -8,8 +9,7 @@
 
 #include "utils.h"
 
-ATF_TC_WITHOUT_HEAD(step1);
-ATF_TC_BODY(step1, tc)
+static void do_step1(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -18,6 +18,7 @@ ATF_TC_BODY(step1, tc)
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -29,10 +30,12 @@ ATF_TC_BODY(step1, tc)
 	rk65c02_step(&e, 1);
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
 }
+ATF_TC_JIT_VARIANTS(step1, do_step1)
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, step1);
+	ATF_TP_ADD_TC(tp, step1_jit);
 
 	return (atf_no_error());
 

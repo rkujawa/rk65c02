@@ -15,8 +15,7 @@
 #include "utils.h"
 #include "log.h"
 
-ATF_TC_WITHOUT_HEAD(breakpoint);
-ATF_TC_BODY(breakpoint, tc)
+static void do_breakpoint(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;	
 	bus_t b;
@@ -25,6 +24,7 @@ ATF_TC_BODY(breakpoint, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -45,10 +45,11 @@ ATF_TC_BODY(breakpoint, tc)
 	ATF_REQUIRE(debug_breakpoint_remove(&e, 0xC002));
 
 	rk65c02_start(&e);
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(breakpoint, do_breakpoint)
 
-ATF_TC_WITHOUT_HEAD(trace);
-ATF_TC_BODY(trace, tc)
+static void do_trace(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;	
 	bus_t b;
@@ -61,7 +62,7 @@ ATF_TC_BODY(trace, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
-
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 	debug_trace_set(&e, true);
@@ -84,12 +85,16 @@ ATF_TC_BODY(trace, tc)
 			ATF_CHECK(tr->opcode = 0xDB);
 		i++;
 	}
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(trace, do_trace)
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, breakpoint);
+	ATF_TP_ADD_TC(tp, breakpoint_jit);
 	ATF_TP_ADD_TC(tp, trace);
+	ATF_TP_ADD_TC(tp, trace_jit);
 
 	return (atf_no_error());
 }

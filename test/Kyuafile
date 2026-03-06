@@ -6,7 +6,7 @@ atf_test_program{name='test_assemble'}
 atf_test_program{name='test_bus'}
 atf_test_program{name='test_debug'}
 --atf_test_program{name='test_device_serial'}
-atf_test_program{name='test_emulation'}
+atf_test_program{name='test_emulation',timeout=10}
 atf_test_program{name='test_interrupt'}
 atf_test_program{name='test_stepping'}
 

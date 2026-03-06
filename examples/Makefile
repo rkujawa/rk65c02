@@ -1,7 +1,7 @@
 UNAME_S := $(shell uname -s)
 
 CFLAGS=-Wall -pedantic -I../src -g
-LDFLAGS=-lgc
+LDFLAGS=-lgc -llightning
 
 LDFLAGS_MACOSX=-L/opt/local/lib
 CFLAGS_MACOSX=-I/opt/local/include

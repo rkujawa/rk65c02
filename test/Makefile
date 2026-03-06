@@ -1,7 +1,7 @@
 UNAME_S := $(shell uname -s)
 
 CFLAGS=-Wall -I../src -ggdb -Og
-LDFLAGS=-latf-c -lgc
+LDFLAGS=-latf-c -lgc -llightning
 
 LDFLAGS_MACOSX=-L/opt/local/lib
 CFLAGS_MACOSX=-I/opt/local/include -I/opt/local/include/uthash

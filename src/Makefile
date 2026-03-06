@@ -2,7 +2,7 @@
 #
 UNAME_S := $(shell uname -s)
 
-LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o log.o assembler.o
+LIB_OBJS=rk65c02.o bus.o instruction.o emulation.o debug.o device_ram.o log.o assembler.o jit.o
 
 ifeq ($(UNAME_S),Darwin)
     LIB_SO=librk65c02.dylib
@@ -12,9 +12,10 @@ endif
 
 LIB_STATIC=librk65c02.a
 
-LDFLAGS=-shared -lgc
+LDFLAGS=-shared -lgc -llightning
 LDFLAGS_MACOSX=-L/opt/local/lib
-CFLAGS=-Wall -fpic -ggdb -Og
+CFLAGS=-Wall -fpic -ggdb -Og -DHAVE_LIGHTNING
+#CFLAGS=-Wall -fpic -Os -fplugin=annobin
 CFLAGS_MACOSX=-I/opt/local/include/uthash -I/opt/local/include
 
 ifeq ($(UNAME_S),Darwin)

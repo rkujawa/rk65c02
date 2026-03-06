@@ -6,6 +6,8 @@
 
 #include "bus.h"
 
+struct rk65c02_jit;
+
 /**
  * @brief State of the emulator.
  */
@@ -87,6 +89,8 @@ struct rk65c02emu {
 	bool runtime_disassembly; /**< Disassemble code when emulator is running. */
 	bool trace;		/**< Tracing mode enable/disable. */
 	trace_t *trace_head;	/**< Pointer to linked list with trace log. */
+	bool use_jit;		/**< Enable/disable JIT execution. */
+	struct rk65c02_jit *jit; /**< Opaque JIT backend state. */
 };
 
 typedef struct rk65c02emu rk65c02emu_t;
@@ -143,6 +147,19 @@ void rk65c02_panic(rk65c02emu_t *e, const char *fmt, ...);
  */
 rk65c02emu_t rk65c02_load_rom(const char *path, uint16_t load_addr,
     bus_t *b);
+
+/**
+ * @brief Enable or disable GNU lightning based JIT backend.
+ * @param e Emulator instance.
+ * @param enable true to enable, false to disable.
+ */
+void rk65c02_jit_enable(rk65c02emu_t *e, bool enable);
+
+/**
+ * @brief Flush JIT-compiled code for given emulator instance.
+ * @param e Emulator instance.
+ */
+void rk65c02_jit_flush(rk65c02emu_t *e);
 
 #endif
 

@@ -19,8 +19,7 @@
 /*
  * Test case for software generated interrupt (by BRK instruction).
  */
-ATF_TC_WITHOUT_HEAD(intr_brk);
-ATF_TC_BODY(intr_brk, tc)
+static void do_intr_brk(const atf_tc_t *tc, bool use_jit)
 {
 	const uint16_t isr_addr = ISR_ADDR;
 
@@ -32,6 +31,7 @@ ATF_TC_BODY(intr_brk, tc)
 	b = bus_init_with_default_devs();
 	bus_device_add(&b, device_ram_init(0x100), 0xFF00);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 	e.regs.SP = 0xFF;
@@ -67,13 +67,14 @@ ATF_TC_BODY(intr_brk, tc)
 	rk65c02_dump_regs(e.regs);
 	rk65c02_start(&e);
 	*/
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(intr_brk, do_intr_brk)
 
 /*
  * Test case for return from interrupt by RTI instruction.
  */
-ATF_TC_WITHOUT_HEAD(intr_rti);
-ATF_TC_BODY(intr_rti, tc)
+static void do_intr_rti(const atf_tc_t *tc, bool use_jit)
 {
 	bus_t b;
 	rk65c02emu_t e;
@@ -83,6 +84,7 @@ ATF_TC_BODY(intr_rti, tc)
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	israsmpc = ISR_ADDR;
 
@@ -116,12 +118,16 @@ ATF_TC_BODY(intr_rti, tc)
 	/* Check if we're back in the main program. */
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(intr_rti, do_intr_rti)
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, intr_brk);
+	ATF_TP_ADD_TC(tp, intr_brk_jit);
 	ATF_TP_ADD_TC(tp, intr_rti);
+	ATF_TP_ADD_TC(tp, intr_rti_jit);
 
 	return (atf_no_error());
 }

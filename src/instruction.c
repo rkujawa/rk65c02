@@ -86,7 +86,7 @@ instruction_print(instruction_t *i)
 char *
 instruction_string_get(instruction_t *i)
 {
-#define INSTR_STR_LEN	16
+#define INSTR_STR_LEN	24
 	instrdef_t id;
 	char *str;
 
@@ -179,6 +179,26 @@ instruction_decode(uint8_t opcode)
 	id = instrs[opcode];
 
 	return id;
+}
+
+/*
+ * Run one instruction at e->regs.PC. Used by JIT fallback so the call
+ * stays in the same compilation unit as instrs (avoids GOT/PLT issues).
+ */
+void
+instruction_exec_one(rk65c02emu_t *e)
+{
+	instruction_t i;
+	instrdef_t id;
+
+	i = instruction_fetch(e->bus, e->regs.PC);
+	id = instruction_decode(i.opcode);
+
+	if (id.emul) {
+		id.emul(e, &id, &i);
+		if (!instruction_modify_pc(&id))
+			program_counter_increment(e, &id);
+	}
 }
 
 void
@@ -329,19 +349,15 @@ instruction_modify_pc(instrdef_t *id)
 bool
 instruction_opcode_by_mnemonic(char *mnemonic, addressing_t mode, uint8_t *opcode, instrdef_t *id)
 {
-	bool found;
+	unsigned int o;
 
-	found = false;
-
-	while ((*opcode) <= 0xFF)  { /* this is stupid */
-		*id = instruction_decode(*opcode);
+	for (o = 0; o <= 0xFF; o++) {
+		*id = instruction_decode((uint8_t) o);
 		if ((strcmp(mnemonic, id->mnemonic) == 0) && (id->mode == mode)) {
-			found = true;
-			break;
+			*opcode = (uint8_t) o;
+			return true;
 		}
-		(*opcode)++;
 	}
-
-	return found;
+	return false;
 }
 

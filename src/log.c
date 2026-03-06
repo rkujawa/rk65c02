@@ -58,3 +58,20 @@ void rk65c02_log(uint8_t l, const char* fmt, ...)
 	fprintf(stderr, "\n");
 }
 
+void rk65c02_logv(uint8_t l, const char *fmt, va_list ap)
+{
+	struct timespec t;
+
+	if (l > level)
+		return;
+
+	clock_gettime(CLOCK_REALTIME, &t);
+
+	fprintf(stderr, "%lld.%lld %s:\t", (long long int) t.tv_sec,
+	    (long long int) t.tv_nsec, level_str[l]);
+
+	vfprintf(stderr, fmt, ap);
+
+	fprintf(stderr, "\n");
+}
+

@@ -58,4 +58,7 @@ bool instruction_modify_pc(instrdef_t *);
 void program_counter_branch(rk65c02emu_t *, int8_t);
 bool instruction_opcode_by_mnemonic(char *, addressing_t, uint8_t *, instrdef_t *);
 
+/* Run one instruction at e->regs.PC (for JIT fallback; same TU as instrs). */
+void instruction_exec_one(rk65c02emu_t *e);
+
 #endif /* _INSTRUCTION_H_ */

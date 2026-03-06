@@ -180,16 +180,20 @@ bool
 bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 {
 	uint16_t i;
-
-	i = 0;
+	uint32_t end;
 
 	assert(buf != NULL);
 	assert(bufsize != 0);
 
-	while (i < bufsize) {
-		bus_write_1(t, addr+i, buf[i]); // XXX: overflow addr
-		i++;
+	end = (uint32_t) addr + bufsize;
+	if (end > RK65C02_BUS_SIZE) {
+		rk65c02_log(LOG_ERROR, "bus_load_buf: address range %x..%x exceeds bus size.",
+		    addr, (uint16_t) end);
+		return false;
 	}
+
+	for (i = 0; i < bufsize; i++)
+		bus_write_1(t, addr + i, buf[i]);
 
 	return true;
 }
@@ -211,7 +215,12 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	}
 
 	while ((read(fd, &data, 1)) > 0) {
-		bus_write_1(t, addr++, data); // XXX: overflow addr
+		if (addr >= RK65C02_BUS_SIZE) {
+			rk65c02_log(LOG_ERROR, "bus_load_file: address overflow at %x.", addr);
+			close(fd);
+			return false;
+		}
+		bus_write_1(t, addr++, data);
 	}
 
 	close(fd);

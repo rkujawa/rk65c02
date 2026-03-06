@@ -33,6 +33,7 @@
 #include "rk65c02.h"
 #include "log.h"
 #include "debug.h"
+#include "jit.h"
 
 void rk65c02_exec(rk65c02emu_t *);
 
@@ -73,6 +74,9 @@ rk65c02_init(bus_t *b)
 	e.trace = false;
 	e.trace_head = NULL;
 	e.runtime_disassembly = false;
+
+	e.use_jit = false;
+	e.jit = NULL;
 
 	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
@@ -171,9 +175,18 @@ rk65c02_start(rk65c02emu_t *e) {
 
 	assert(e != NULL);
 
-	e->state = RUNNING;
-	while (e->state == RUNNING) {
-		rk65c02_exec(e);
+	/*
+	 * Prefer JIT execution path when enabled, JIT state is allocated,
+	 * and no debugging features that rely on per-instruction interpreter
+	 * state are active. Otherwise fall back to the interpreter loop.
+	 */
+	if (e->use_jit && e->jit != NULL && !(e->trace) && !(e->runtime_disassembly)
+	    && (e->bps_head == NULL))
+		rk65c02_run_jit(e);
+	else {
+		e->state = RUNNING;
+		while (e->state == RUNNING)
+			rk65c02_exec(e);
 	}
 }
 
@@ -257,7 +270,7 @@ rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	rk65c02_log(LOG_CRIT, fmt, args);
+	rk65c02_logv(LOG_CRIT, fmt, args);
 	va_end(args);
 
 	e->state = STOPPED;

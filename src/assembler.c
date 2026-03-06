@@ -99,6 +99,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, char *mnemonic, addressing_t 
 
 	/* fill the buffer */
 	memset(*buf, 0, id.size);
+
 	(*buf)[0] = opcode;
 	/* XXX */
 	if (id.size > 1) 

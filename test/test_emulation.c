@@ -12,24 +12,24 @@
 #include "log.h"
 #include "utils.h"
 
-ATF_TC_WITHOUT_HEAD(emul_bit);
-ATF_TC_BODY(emul_bit, tc)
+static void do_emul_bit(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* BIT immediate  */
 	e.regs.A = 0x40;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bit_imm.rom", tc, use_jit));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 	/* BIT zero page */
 	e.regs.A = 0x40;
 	bus_write_1(&b, 0x10, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bit_zp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
@@ -37,14 +37,14 @@ ATF_TC_BODY(emul_bit, tc)
 	e.regs.A = 0x40;
 	e.regs.X = 0x1;
 	bus_write_1(&b, 0x10, 0x40);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bit_zpx.rom", tc, use_jit));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_SIGN_OVERFLOW);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 	/* BIT absolute */
 	e.regs.A = 0x80;
 	bus_write_1(&b, 0x2010, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bit_abs.rom", tc, use_jit));
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
@@ -52,27 +52,28 @@ ATF_TC_BODY(emul_bit, tc)
 	e.regs.A = 0x40;
 	e.regs.X = 0x2;
 	bus_write_1(&b, 0x2010, 0x80);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_bit_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_bit_absx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_bit, do_emul_bit)
 
-ATF_TC_WITHOUT_HEAD(emul_cmp);
-ATF_TC_BODY(emul_cmp, tc)
+static void do_emul_cmp(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* CMP immediate */
 	e.regs.A = 0xAA;
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_imm.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -81,7 +82,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.A = 0xAA;
 	bus_write_1(&b, 0x10, 0xAB);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_zp.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -91,7 +92,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.X = 0x1;
 	bus_write_1(&b, 0x11, 0xA0);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_zpx.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -102,7 +103,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	bus_write_1(&b, 0x21, 0x20);
 	bus_write_1(&b, 0x2000, 0xFF);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_izp.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -114,7 +115,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	bus_write_1(&b, 0x23, 0x20);
 	bus_write_1(&b, 0x2000, 0x3);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_izpx.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -126,7 +127,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	bus_write_1(&b, 0x23, 0x20);
 	bus_write_1(&b, 0x2001, 0x10);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_izpy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_izpy.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -135,7 +136,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.A = 0xFF;
 	bus_write_1(&b, 0x2010, 0xFE);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_abs.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -145,7 +146,7 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.X = 0x2;
 	bus_write_1(&b, 0x2012, 0x55);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_absx.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -155,26 +156,27 @@ ATF_TC_BODY(emul_cmp, tc)
 	e.regs.Y = 0x50;
 	bus_write_1(&b, 0x2065, 0x55);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cmp_absy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cmp_absy.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_CARRY);
 	ATF_CHECK(e.regs.P & P_NEGATIVE);
 }
+ATF_TC_JIT_VARIANTS(emul_cmp, do_emul_cmp)
 
-ATF_TC_WITHOUT_HEAD(emul_cpx);
-ATF_TC_BODY(emul_cpx, tc)
+static void do_emul_cpx(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* CPX immediate */
 	e.regs.X = 0xAA;
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpx_imm.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -183,7 +185,7 @@ ATF_TC_BODY(emul_cpx, tc)
 	e.regs.X = 0xAA;
 	bus_write_1(&b, 0x10, 0xAB);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpx_zp.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -192,26 +194,27 @@ ATF_TC_BODY(emul_cpx, tc)
 	e.regs.X = 0xFF;
 	bus_write_1(&b, 0x2010, 0xFE);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpx_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpx_abs.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_CARRY);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 }
+ATF_TC_JIT_VARIANTS(emul_cpx, do_emul_cpx)
 
-ATF_TC_WITHOUT_HEAD(emul_cpy);
-ATF_TC_BODY(emul_cpy, tc)
+static void do_emul_cpy(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* CPY immediate */
 	e.regs.Y = 0xAA;
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpy_imm.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -220,7 +223,7 @@ ATF_TC_BODY(emul_cpy, tc)
 	e.regs.Y = 0xAA;
 	bus_write_1(&b, 0x10, 0xAB);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpy_zp.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -229,217 +232,222 @@ ATF_TC_BODY(emul_cpy, tc)
 	e.regs.Y = 0xFF;
 	bus_write_1(&b, 0x2010, 0xFE);
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cpy_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cpy_abs.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(e.regs.P & P_CARRY);
 	ATF_CHECK(!(e.regs.P & P_NEGATIVE));
 }
+ATF_TC_JIT_VARIANTS(emul_cpy, do_emul_cpy)
 
-ATF_TC_WITHOUT_HEAD(emul_dex_dey);
-ATF_TC_BODY(emul_dex_dey, tc)
+static void do_emul_dex_dey(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* DEX  */
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dex.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0x0);
 	/* DEX underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dex.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dex.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0xFF);
 
 	/* DEY */
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dey.rom", tc, use_jit));
 	ATF_CHECK(e.regs.Y == 0x0);
 	/* DEY underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dey.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dey.rom", tc, use_jit));
 	ATF_CHECK(e.regs.Y == 0xFF);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_dex_dey, do_emul_dex_dey)
 
-ATF_TC_WITHOUT_HEAD(emul_dec);
-ATF_TC_BODY(emul_dec, tc)
+static void do_emul_dec(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* DEC A */
 	e.regs.A = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_a.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x0);
 	/* DEC A underflow */
 	e.regs.A = 0x0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_a.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_a.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	/* DEC zero page */
 	bus_write_1(&b, 0x10, 0x01);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x0);
 	/* DEC zero page underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0xFF);
 
 	/* DEC zero page X */
 	e.regs.X = 1;
 	bus_write_1(&b, 0x11, 0x01);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x0);
 	/* DEC  zero page X overflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0xFF);
 
 	/* DEC absolute */
 	bus_write_1(&b, 0x2010, 0xA1);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA0);
 	/* DEC absolute overflow */
 	bus_write_1(&b, 0x2010, 0x0);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xFF);
 
 	/* DEC absolute X */
 	e.regs.X = 0x10;
 	bus_write_1(&b, 0x2020, 0x1);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x0);
 	/* DEC absolute X underflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_dec_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_dec_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_dec, do_emul_dec)
 
-ATF_TC_WITHOUT_HEAD(emul_inc);
-ATF_TC_BODY(emul_inc, tc)
+static void do_emul_inc(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* INC A */
 	e.regs.A = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_a.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x2);
 	/* rk65c02_dump_regs(e.regs);*/
 	/* INC A overflow */
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_a.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_a.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x0);
 
 	/* INC zero page */
 	bus_write_1(&b, 0x10, 0x00);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x1);
 	/* INC zero page overflow */
 	bus_write_1(&b, 0x10, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
 
 	/* INC zero page X */
 	e.regs.X = 1;
 	bus_write_1(&b, 0x11, 0x00);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x1);
 	/* INC zero page X overflow */
 	bus_write_1(&b, 0x11, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0x00);
 
 	/* INC absolute */
 	bus_write_1(&b, 0x2010, 0xA0);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xA1);
 	/* INC absolute overflow */
 	bus_write_1(&b, 0x2010, 0xFF);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x00);
 
 	/* INC absolute X */
 	e.regs.X = 0x10;
 	bus_write_1(&b, 0x2020, 0xFE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0xFF);
 	/* INC absolute X overflow */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inc_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inc_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2020) == 0x00);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_inc, do_emul_inc)
 
-ATF_TC_WITHOUT_HEAD(emul_inx_iny);
-ATF_TC_BODY(emul_inx_iny, tc)
+static void do_emul_inx_iny(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* INX */
 	e.regs.X = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0x1);
 	/* INX overflow */
 	e.regs.X = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_inx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_inx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0x0);
 
 	/* INY */
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_iny.rom", tc, use_jit));
 	ATF_CHECK(e.regs.Y == 0x1);
 	/* INY overflow */
 	e.regs.Y = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_iny.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_iny.rom", tc, use_jit));
 	ATF_CHECK(e.regs.Y == 0x0);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_inx_iny, do_emul_inx_iny)
 
-ATF_TC_WITHOUT_HEAD(emul_lda);
-ATF_TC_BODY(emul_lda, tc)
+static void do_emul_lda(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* LDA immediate */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_imm.rom", tc, use_jit));
 /*	ATF_CHECK(e.state == STOPPED);  // separate test case for states? */
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+3); // separate test case for PC? */
 	ATF_CHECK(e.regs.A == 0xAF);
 
 	/* LDA zero page */
 	bus_write_1(&b, 0x10, 0xAE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_zp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAE);
 
 	/* LDA zero page X */
 	bus_write_1(&b, 0x12, 0xAF);
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_zpx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAF);
 
 	/* LDA indirect zero page */
 	bus_write_1(&b, 0x1A, 0x10);
 	bus_write_1(&b, 0x1B, 0x2E);
 	bus_write_1(&b, 0x2E10, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_izp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAA);
 
 	/* LDA indirect zero page X */
@@ -447,155 +455,161 @@ ATF_TC_BODY(emul_lda, tc)
 	bus_write_1(&b, 0x21, 0x2E);
 	bus_write_1(&b, 0x2E00, 0x55);
 	e.regs.X = 0x01;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_izpx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x55);
 
 	/* LDA indirect zero page Y */
 	bus_write_1(&b, 0x2E10, 0xAA);
 	e.regs.Y = 0x10;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_izpy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_izpy.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAA);
 
 	/* LDA absolute */
 	bus_write_1(&b, 0x2F5A, 0xEA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_abs.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xEA);
 
 	/* LDA absolute X */
 	bus_write_1(&b, 0x2F5A, 0xEB);
 	e.regs.X = 0x5A;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_absx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xEB);
 
 	/* LDA absolute Y */
 	bus_write_1(&b, 0x2F5E, 0xEC);
 	e.regs.Y = 0x5E;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lda_absy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lda_absy.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xEC);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_lda, do_emul_lda)
 
-ATF_TC_WITHOUT_HEAD(emul_stz);
-ATF_TC_BODY(emul_stz, tc)
+static void do_emul_stz(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* STZ zero page */
 	bus_write_1(&b, 0x10, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stz_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x00);
 
 	/* STZ zero page X */
 	bus_write_1(&b, 0x15, 0x55);
 	e.regs.X = 0x4;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stz_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x15) == 0x00);
 
 	/* STZ absolute */
 	bus_write_1(&b, 0x2000, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stz_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2000) == 0x00);
 
 	/* STZ absolute X */
 	bus_write_1(&b, 0x2005, 0x55);
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stz_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stz_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2005) == 0x00);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_stz, do_emul_stz)
 
-ATF_TC_WITHOUT_HEAD(emul_clv);
-ATF_TC_BODY(emul_clv, tc)
+static void do_emul_clv(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.P |= P_SIGN_OVERFLOW;
 	/* CLV */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_clv.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_clv.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P ^ P_SIGN_OVERFLOW);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_clv, do_emul_clv)
 
-ATF_TC_WITHOUT_HEAD(emul_clc_sec);
-ATF_TC_BODY(emul_clc_sec, tc)
+static void do_emul_clc_sec(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* SEC */
 	e.regs.P &= ~P_CARRY;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sec.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sec.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P & P_CARRY);
 	/* CLC */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_clc.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_clc.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P ^ P_CARRY);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_clc_sec, do_emul_clc_sec)
 
-ATF_TC_WITHOUT_HEAD(emul_cli_sei);
-ATF_TC_BODY(emul_cli_sei, tc)
+static void do_emul_cli_sei(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* CLI */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_cli.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_cli.rom", tc, use_jit));
 	ATF_CHECK(!(e.regs.P & P_IRQ_DISABLE));
 	/* SEI */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sei.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sei.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P & P_IRQ_DISABLE);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_cli_sei, do_emul_cli_sei)
 
-ATF_TC_WITHOUT_HEAD(emul_and);
-ATF_TC_BODY(emul_and, tc)
+static void do_emul_and(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* AND immediate */
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_and_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_and_imm.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAA);
 
 	/* AND zero page */
 /*	bus_write_1(&b, 0x10, 0xAE);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_and_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_and_zp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAE);*/
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_and, do_emul_and)
 
-ATF_TC_WITHOUT_HEAD(emul_asl);
-ATF_TC_BODY(emul_asl, tc)
+static void do_emul_asl(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0xAA;
 	e.regs.X = 0x1;
@@ -604,7 +618,7 @@ ATF_TC_BODY(emul_asl, tc)
 	bus_write_1(&b, 0x300, 0xFF);
 	bus_write_1(&b, 0x301, 0xFF);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_asl.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_asl.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.A == 0x54);
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x54);
@@ -615,15 +629,16 @@ ATF_TC_BODY(emul_asl, tc)
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_asl, do_emul_asl)
 
-ATF_TC_WITHOUT_HEAD(emul_lsr);
-ATF_TC_BODY(emul_lsr, tc)
+static void do_emul_lsr(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0x55;
 	e.regs.X = 0x1;
@@ -632,7 +647,7 @@ ATF_TC_BODY(emul_lsr, tc)
 	bus_write_1(&b, 0x300, 0xFF);
 	bus_write_1(&b, 0x301, 0xFF);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_lsr.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_lsr.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.A == 0x2A);
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x2A);
@@ -643,15 +658,16 @@ ATF_TC_BODY(emul_lsr, tc)
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_lsr, do_emul_lsr)
 
-ATF_TC_WITHOUT_HEAD(emul_rol);
-ATF_TC_BODY(emul_rol, tc)
+static void do_emul_rol(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0x55;
 	e.regs.P |= P_CARRY;
@@ -662,7 +678,7 @@ ATF_TC_BODY(emul_rol, tc)
 	bus_write_1(&b, 0x200, 0xAA);
 	bus_write_1(&b, 0x201, 0x01);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_rol.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_rol.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.A == 0xAB);
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0xAA);
@@ -674,15 +690,16 @@ ATF_TC_BODY(emul_rol, tc)
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_rol, do_emul_rol)
 
-ATF_TC_WITHOUT_HEAD(emul_ror);
-ATF_TC_BODY(emul_ror, tc)
+static void do_emul_ror(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0x55;
 	e.regs.P |= P_CARRY;
@@ -693,7 +710,7 @@ ATF_TC_BODY(emul_ror, tc)
 	bus_write_1(&b, 0x200, 0xAA);
 	bus_write_1(&b, 0x201, 0x01);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ror.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ror.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.A == 0xAA);
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0xAA);
@@ -705,183 +722,190 @@ ATF_TC_BODY(emul_ror, tc)
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_ror, do_emul_ror)
 
-ATF_TC_WITHOUT_HEAD(emul_nop);
-ATF_TC_BODY(emul_nop, tc)
+static void do_emul_nop(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_nop.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_nop.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.PC == ROM_LOAD_ADDR+2);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_nop, do_emul_nop)
 
-ATF_TC_WITHOUT_HEAD(emul_sta);
-ATF_TC_BODY(emul_sta, tc)
+static void do_emul_sta(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* STA zero page */
 	e.regs.A = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0xAA);
 	/* STA zero page X */
 	e.regs.A = 0x55;
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x55);
 	/* STA absolute */
 	e.regs.A = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA absolute X */
 	e.regs.A = 0x55;
 	e.regs.X = 0x10;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_absx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
 	/* STA absolute Y */
 	e.regs.A = 0xAA;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_absy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_absy.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA indirect zero */
 	e.regs.A = 0x55;
 	bus_write_1(&b, 0x25, 0x10);
 	bus_write_1(&b, 0x26, 0x20);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_izp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0x55);
 	/* STA indirect zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x4;
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_izpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 	/* STA indirect zero page Y */
 	e.regs.A = 0x55;
 	e.regs.X = 0;
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sta_izpy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sta_izpy.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2011) == 0x55);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sta, do_emul_sta)
 
-ATF_TC_WITHOUT_HEAD(emul_stx);
-ATF_TC_BODY(emul_stx, tc)
+static void do_emul_stx(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* STX zero page */
 	e.regs.X = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stx_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0xAA);
 	/* STX zero page Y */
 	e.regs.X = 0x55;
 	e.regs.Y = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_zpy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stx_zpy.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x55);
 	/* STX absolute */
 	e.regs.X = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_stx_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_stx_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_stx, do_emul_stx)
 
-ATF_TC_WITHOUT_HEAD(emul_sty);
-ATF_TC_BODY(emul_sty, tc)
+static void do_emul_sty(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* STY zero page */
 	e.regs.Y = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sty_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sty_zp.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0xAA);
 	/* STY zero page X */
 	e.regs.Y = 0x55;
 	e.regs.X = 0x1;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sty_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sty_zpx.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x55);
 	/* STY absolute */
 	e.regs.Y = 0xAA;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sty_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sty_abs.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sty, do_emul_sty)
 
-ATF_TC_WITHOUT_HEAD(emul_ora);
-ATF_TC_BODY(emul_ora, tc)
+static void do_emul_ora(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 	/* ORA immediate */
 	e.regs.A = 0x55;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_imm.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA zero page */
 	e.regs.A = 0xAA;
 	bus_write_1(&b, 0x10, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_zp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x11;
 	bus_write_1(&b, 0x21, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_zpx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute */
 	e.regs.A = 0x55;
 	bus_write_1(&b, 0x2A01, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_abs.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x1;
 	bus_write_1(&b, 0x2A01, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_absx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA absolute Y */
 	e.regs.A = 0x55;
 	e.regs.X = 0;
 	e.regs.Y = 0x2;
 	bus_write_1(&b, 0x2A02, 0xAA);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_absy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_absy.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero */
 	e.regs.A = 0xAA;
 	bus_write_1(&b, 0x2A04, 0x55);
 	bus_write_1(&b, 0x12, 0x04);
 	bus_write_1(&b, 0x13, 0x2A);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_izp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero page X */
 	e.regs.A = 0xAA;
 	e.regs.X = 0x2;
 	e.regs.Y = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_izpx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 	/* ORA indirect zero page Y */
 	e.regs.A = 0xAA;
@@ -890,14 +914,14 @@ ATF_TC_BODY(emul_ora, tc)
 	bus_write_1(&b, 0x2A05, 0x55);
 	bus_write_1(&b, 0x14, 0x04);
 	bus_write_1(&b, 0x15, 0x2A);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ora_izpy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ora_izpy.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_ora, do_emul_ora)
 
-ATF_TC_WITHOUT_HEAD(emul_tsx_txs);
-ATF_TC_BODY(emul_tsx_txs, tc)
+static void do_emul_tsx_txs(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -905,66 +929,69 @@ ATF_TC_BODY(emul_tsx_txs, tc)
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.SP = 0xFF;
 	e.regs.X = 0x10;
 
 	prevflags = e.regs.P;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_txs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_txs.rom", tc, use_jit));
 	ATF_CHECK(e.regs.P == prevflags);
 	ATF_CHECK(e.regs.SP == 0x10);
 
 	e.regs.X = 0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tsx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_tsx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0x10);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_tsx_txs, do_emul_tsx_txs)
 
-ATF_TC_WITHOUT_HEAD(emul_txa_tya_tax_tay);
-ATF_TC_BODY(emul_txa_tya_tax_tay, tc)
+static void do_emul_txa_tya_tax_tay(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0x0;
 	e.regs.X = 0xAA;
 	e.regs.Y = 0x55;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_txa.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_txa.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xAA);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tya.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_tya.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x55);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tax.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_tax.rom", tc, use_jit));
 	ATF_CHECK(e.regs.X == 0x55);
 
 	e.regs.A = 0xFF;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tay.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_tay.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xFF);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_txa_tya_tax_tay, do_emul_txa_tya_tax_tay)
 
 /* test stack operation and stack related opcodes - PLA, PHA... */
-ATF_TC_WITHOUT_HEAD(emul_stack);
-ATF_TC_BODY(emul_stack, tc)
+static void do_emul_stack(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* place 0xAA on stack */
 	e.regs.SP = 0xFF;
 	e.regs.A = 0xAA;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_pha.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_pha.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
@@ -986,57 +1013,59 @@ ATF_TC_BODY(emul_stack, tc)
 	 * Now let's see if loading back into accumulator works.
 	 */
 	e.regs.A = 0x0;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_pla.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_pla.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(e.regs.A == 0xAB);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_stack, do_emul_stack)
 
-ATF_TC_WITHOUT_HEAD(emul_php_plp);
-ATF_TC_BODY(emul_php_plp, tc)
+static void do_emul_php_plp(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.SP = 0xFF;
 	e.regs.P |= P_CARRY|P_ZERO|P_UNDEFINED;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_php.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_php.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
-	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_IRQ_DISABLE|P_CARRY|P_ZERO|P_UNDEFINED));
+	ATF_CHECK(bus_read_1(e.bus, STACK_END) == (P_IRQ_DISABLE|P_CARRY|P_ZERO|P_UNDEFINED|P_BREAK));
 
 	/*
 	 * Now let's see if loading back into accumulator works.
 	 */
 	bus_write_1(e.bus, STACK_END, P_CARRY|P_DECIMAL);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_plp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_plp.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.P == (P_CARRY|P_DECIMAL|P_UNDEFINED));
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_php_plp, do_emul_php_plp)
 
-ATF_TC_WITHOUT_HEAD(emul_phx_phy_plx_ply);
-ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
+static void do_emul_phx_phy_plx_ply(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* check push X to stack */
 	e.regs.X = 0xAA;
 	e.regs.SP = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_phx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_phx.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0xAA);
@@ -1044,7 +1073,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	/* check pull X from stack */
 	e.regs.X = 0;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_plx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_plx.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.X == 0xAA);
@@ -1053,7 +1082,7 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	e.regs.Y = 0x55;
 	e.regs.SP = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_phy.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_phy.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFE);
 	ATF_CHECK(bus_read_1(e.bus, STACK_END) == 0x55);
@@ -1061,22 +1090,23 @@ ATF_TC_BODY(emul_phx_phy_plx_ply, tc)
 	/* check pull X from stack */
 	e.regs.Y = 0xFF;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_ply.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_ply.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.SP == 0xFF);
 	ATF_CHECK(e.regs.Y == 0x55);
 
 	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_phx_phy_plx_ply, do_emul_phx_phy_plx_ply)
 
-ATF_TC_WITHOUT_HEAD(emul_jmp);
-ATF_TC_BODY(emul_jmp, tc)
+static void do_emul_jmp(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* JMP absolute */
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -1108,16 +1138,18 @@ ATF_TC_BODY(emul_jmp, tc)
 
 	rk65c02_step(&e, 3);
 	ATF_CHECK(e.regs.PC == 0xC000);
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_jmp, do_emul_jmp)
 
-ATF_TC_WITHOUT_HEAD(emul_jsr_rts);
-ATF_TC_BODY(emul_jsr_rts, tc)
+static void do_emul_jsr_rts(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* JSR and RTS */
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -1129,10 +1161,11 @@ ATF_TC_BODY(emul_jsr_rts, tc)
 	rk65c02_start(&e); 
 	ATF_CHECK(e.regs.PC == 0xC006);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_jsr_rts, do_emul_jsr_rts)
 
-ATF_TC_WITHOUT_HEAD(emul_bbr);
-ATF_TC_BODY(emul_bbr, tc)
+static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1146,6 +1179,7 @@ ATF_TC_BODY(emul_bbr, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -1169,11 +1203,11 @@ ATF_TC_BODY(emul_bbr, tc)
 		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
 	}
 
-
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_bbr, do_emul_bbr)
 
-ATF_TC_WITHOUT_HEAD(emul_bbs);
-ATF_TC_BODY(emul_bbs, tc)
+static void do_emul_bbs(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1187,6 +1221,7 @@ ATF_TC_BODY(emul_bbs, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -1209,18 +1244,18 @@ ATF_TC_BODY(emul_bbs, tc)
 		e.regs.PC = ROM_LOAD_ADDR + (3 * (i + 1));
 	}
 
-
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_bbs, do_emul_bbs)
 
-
-ATF_TC_WITHOUT_HEAD(emul_branch);
-ATF_TC_BODY(emul_branch, tc)
+static void do_emul_branch(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	/* BCC */
 	e.regs.PC = ROM_LOAD_ADDR;
@@ -1326,16 +1361,18 @@ ATF_TC_BODY(emul_branch, tc)
 	rk65c02_step(&e, 2);
 	ATF_CHECK(e.regs.PC == 0xC003);
 	rk65c02_start(&e); 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_branch, do_emul_branch)
 
-ATF_TC_WITHOUT_HEAD(emul_sign_overflow_basic);
-ATF_TC_BODY(emul_sign_overflow_basic, tc)
+static void do_emul_sign_overflow_basic(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 	ATF_REQUIRE(bus_load_file(&b, ROM_LOAD_ADDR, 
@@ -1470,66 +1507,74 @@ ATF_TC_BODY(emul_sign_overflow_basic, tc)
 	ATF_CHECK(!(e.regs.P & P_SIGN_OVERFLOW));
 	rk65c02_dump_regs(e.regs);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sign_overflow_basic, do_emul_sign_overflow_basic)
 
-ATF_TC_WITHOUT_HEAD(emul_sign_overflow_thorough);
-ATF_TC_BODY(emul_sign_overflow_thorough, tc)
+static void do_emul_sign_overflow_thorough(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sign_overflow_thorough.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sign_overflow_thorough.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x20) == 0x0);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sign_overflow_thorough, do_emul_sign_overflow_thorough)
 
-ATF_TC_WITHOUT_HEAD(emul_signed_comparison);
-ATF_TC_BODY(emul_signed_comparison, tc)
+static void do_emul_signed_comparison(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_signed_comparison.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_signed_comparison.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x13) == 0x0);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_signed_comparison, do_emul_signed_comparison)
 
-ATF_TC_WITHOUT_HEAD(emul_sbc);
-ATF_TC_BODY(emul_sbc, tc)
+static void do_emul_sbc(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sbc_imm.rom", tc, use_jit));
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x0);
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0xFF);
 	rk65c02_dump_regs(e.regs);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sbc, do_emul_sbc)
 
-ATF_TC_WITHOUT_HEAD(emul_adc);
-ATF_TC_BODY(emul_adc, tc)
+static void do_emul_adc(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.P &= ~P_CARRY;
 	e.regs.A = 0x2;
 
 	/* ADC immediate */
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_imm.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_imm.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x05);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -1538,7 +1583,7 @@ ATF_TC_BODY(emul_adc, tc)
 
 	/* ADC zero page */
 	bus_write_1(&b, 0x10, 0xFB);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_zp.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_zp.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x00);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -1548,7 +1593,7 @@ ATF_TC_BODY(emul_adc, tc)
 	/* ADC zero page X */
 	e.regs.X = 0x01;
 	bus_write_1(&b, 0x12, 0x3);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_zpx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x04);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -1558,7 +1603,7 @@ ATF_TC_BODY(emul_adc, tc)
 	/* ADC absolute */
 	e.regs.A = 0x55;
 	bus_write_1(&b, 0x2A00, 0xAB);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_abs.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_abs.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0x0);
 	ATF_CHECK(e.regs.P & P_ZERO);
 	ATF_CHECK(e.regs.P & P_CARRY);
@@ -1569,7 +1614,7 @@ ATF_TC_BODY(emul_adc, tc)
 	e.regs.A = 0x50;
 	e.regs.X = 0x10;
 	bus_write_1(&b, 0x2A10, 0x50);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_absx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_absx.rom", tc, use_jit));
 	ATF_CHECK(e.regs.A == 0xA1);
 	ATF_CHECK(!(e.regs.P & P_ZERO));
 	ATF_CHECK(!(e.regs.P & P_CARRY));
@@ -1578,18 +1623,20 @@ ATF_TC_BODY(emul_adc, tc)
 
 	rk65c02_dump_regs(e.regs);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_adc, do_emul_adc)
 
-ATF_TC_WITHOUT_HEAD(emul_adc_bcd);
-ATF_TC_BODY(emul_adc_bcd, tc)
+static void do_emul_adc_bcd(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_bcd.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_bcd.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x05);
 	ATF_CHECK(bus_read_1(&b, 0x11) & P_CARRY);
@@ -1601,18 +1648,20 @@ ATF_TC_BODY(emul_adc_bcd, tc)
 	ATF_CHECK(bus_read_1(&b, 0x41) & P_CARRY);
 
 	rk65c02_dump_regs(e.regs);
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_adc_bcd, do_emul_adc_bcd)
 
-ATF_TC_WITHOUT_HEAD(emul_sbc_bcd);
-ATF_TC_BODY(emul_sbc_bcd, tc)
+static void do_emul_sbc_bcd(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_bcd.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sbc_bcd.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x34);
 	ATF_CHECK(bus_read_1(&b, 0x11) & P_CARRY);
@@ -1623,71 +1672,77 @@ ATF_TC_BODY(emul_sbc_bcd, tc)
 
 	rk65c02_dump_regs(e.regs);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sbc_bcd, do_emul_sbc_bcd)
 
-ATF_TC_WITHOUT_HEAD(emul_adc_16bit);
-ATF_TC_BODY(emul_adc_16bit, tc)
+static void do_emul_adc_16bit(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	bus_write_1(&b, 0x62, 0x55);
 	bus_write_1(&b, 0x63, 0xAA);
 	bus_write_1(&b, 0x64, 0xAA);
 	bus_write_1(&b, 0x65, 0x55);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_16bit.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_16bit.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0xFF);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xFF);
 
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	bus_write_1(&b, 0x62, 0xFF);
 	bus_write_1(&b, 0x63, 0xFF);
 	bus_write_1(&b, 0x64, 0xFF);
 	bus_write_1(&b, 0x65, 0xFF);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_adc_16bit.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_adc_16bit.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0xFE);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xFF);
 
 	rk65c02_dump_regs(e.regs);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_adc_16bit, do_emul_adc_16bit)
 
-ATF_TC_WITHOUT_HEAD(emul_sbc_16bit);
-ATF_TC_BODY(emul_sbc_16bit, tc)
+static void do_emul_sbc_16bit(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	bus_write_1(&b, 0x62, 0xFF);
 	bus_write_1(&b, 0x63, 0xFF);
 	bus_write_1(&b, 0x64, 0xAA);
 	bus_write_1(&b, 0x65, 0x55);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_sbc_16bit.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sbc_16bit.rom", tc, use_jit));
 
 	printf("%x %x\n", bus_read_1(&b, 0x66), bus_read_1(&b, 0x67)) ;
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0x55);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xAA);
 	rk65c02_dump_regs(e.regs);
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_sbc_16bit, do_emul_sbc_16bit)
 
 /*
  * This test tries to check every variant of RMBx instruction by resetting bits within 0x10-0x17 memory range.
  * This area is filled with 0xFF's before starting the emulator. It is expected that after running code within
  * the emulator, appropriate bits will be cleared (i.e. bit 0 in 0x10, bit 1 in 0x11, etc.).
  */
-ATF_TC_WITHOUT_HEAD(emul_rmb);
-ATF_TC_BODY(emul_rmb, tc)
+static void do_emul_rmb(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1699,6 +1754,7 @@ ATF_TC_BODY(emul_rmb, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -1718,15 +1774,16 @@ ATF_TC_BODY(emul_rmb, tc)
 	for (i = 0; i < 8; i++) {
 		ATF_CHECK(!(BIT(bus_read_1(&b, 0x10+i), i)));
 	}
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_rmb, do_emul_rmb)
 
 /*
  * This test tries to check every variant of SMBx instruction by setting bits within 0x10-0x17 memory range.
  * This area is filled with 0x00's before starting the emulator. It is expected that after running code within
  * the emulator, appropriate bits will be set (i.e. bit 0 in 0x10, bit 1 in 0x11, etc.).
  */
-ATF_TC_WITHOUT_HEAD(emul_smb);
-ATF_TC_BODY(emul_smb, tc)
+static void do_emul_smb(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1738,6 +1795,7 @@ ATF_TC_BODY(emul_smb, tc)
 	b = bus_init_with_default_devs();
 	a = assemble_init(&b, ROM_LOAD_ADDR);
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.PC = ROM_LOAD_ADDR;
 
@@ -1757,48 +1815,54 @@ ATF_TC_BODY(emul_smb, tc)
 	for (i = 0; i < 8; i++) {
 		ATF_CHECK(BIT(bus_read_1(&b, 0x10+i), i));
 	}
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_smb, do_emul_smb)
 
-ATF_TC_WITHOUT_HEAD(emul_trb);
-ATF_TC_BODY(emul_trb, tc)
+static void do_emul_trb(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_trb.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_trb.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0x84);
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0xA6);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_trb, do_emul_trb)
 
-ATF_TC_WITHOUT_HEAD(emul_tsb);
-ATF_TC_BODY(emul_tsb, tc)
+static void do_emul_tsb(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_tsb.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_tsb.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x10) == 0xB7);
 	ATF_CHECK(bus_read_1(&b, 0x11) == 0xE7);
 
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_tsb, do_emul_tsb)
 
-ATF_TC_WITHOUT_HEAD(emul_wrap_izpx);
-ATF_TC_BODY(emul_wrap_izpx, tc)
+static void do_emul_wrap_izpx(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0xAA;
 	e.regs.X = 0xA0;
@@ -1811,15 +1875,16 @@ ATF_TC_BODY(emul_wrap_izpx, tc)
 	bus_write_1(&b, 0x2011, 0x55);
 
 	rk65c02_dump_regs(e.regs);
-	ATF_REQUIRE(rom_start(&e, "test_emulation_wrap_izpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_wrap_izpx.rom", tc, use_jit));
 	rk65c02_dump_regs(e.regs);
 
 	ATF_CHECK(bus_read_1(&b, 0x2010) == 0xAA);	
 	ATF_CHECK(e.regs.A == 0x55);	
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_wrap_izpx, do_emul_wrap_izpx)
 
-ATF_TC_WITHOUT_HEAD(emul_wrap_zpx);
-ATF_TC_BODY(emul_wrap_zpx, tc)
+static void do_emul_wrap_zpx(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1827,10 +1892,11 @@ ATF_TC_BODY(emul_wrap_zpx, tc)
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.regs.A = 0xAA;
 	e.regs.X = 0x7F;
-	ATF_REQUIRE(rom_start(&e, "test_emulation_wrap_zpx.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_wrap_zpx.rom", tc, use_jit));
 
 	ATF_CHECK(bus_read_1(&b, 0x8F) == 0xAA);
 	ATF_CHECK(bus_read_1(&b, 0xFF) == 0xAA);
@@ -1844,10 +1910,11 @@ ATF_TC_BODY(emul_wrap_zpx, tc)
 		ATF_CHECK(bus_read_1(&b, i) == 0xAA);
 		i++;
 	}
+	bus_finish(&b);
 }
+ATF_TC_JIT_VARIANTS(emul_wrap_zpx, do_emul_wrap_zpx)
 
-ATF_TC_WITHOUT_HEAD(emul_invalid_opcode);
-ATF_TC_BODY(emul_invalid_opcode, tc)
+static void do_emul_invalid_opcode(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
 	bus_t b;
@@ -1858,11 +1925,12 @@ ATF_TC_BODY(emul_invalid_opcode, tc)
 
 	b = bus_init_with_default_devs();
 	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
 
 	e.runtime_disassembly = true;
 	rorig = e.regs;
 
-	ATF_REQUIRE(rom_start(&e, "test_emulation_invalid_opcode.rom", tc));
+	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_invalid_opcode.rom", tc, use_jit));
 
 	ATF_CHECK(e.regs.A == rorig.A);
 	ATF_CHECK(e.regs.X == rorig.X);
@@ -1874,64 +1942,114 @@ ATF_TC_BODY(emul_invalid_opcode, tc)
 
 	rk65c02_log(LOG_INFO, "PC: %x", e.regs.PC);
 
+	bus_finish(&b);
 }
-
+ATF_TC_JIT_VARIANTS(emul_invalid_opcode, do_emul_invalid_opcode)
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, emul_and);
+	ATF_TP_ADD_TC(tp, emul_and_jit);
 	ATF_TP_ADD_TC(tp, emul_asl);
+	ATF_TP_ADD_TC(tp, emul_asl_jit);
 	ATF_TP_ADD_TC(tp, emul_adc);
+	ATF_TP_ADD_TC(tp, emul_adc_jit);
 	ATF_TP_ADD_TC(tp, emul_adc_16bit);
+	ATF_TP_ADD_TC(tp, emul_adc_16bit_jit);
 	ATF_TP_ADD_TC(tp, emul_adc_bcd);
+	ATF_TP_ADD_TC(tp, emul_adc_bcd_jit);
 	ATF_TP_ADD_TC(tp, emul_bit);
+	ATF_TP_ADD_TC(tp, emul_bit_jit);
 	ATF_TP_ADD_TC(tp, emul_branch);
+	ATF_TP_ADD_TC(tp, emul_branch_jit);
 	ATF_TP_ADD_TC(tp, emul_bbr);
+	ATF_TP_ADD_TC(tp, emul_bbr_jit);
 	ATF_TP_ADD_TC(tp, emul_bbs);
+	ATF_TP_ADD_TC(tp, emul_bbs_jit);
 	ATF_TP_ADD_TC(tp, emul_cmp);
+	ATF_TP_ADD_TC(tp, emul_cmp_jit);
 	ATF_TP_ADD_TC(tp, emul_cpx);
+	ATF_TP_ADD_TC(tp, emul_cpx_jit);
 	ATF_TP_ADD_TC(tp, emul_cpy);
+	ATF_TP_ADD_TC(tp, emul_cpy_jit);
 	ATF_TP_ADD_TC(tp, emul_dec);
+	ATF_TP_ADD_TC(tp, emul_dec_jit);
 	ATF_TP_ADD_TC(tp, emul_dex_dey);
+	ATF_TP_ADD_TC(tp, emul_dex_dey_jit);
 	ATF_TP_ADD_TC(tp, emul_clc_sec);
+	ATF_TP_ADD_TC(tp, emul_clc_sec_jit);
 	ATF_TP_ADD_TC(tp, emul_cli_sei);
+	ATF_TP_ADD_TC(tp, emul_cli_sei_jit);
 	ATF_TP_ADD_TC(tp, emul_clv);
+	ATF_TP_ADD_TC(tp, emul_clv_jit);
 	ATF_TP_ADD_TC(tp, emul_inc);
+	ATF_TP_ADD_TC(tp, emul_inc_jit);
 	ATF_TP_ADD_TC(tp, emul_inx_iny);
+	ATF_TP_ADD_TC(tp, emul_inx_iny_jit);
 	ATF_TP_ADD_TC(tp, emul_jmp);
+	ATF_TP_ADD_TC(tp, emul_jmp_jit);
 	ATF_TP_ADD_TC(tp, emul_jsr_rts);
+	ATF_TP_ADD_TC(tp, emul_jsr_rts_jit);
 	ATF_TP_ADD_TC(tp, emul_lda);
+	ATF_TP_ADD_TC(tp, emul_lda_jit);
 	ATF_TP_ADD_TC(tp, emul_lsr);
+	ATF_TP_ADD_TC(tp, emul_lsr_jit);
 	ATF_TP_ADD_TC(tp, emul_nop);
+	ATF_TP_ADD_TC(tp, emul_nop_jit);
 	ATF_TP_ADD_TC(tp, emul_ora);
+	ATF_TP_ADD_TC(tp, emul_ora_jit);
 	ATF_TP_ADD_TC(tp, emul_stz);
+	ATF_TP_ADD_TC(tp, emul_stz_jit);
 	ATF_TP_ADD_TC(tp, emul_php_plp);
+	ATF_TP_ADD_TC(tp, emul_php_plp_jit);
 	ATF_TP_ADD_TC(tp, emul_phx_phy_plx_ply);
+	ATF_TP_ADD_TC(tp, emul_phx_phy_plx_ply_jit);
 	ATF_TP_ADD_TC(tp, emul_rol);
+	ATF_TP_ADD_TC(tp, emul_rol_jit);
 	ATF_TP_ADD_TC(tp, emul_ror);
+	ATF_TP_ADD_TC(tp, emul_ror_jit);
 	ATF_TP_ADD_TC(tp, emul_stack);
+	ATF_TP_ADD_TC(tp, emul_stack_jit);
 	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay);
+	ATF_TP_ADD_TC(tp, emul_txa_tya_tax_tay_jit);
 	ATF_TP_ADD_TC(tp, emul_tsx_txs);
+	ATF_TP_ADD_TC(tp, emul_tsx_txs_jit);
 	ATF_TP_ADD_TC(tp, emul_sta);
+	ATF_TP_ADD_TC(tp, emul_sta_jit);
 	ATF_TP_ADD_TC(tp, emul_stx);
+	ATF_TP_ADD_TC(tp, emul_stx_jit);
 	ATF_TP_ADD_TC(tp, emul_sty);
+	ATF_TP_ADD_TC(tp, emul_sty_jit);
 	ATF_TP_ADD_TC(tp, emul_sbc);
+	ATF_TP_ADD_TC(tp, emul_sbc_jit);
 	ATF_TP_ADD_TC(tp, emul_sbc_16bit);
+	ATF_TP_ADD_TC(tp, emul_sbc_16bit_jit);
 	ATF_TP_ADD_TC(tp, emul_sbc_bcd);
+	ATF_TP_ADD_TC(tp, emul_sbc_bcd_jit);
 	ATF_TP_ADD_TC(tp, emul_rmb);
+	ATF_TP_ADD_TC(tp, emul_rmb_jit);
 	ATF_TP_ADD_TC(tp, emul_smb);
+	ATF_TP_ADD_TC(tp, emul_smb_jit);
 	ATF_TP_ADD_TC(tp, emul_trb);
+	ATF_TP_ADD_TC(tp, emul_trb_jit);
 	ATF_TP_ADD_TC(tp, emul_tsb);
+	ATF_TP_ADD_TC(tp, emul_tsb_jit);
 
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_basic);
+	ATF_TP_ADD_TC(tp, emul_sign_overflow_basic_jit);
 	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough);
+	ATF_TP_ADD_TC(tp, emul_sign_overflow_thorough_jit);
 
 	ATF_TP_ADD_TC(tp, emul_signed_comparison);
+	ATF_TP_ADD_TC(tp, emul_signed_comparison_jit);
 
 	ATF_TP_ADD_TC(tp, emul_wrap_zpx);
+	ATF_TP_ADD_TC(tp, emul_wrap_zpx_jit);
 	ATF_TP_ADD_TC(tp, emul_wrap_izpx);
+	ATF_TP_ADD_TC(tp, emul_wrap_izpx_jit);
 
 	ATF_TP_ADD_TC(tp, emul_invalid_opcode);
+	ATF_TP_ADD_TC(tp, emul_invalid_opcode_jit);
 
 	return (atf_no_error());
 }
