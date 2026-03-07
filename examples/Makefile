@@ -1,7 +1,8 @@
 UNAME_S := $(shell uname -s)
 
 CFLAGS=-Wall -pedantic -I../src -g -MMD -MP
-LDFLAGS=-lgc -llightning
+# When linking against library built without JIT: make NO_LIGHTNING=1
+LDFLAGS=-lgc $(if $(NO_LIGHTNING),,-llightning)
 
 LDFLAGS_MACOSX=-L/opt/local/lib
 CFLAGS_MACOSX=-I/opt/local/include

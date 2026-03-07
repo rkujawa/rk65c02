@@ -830,7 +830,9 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mmu_out_of_range_fault_jit);
 	ATF_TP_ADD_TC(tp, mmu_extended_phys);
 	ATF_TP_ADD_TC(tp, mmu_extended_phys_jit);
+#ifdef HAVE_LIGHTNING
 	ATF_TP_ADD_TC(tp, mmu_demand_page_jit);
+#endif
 	ATF_TP_ADD_TC(tp, mmu_tlb_hits);
 	ATF_TP_ADD_TC(tp, mmu_tlb_hits_jit);
 	ATF_TP_ADD_TC(tp, mmu_tlb_update_invalidate);

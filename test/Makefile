@@ -1,8 +1,11 @@
 UNAME_S := $(shell uname -s)
 
 CFLAGS=-Wall -Wpedantic -I../src -O3 -MMD -MP
-#CFLAGS=-Wall -I../src -ggdb -Og -MMD -MP
-LDFLAGS=-latf-c -lgc -llightning
+# When linking against library built without JIT: make NO_LIGHTNING=1
+LDFLAGS=-latf-c -lgc $(if $(NO_LIGHTNING),,-llightning)
+ifeq ($(NO_LIGHTNING),)
+CFLAGS += -DHAVE_LIGHTNING
+endif
 
 LDFLAGS_MACOSX=-L/opt/local/lib
 CFLAGS_MACOSX=-I/opt/local/include -I/opt/local/include/uthash
@@ -52,10 +55,10 @@ test_functional: test_functional.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 bench_emulation: bench_emulation.o $(RK6502LIB)
-	$(CC) -o $@ $< $(RK6502LIB) -lgc -llightning
+	$(CC) -o $@ $< $(RK6502LIB) -lgc $(if $(NO_LIGHTNING),,-llightning)
 
 bench_mmu: bench_mmu.o $(RK6502LIB)
-	$(CC) -o $@ $< $(RK6502LIB) -lgc -llightning
+	$(CC) -o $@ $< $(RK6502LIB) -lgc $(if $(NO_LIGHTNING),,-llightning)
 
 test_device_serial: test_device_serial.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)

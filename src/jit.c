@@ -1897,7 +1897,6 @@ rk65c02_jit_enable(rk65c02emu_t *e, bool enable)
 {
 	assert(e != NULL);
 
-#ifdef HAVE_LIGHTNING
 	if (enable) {
 		if (e->jit == NULL)
 			e->jit = jit_backend_create();
@@ -1907,11 +1906,6 @@ rk65c02_jit_enable(rk65c02emu_t *e, bool enable)
 		e->jit_requested = false;
 		e->use_jit = false;
 	}
-#else
-	(void)enable;
-	e->jit_requested = false;
-	e->use_jit = false;
-#endif
 }
 
 void

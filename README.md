@@ -3,17 +3,19 @@
 
 ![rk65c02 logo](https://raw.githubusercontent.com/rkujawa/rk65c02/master/res/rk65c02_small.png)
 
-This project provides a library implementing a fairly complete
-emulator of WDC 65C02S CPU. It does not aim to be cycle-exact emulator, but
+This project provides a library implementing a complete JIT
+emulator of WDC 65C02S CPU. 
+
+It does not aim to be a cycle-exact emulator, but
 otherwise it tries to mimic behaviour of 65C02S as close as possible. 
+
 Currently, the following features are implemented:
 - Emulation of all opcodes, including WDC extensions and BCD mode.
-- 16-bit address space.
-- Minimal support for interrupts.
-- JIT using GNU Lightning.
+- Optional JIT using GNU Lightning.
+- Support for interrupts.
 - Host callbacks for stop notification and periodic execution ticks.
 - Optional idle-wait callback integration for `WAI`-driven guest idle loops.
-- **Host-pluggable MMU**: translation and fault callbacks, software TLB, and JIT-coherent invalidation so the host can implement bank switching, memory expansion, or multitasking without the guest depending on library internals. See [MMU documentation](doc/MMU.md) and the `examples/mmu_cart` and `examples/mmu_multitasking` examples.
+- Optional host-defined MMU: translation and fault callbacks, software TLB, and JIT-coherent invalidation so the host can implement bank switching, memory expansion beyond 64k, or multitasking without the guest depending on library internals. See [MMU documentation](doc/MMU.md) and the `examples/mmu_cart` and `examples/mmu_multitasking` examples.
 
 External dependencies (besides standard C library):
 
@@ -21,11 +23,11 @@ External dependencies (besides standard C library):
   - Boehm GC
   - uthash
 - **Optional JIT support**
-  - GNU Lightning (the library can still be built without JIT)
+  - GNU Lightning — when available, the library can use it for optional JIT compilation; the library can be built **without** Lightning (interpreter only, JIT not possible). See "Building with or without JIT" below.
 - **Test/tooling**
   - `kyua` quality assurance toolkit
   - `atf` testing framework
-  - `vasm` (6502 std syntax, recent snapshot such as 1.8f+) for assembling ROMs
+  - `vasm` (6502 std syntax, recent snapshot such as 1.8f+) for assembling test and examples ROMs
   - `ca65` for both Klaus Dormann test suites (`6502_functional_test` and
     `65C02_extended_opcodes_test`)
 
@@ -100,6 +102,11 @@ Notes:
   All are heavily commented (host and guest) to show the rk65c02↔host interface
   and how the host can define the contract between emulated hardware and guest code.
   Run MMU examples that may loop (e.g. `mmu_mpu`) with a timeout: `timeout 5 ./mmu_mpu`.
+
+**Building with or without JIT**
+
+- **With JIT (default):** `make -C src` then `make -C examples` (and optionally `make -C test`). Requires GNU Lightning; `rk65c02_jit_enable(&e, true)` enables JIT at run time.
+- **Without JIT:** Build the library without Lightning so it does not depend on it and JIT is unavailable: `make -C src HAVE_LIGHTNING=0`. Then build examples and tests with `make -C examples NO_LIGHTNING=1` and `make -C test NO_LIGHTNING=1` so they do not link with Lightning. `rk65c02_jit_enable()` is a no-op in that build; execution is always interpreter.
 
 Build examples with:
 
