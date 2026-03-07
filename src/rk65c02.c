@@ -94,7 +94,7 @@ rk65c02_mmu_translate_addr(rk65c02emu_t *e, uint16_t vaddr,
 		*fault_code_out = 0xFFFEu;
 		return false;
 	}
-	if (r.paddr >= RK65C02_BUS_SIZE) {
+	if (r.paddr >= RK65C02_PHYS_MAX) {
 		*fault_code_out = 0xFFFFu;
 		return false;
 	}
@@ -104,11 +104,34 @@ rk65c02_mmu_translate_addr(rk65c02emu_t *e, uint16_t vaddr,
 	    && ((r.paddr & 0xFFu) == (vaddr & 0xFFu))) {
 		te->valid = true;
 		te->vpage = vpage;
-		te->ppage_base = (uint16_t)(r.paddr & 0xFF00u);
+		te->ppage_base = r.paddr & 0xFFFFFF00u;
 		te->perms = r.perms;
 		te->epoch = e->mmu_epoch;
 	}
 	return true;
+}
+
+static void rk65c02_maybe_call_on_stop(rk65c02emu_t *e);
+
+/*
+ * Stop execution with EMUERROR (shared by panic and MMU fault).
+ * Caller must have set any fault-related state (e.g. mmu_last_fault_*) before this.
+ */
+static void
+emu_stop_error(rk65c02emu_t *e)
+{
+	bool was_active;
+
+	was_active = ((e->state == RUNNING) || (e->state == STEPPING));
+	e->state = STOPPED;
+	e->stopreason = EMUERROR;
+	e->stop_requested = false;
+	if (e->in_jit_run) {
+		e->in_jit_run = false;
+		longjmp(e->jit_fault_env, 1);
+	}
+	if (!was_active)
+		rk65c02_maybe_call_on_stop(e);
 }
 
 static void
@@ -120,11 +143,14 @@ rk65c02_mmu_fault(rk65c02emu_t *e, uint16_t vaddr,
 	e->mmu_last_fault_addr = vaddr;
 	e->mmu_last_fault_access = access;
 	e->mmu_last_fault_code = fault_code;
+	e->mmu_fault_reexec = true;
 	e->use_jit = false;
 	if (e->mmu_fault != NULL)
 		e->mmu_fault(e, vaddr, access, fault_code, e->mmu_fault_ctx);
-	rk65c02_panic(e, "MMU fault at vaddr=%04x access=%u code=%u",
+	/* MMU fault is a normal stop condition when host uses demand paging; log as INFO. */
+	rk65c02_log(LOG_INFO, "MMU fault at vaddr=%04x access=%u code=%u",
 	    (unsigned)vaddr, (unsigned)access, (unsigned)fault_code);
+	emu_stop_error(e);
 }
 
 static uint8_t
@@ -132,7 +158,7 @@ rk65c02_mem_read_mmu(rk65c02emu_t *e, uint16_t addr, rk65c02_mmu_access_t access
 {
 	uint8_t req_perm;
 	uint32_t paddr;
-	uint16_t fault_code;
+	uint16_t fault_code = 0;
 
 	switch (access) {
 	case RK65C02_MMU_FETCH:
@@ -151,7 +177,9 @@ rk65c02_mem_read_mmu(rk65c02emu_t *e, uint16_t addr, rk65c02_mmu_access_t access
 		rk65c02_mmu_fault(e, addr, access, fault_code);
 		return 0xFF;
 	}
-	return bus_read_1(e->bus, (uint16_t)paddr);
+	if (paddr < RK65C02_BUS_SIZE)
+		return bus_read_1(e->bus, (uint16_t)paddr);
+	return bus_read_1_phys(e->bus, paddr);
 }
 
 static void
@@ -159,7 +187,7 @@ rk65c02_mem_write_mmu(rk65c02emu_t *e, uint16_t addr, uint8_t val,
     rk65c02_mmu_access_t access)
 {
 	uint32_t paddr;
-	uint16_t fault_code;
+	uint16_t fault_code = 0;
 
 	(void)access;
 	if (!rk65c02_mmu_translate_addr(e, addr, RK65C02_MMU_WRITE,
@@ -167,7 +195,10 @@ rk65c02_mem_write_mmu(rk65c02emu_t *e, uint16_t addr, uint8_t val,
 		rk65c02_mmu_fault(e, addr, RK65C02_MMU_WRITE, fault_code);
 		return;
 	}
-	bus_write_1(e->bus, (uint16_t)paddr, val);
+	if (paddr < RK65C02_BUS_SIZE)
+		bus_write_1(e->bus, (uint16_t)paddr, val);
+	else
+		bus_write_1_phys(e->bus, paddr, val);
 }
 
 static void
@@ -346,6 +377,7 @@ rk65c02_init(bus_t *b)
 	e.use_jit = false;
 	e.jit_requested = false;
 	e.jit = NULL;
+	e.in_jit_run = false;
 	e.stop_requested = false;
 	e.on_stop = NULL;
 	e.on_stop_ctx = NULL;
@@ -368,6 +400,7 @@ rk65c02_init(bus_t *b)
 	e.mmu_last_fault_addr = 0;
 	e.mmu_last_fault_access = RK65C02_MMU_READ;
 	e.mmu_last_fault_code = 0;
+	e.mmu_fault_reexec = false;
 	e.mmu_tlb_enabled = true;
 	e.mmu_changed_all = false;
 	memset(e.mmu_changed_vpage, 0, sizeof(e.mmu_changed_vpage));
@@ -404,6 +437,13 @@ rk65c02_assert_irq(rk65c02emu_t *e)
 }
 
 void
+rk65c02_deassert_irq(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+	e->irq = false;
+}
+
+void
 rk65c02_irq(rk65c02emu_t *e)
 {
 	/* push return address to the stack */
@@ -425,6 +465,8 @@ rk65c02_irq(rk65c02emu_t *e)
 	/* load address from IRQ vector into program counter */
 	e->regs.PC = rk65c02_mem_read_1(e, VECTOR_IRQ);
 	e->regs.PC |= rk65c02_mem_read_1(e, VECTOR_IRQ + 1) << 8;
+	/* clear IRQ so we run the handler; device must re-assert if needed */
+	e->irq = false;
 }
 
 /*
@@ -459,8 +501,11 @@ rk65c02_exec(rk65c02emu_t *e)
 
 	id.emul(e, &id, &i);
 
-	if (!instruction_modify_pc(&id))
+	if (e->state == STOPPED && e->mmu_fault_reexec) {
+		e->mmu_fault_reexec = false;
+	} else if (!instruction_modify_pc(&id)) {
 		program_counter_increment(e, &id);
+	}
 
 	if (e->trace)
 		debug_trace_savestate(e, tpc, &id, &i);
@@ -479,6 +524,7 @@ rk65c02_start(rk65c02emu_t *e) {
 	 */
 	e->use_jit = e->jit_requested;
 	e->stop_requested = false;
+	e->mmu_fault_reexec = false;
 	e->tick_countdown = e->tick_interval;
 	rk65c02_mmu_refresh_accessors(e);
 
@@ -824,10 +870,9 @@ rk65c02_regs_string_get(reg_state_t regs)
 }
 
 void
-rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...) 
+rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...)
 {
 	va_list args;
-	bool was_active;
 
 	assert(e != NULL);
 
@@ -835,11 +880,6 @@ rk65c02_panic(rk65c02emu_t *e, const char* fmt, ...)
 	rk65c02_logv(LOG_CRIT, fmt, args);
 	va_end(args);
 
-	was_active = ((e->state == RUNNING) || (e->state == STEPPING));
-	e->state = STOPPED;
-	e->stopreason = EMUERROR;
-	e->stop_requested = false;
-	if (!was_active)
-		rk65c02_maybe_call_on_stop(e);
+	emu_stop_error(e);
 }
 

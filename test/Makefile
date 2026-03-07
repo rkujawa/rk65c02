@@ -1,6 +1,6 @@
 UNAME_S := $(shell uname -s)
 
-CFLAGS=-Wall -I../src -O3 -MMD -MP
+CFLAGS=-Wall -Wpedantic -I../src -O3 -MMD -MP
 #CFLAGS=-Wall -I../src -ggdb -Og -MMD -MP
 LDFLAGS=-latf-c -lgc -llightning
 

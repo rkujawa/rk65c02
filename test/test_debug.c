@@ -82,7 +82,7 @@ static void do_trace(const atf_tc_t *tc, bool use_jit)
 		if (i < 4)
 			ATF_CHECK(tr->opcode == 0xEA);
 		else
-			ATF_CHECK(tr->opcode = 0xDB);
+			ATF_CHECK(tr->opcode == 0xDB);
 		i++;
 	}
 	bus_finish(&b);

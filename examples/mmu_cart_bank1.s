@@ -2,7 +2,7 @@
 ; MMU Cart Example — Bank 1 guest code (16KB)
 ; =============================================================================
 ;
-; Assemble to mmu_cart_bank1.rom and load at physical $C000-$FFFF (bank 1).
+; Assemble to mmu_cart_bank1.rom and load at physical $14000-$17FFF (bank 1).
 ; The host's MMU translate callback maps guest $8000-$BFFF to this physical
 ; range when "current bank" is 1.
 ;

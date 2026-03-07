@@ -1,3 +1,10 @@
+/*
+ * Idle-wait example — WAI and rk65c02_idle_wait_set.
+ *
+ * Build: make idle_wait idle_wait.rom
+ * Run:   ./idle_wait
+ * Expected: guest runs WAI; host sleeps in idle_wait callback; IRQ wakes; STP.
+ */
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -72,5 +79,15 @@ main(void)
 	printf("Approx idle wait time: %" PRIu64 " us\n",
 	    (uint64_t)(host.total_wait_ns / 1000ULL));
 
+	if (e.stopreason != STP) {
+		fprintf(stderr, "FAIL: expected STP, got %s\n",
+		    rk65c02_stop_reason_string(e.stopreason));
+		return 1;
+	}
+	if (host.wait_calls == 0) {
+		fprintf(stderr, "FAIL: idle_wait callback was never invoked\n");
+		return 1;
+	}
+	printf("PASS: WAI drove idle_wait callbacks, then STP.\n");
 	return 0;
 }

@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
+#include <setjmp.h>
 #include <string.h>
 
 #ifdef HAVE_LIGHTNING
@@ -36,6 +37,10 @@ static jit_state_t *_jit;
 #ifndef RK65C02_JIT_PERF_DEBUG
 #define RK65C02_JIT_PERF_DEBUG 0
 #endif
+
+/* Pedantic: avoid direct function pointer to object pointer casts. */
+#define JIT_FN_TO_VOID(fn) \
+	((union { void (*f)(void); void *p; }){ .f = (void (*)(void))(fn) }.p)
 
 /* Offsets into emulator state for generated code (no magic numbers). */
 #define OFFSET_E_STATE  offsetof(struct rk65c02emu, state)
@@ -650,7 +655,7 @@ jit_emit_bus_read(jit_node_t *arg_node)
 	jit_prepare();
 	jit_pushargr(JIT_R0);
 	jit_pushargr(JIT_R1);
-	jit_finishi((void *)jit_mem_read_1);
+	jit_finishi(JIT_FN_TO_VOID(jit_mem_read_1));
 	jit_retval(JIT_R1);
 	jit_andi(JIT_R1, JIT_R1, 0xFF);
 	jit_movr(JIT_R0, JIT_V0);
@@ -667,7 +672,7 @@ jit_emit_bus_write(jit_node_t *arg_node)
 	jit_pushargr(JIT_R0);
 	jit_pushargr(JIT_R1);
 	jit_pushargr(JIT_R2);
-	jit_finishi((void *)jit_bus_write_1);
+	jit_finishi(JIT_FN_TO_VOID(jit_bus_write_1));
 	jit_movr(JIT_R0, JIT_V0);
 }
 
@@ -1050,7 +1055,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_prepare();
 		jit_pushargr(JIT_R0);
 		jit_pushargr(JIT_R1);
-		jit_finishi((void *)rk65c02_do_adc_bcd);
+		jit_finishi(JIT_FN_TO_VOID(rk65c02_do_adc_bcd));
 		jit_movr(JIT_R0, JIT_V0);
 		jit_emit_advance_pc(size);
 		adc_done = jit_jmpi();
@@ -1187,7 +1192,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_prepare();
 		jit_pushargr(JIT_R0);
 		jit_pushargr(JIT_R1);
-		jit_finishi((void *)rk65c02_do_sbc_bcd);
+		jit_finishi(JIT_FN_TO_VOID(rk65c02_do_sbc_bcd));
 		jit_movr(JIT_R0, JIT_V0);
 		jit_emit_advance_pc(size);
 		sbc_done = jit_jmpi();
@@ -1778,7 +1783,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 	jit_prepare();
 	jit_pushargr(JIT_R0);
 	jit_pushargi(op);
-	jit_finishi((void *)jit_exec_fallback);
+	jit_finishi(JIT_FN_TO_VOID(jit_exec_fallback));
 	jit_movr(JIT_R0, JIT_V0);
 
 	/*
@@ -1867,7 +1872,11 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		jit_ret();
 		jit_epilog();
 
-		b->fn = (void (*)(rk65c02emu_t *))jit_emit();
+		{
+			union { void (*fn)(rk65c02emu_t *); void *p; } u;
+			u.p = jit_emit();
+			b->fn = u.fn;
+		}
 		if (b->fn != NULL) {
 			jit_block_page_refs_update(j, b, true);
 			j->active_blocks++;
@@ -2023,6 +2032,12 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			return;
 		}
 
+		/* Take pending IRQ in interpreter before running a block. */
+		if (e->irq && (!(e->regs.P & P_IRQ_DISABLE))) {
+			rk65c02_exec(e);
+			continue;
+		}
+
 		pc = e->regs.PC;
 		if (e->jit->mutable_code_page[pc >> 8]) {
 			rk65c02_exec(e);
@@ -2061,7 +2076,10 @@ rk65c02_run_jit(rk65c02emu_t *e)
 #if RK65C02_JIT_PERF_DEBUG
 		e->jit->debug_blocks_executed++;
 #endif
-		b->fn(e);
+		e->in_jit_run = true;
+		if (setjmp(e->jit_fault_env) == 0)
+			b->fn(e);
+		e->in_jit_run = false;
 		if (e->jit->write_event_pending) {
 			uint8_t write_page = (uint8_t)(e->jit->last_write_addr >> 8);
 

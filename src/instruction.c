@@ -233,8 +233,11 @@ instruction_exec_one(rk65c02emu_t *e)
 
 	if (id.emul) {
 		id.emul(e, &id, &i);
-		if (!instruction_modify_pc(&id))
+		if (e->state == STOPPED && e->mmu_fault_reexec) {
+			e->mmu_fault_reexec = false;
+		} else if (!instruction_modify_pc(&id)) {
 			program_counter_increment(e, &id);
+		}
 	}
 }
 

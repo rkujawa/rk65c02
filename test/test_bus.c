@@ -27,7 +27,7 @@ ATF_TC_BODY(bus_init_default, tc)
 {
 	bus_t b;
 	device_mapping_t *dm;
-	device_t *d, *d_ram;
+	device_t *d, *d_ram = NULL;
 
 	b = bus_init_with_default_devs();
 
@@ -36,11 +36,11 @@ ATF_TC_BODY(bus_init_default, tc)
 	LL_FOREACH(b.dm_head, dm) {
 		d = dm->dev;
 
-		if (dm->addr == 0) 
+		if (dm->addr == 0)
 			d_ram = d;
 	}
 
-	ATF_CHECK(strcmp("RAM", d_ram->name) == 0);
+	ATF_CHECK(d_ram != NULL && strcmp("RAM", d_ram->name) == 0);
 
 	bus_finish(&b);
 }

@@ -4,7 +4,12 @@
 #ifndef _RK6502_H_
 #define _RK6502_H_
 
+#include <setjmp.h>
+
 #include "bus.h"
+
+/** Maximum physical address (MMU paddr). Guest stays 64K; physical may be larger. */
+#define RK65C02_PHYS_MAX	(16u * 1024u * 1024u)
 
 struct rk65c02_jit;
 struct rk65c02emu;
@@ -102,7 +107,7 @@ typedef void (*rk65c02_mem_write_cb_t)(
 struct rk65c02_mmu_tlb_entry {
 	bool valid;
 	uint8_t vpage;
-	uint16_t ppage_base;
+	uint32_t ppage_base;	/**< Physical page base (low 8 bits zero); supports extended space. */
 	uint8_t perms;
 	uint32_t epoch;
 };
@@ -169,6 +174,9 @@ struct rk65c02emu {
 	bool use_jit;		/**< Current JIT execution state (may change at runtime). */
 	bool jit_requested;	/**< Host-requested JIT preference across start() calls. */
 	struct rk65c02_jit *jit; /**< Opaque JIT backend state. */
+	/** For JIT: fault longjmp target so MMU fault does not return into compiled block. */
+	jmp_buf jit_fault_env;
+	bool in_jit_run;	/**< True while JIT run loop is executing a compiled block. */
 	bool stop_requested;	/**< Host requested stop at next safe boundary. */
 	rk65c02_on_stop_cb_t on_stop; /**< Callback executed after stop. */
 	void *on_stop_ctx;	/**< Host context for on_stop callback. */
@@ -191,6 +199,7 @@ struct rk65c02emu {
 	uint16_t mmu_last_fault_addr; /**< Last virtual address that faulted. */
 	rk65c02_mmu_access_t mmu_last_fault_access; /**< Last fault access class. */
 	uint16_t mmu_last_fault_code; /**< Last host-defined MMU fault code. */
+	bool mmu_fault_reexec; /**< Set on MMU fault so interpreter/JIT skip PC advance for re-exec. */
 	bool mmu_tlb_enabled;	/**< Enable internal software MMU TLB. */
 	bool mmu_changed_all;	/**< MMU update changed broad mappings. */
 	bool mmu_changed_vpage[256]; /**< MMU update touched specific virtual pages. */
@@ -364,6 +373,12 @@ void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
  * back to RUNNING so execution can continue and service interrupts.
  */
 void rk65c02_assert_irq(rk65c02emu_t *e);
+
+/**
+ * @brief Deassert the IRQ line.
+ * @param e Emulator instance.
+ */
+void rk65c02_deassert_irq(rk65c02emu_t *e);
 
 /**
  * @brief Respond to interrupt and start the interrupt service routine.

@@ -39,6 +39,7 @@
 #define RK65C02_BUS_SIZE	64*1024
 
 static void bus_access_device(bus_t *, uint16_t, device_t **, uint16_t *);
+static void bus_access_device_phys(bus_t *, uint32_t, device_t **, uint16_t *);
 
 void
 bus_device_add(bus_t *b, device_t *d, uint16_t addr)
@@ -62,6 +63,25 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 
 	rk65c02_log(LOG_DEBUG, "Bus mapping added: %x device %s size %x.",
 	    addr, d->name, d->size);
+}
+
+void
+bus_device_add_phys(bus_t *b, device_t *d, uint32_t base)
+{
+	device_phys_mapping_t *dm;
+
+	assert(b != NULL);
+	assert(d != NULL);
+
+	dm = (device_phys_mapping_t *) GC_MALLOC(sizeof(device_phys_mapping_t));
+	assert(dm != NULL);
+	dm->dev = d;
+	dm->base = base;
+
+	LL_APPEND((b->dm_phys_head), dm);
+
+	rk65c02_log(LOG_DEBUG, "Bus phys mapping added: %x device %s size %x.",
+	    (unsigned)base, d->name, d->size);
 }
 
 void
@@ -106,6 +126,69 @@ bus_access_device(bus_t *t, uint16_t addr, device_t **d, uint16_t *off)
 	}
 
 	*off = addr - doff;
+}
+
+static void
+bus_access_device_phys(bus_t *t, uint32_t addr, device_t **d, uint16_t *off)
+{
+	device_phys_mapping_t *dm;
+
+	*d = NULL;
+	*off = 0;
+
+	if (addr < RK65C02_BUS_SIZE)
+		return;
+
+	LL_FOREACH(t->dm_phys_head, dm) {
+		if (addr >= dm->base && addr < dm->base + dm->dev->size) {
+			*d = dm->dev;
+			*off = (uint16_t)(addr - dm->base);
+			return;
+		}
+	}
+}
+
+uint8_t
+bus_read_1_phys(bus_t *t, uint32_t addr)
+{
+	uint8_t val;
+	uint16_t off;
+	device_t *d;
+
+	if (addr < RK65C02_BUS_SIZE)
+		return bus_read_1(t, (uint16_t)addr);
+
+	bus_access_device_phys(t, addr, &d, &off);
+	if (d == NULL)
+		return 0xFF;
+	val = d->read_1(d, off);
+	if (t->access_debug)
+		rk65c02_log(LOG_DEBUG, "bus READ phys @ %x (off %x) value %x\n",
+		    (unsigned)addr, off, val);
+	return val;
+}
+
+void
+bus_write_1_phys(bus_t *t, uint32_t addr, uint8_t val)
+{
+	uint16_t off;
+	device_t *d;
+
+	if (addr < RK65C02_BUS_SIZE) {
+		bus_write_1(t, (uint16_t)addr, val);
+		return;
+	}
+	bus_access_device_phys(t, addr, &d, &off);
+	if (d == NULL) {
+		if (t->access_debug)
+			rk65c02_log(LOG_DEBUG, "unmapped bus WRITE phys @ %x\n",
+			    (unsigned)addr);
+		return;
+	}
+	if (t->access_debug)
+		rk65c02_log(LOG_DEBUG, "bus WRITE phys @ %x (off %x) value %x\n",
+		    (unsigned)addr, off, val);
+	d->write_1(d, off, val);
 }
 
 uint8_t
@@ -159,6 +242,7 @@ bus_init()
 	bus_t t;
 
 	t.dm_head = NULL;
+	t.dm_phys_head = NULL;
 	t.access_debug = false;
 
 	return t;	
@@ -228,18 +312,54 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 	return true;
 }
 
+bool
+bus_load_file_phys(bus_t *t, uint32_t addr, const char *filename)
+{
+	int fd;
+	uint8_t data;
+
+	if (addr < RK65C02_BUS_SIZE) {
+		rk65c02_log(LOG_ERROR, "bus_load_file_phys: use bus_load_file for addr < 64K.");
+		return false;
+	}
+
+	rk65c02_log(LOG_DEBUG, "Loading file %s at phys %x.", filename, (unsigned)addr);
+
+	fd = open(filename, O_RDONLY);
+	if (fd == -1) {
+		rk65c02_log(LOG_ERROR, "Problem while trying to open file: %s",
+		    strerror(errno));
+		return false;
+	}
+
+	while ((read(fd, &data, 1)) > 0) {
+		bus_write_1_phys(t, addr, data);
+		addr++;
+	}
+
+	close(fd);
+
+	return true;
+}
+
 void
 bus_finish(bus_t *t)
 {
 	device_mapping_t *dm;
+	device_phys_mapping_t *dm_phys;
 	device_t *d;
 
 	assert(t != NULL);
 
-        LL_FOREACH(t->dm_head, dm) {
+	LL_FOREACH(t->dm_head, dm) {
 		d = dm->dev;
 		if ((d->finish) != NULL)
 			d->finish(d);
-        }
+	}
+	LL_FOREACH(t->dm_phys_head, dm_phys) {
+		d = dm_phys->dev;
+		if ((d->finish) != NULL)
+			d->finish(d);
+	}
 }
 

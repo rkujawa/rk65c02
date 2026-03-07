@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "bus.h"
+#include "device_ram.h"
 #include "rk65c02.h"
 #include "utils.h"
 
@@ -166,10 +167,53 @@ mmu_out_of_range_translate(rk65c02emu_t *e, uint16_t vaddr,
 		s->translate_calls_write++;
 
 	r.ok = true;
-	r.paddr = (uint32_t)RK65C02_BUS_SIZE + 1u;
+	/* Physical addresses >= RK65C02_PHYS_MAX are out of range and fault with 0xFFFF. */
+	r.paddr = (uint32_t)RK65C02_PHYS_MAX;
 	r.perms = RK65C02_MMU_PERM_R | RK65C02_MMU_PERM_W | RK65C02_MMU_PERM_X;
 	r.fault_code = 0;
 	if (access == RK65C02_MMU_FETCH)
+		r.paddr = vaddr;
+	return r;
+}
+
+/* Demand-paging translate: page 1 not present until ctx->page_1_present. */
+struct demand_page_state {
+	bool page_1_present;
+};
+static rk65c02_mmu_result_t
+mmu_demand_page_translate(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, void *ctx)
+{
+	struct demand_page_state *ds = (struct demand_page_state *)ctx;
+	rk65c02_mmu_result_t r;
+
+	(void)e;
+	r.ok = true;
+	r.paddr = vaddr;
+	r.perms = RK65C02_MMU_PERM_R | RK65C02_MMU_PERM_W | RK65C02_MMU_PERM_X;
+	r.fault_code = 0;
+	if ((vaddr >> 8) == 0x01 && !ds->page_1_present) {
+		r.ok = false;
+		r.fault_code = 1;
+	}
+	return r;
+}
+
+/* Map guest page 0 to extended physical 0x10000-0x100FF; rest identity. */
+static rk65c02_mmu_result_t
+mmu_extended_phys_translate(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, void *ctx)
+{
+	rk65c02_mmu_result_t r;
+	(void)e;
+	(void)ctx;
+
+	r.ok = true;
+	r.perms = RK65C02_MMU_PERM_R | RK65C02_MMU_PERM_W | RK65C02_MMU_PERM_X;
+	r.fault_code = 0;
+	if ((vaddr >> 8) == 0x00)
+		r.paddr = 0x10000u + (vaddr & 0xFFu);
+	else
 		r.paddr = vaddr;
 	return r;
 }
@@ -385,6 +429,92 @@ do_mmu_out_of_range_fault(const atf_tc_t *tc, bool use_jit)
 	bus_finish(&b);
 }
 ATF_TC_JIT_VARIANTS(mmu_out_of_range_fault, do_mmu_out_of_range_fault)
+
+/** Explicitly verify extended physical address range: guest page 0 -> phys 0x10000. */
+static void
+do_mmu_extended_phys(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	const uint32_t phys_base = 0x10000u;
+	const uint16_t page_size = 256;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	bus_device_add_phys(&b, device_ram_init(page_size), phys_base);
+
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+	ATF_REQUIRE(rk65c02_mmu_set(&e, mmu_extended_phys_translate, NULL,
+	    NULL, NULL, true, false));
+
+	/* Seed extended phys so guest $10 reads 0x5A. */
+	bus_write_1_phys(&b, phys_base + 0x10, 0x5A);
+	/* Program: LDA $10, STA $20, STP (guest $10/$20 are in page 0 -> phys 0x10010/0x10020). */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0xA5);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x10);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0x85);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0xDB);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.A == 0x5A);
+	ATF_CHECK(bus_read_1_phys(&b, phys_base + 0x20) == 0x5A);
+
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(mmu_extended_phys, do_mmu_extended_phys)
+
+/** Demand paging with JIT: fault on page 1, install, restart; PC must stay at faulting insn. */
+static void
+do_mmu_demand_page_jit(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	struct demand_page_state ds = { .page_1_present = false };
+	unsigned runs;
+
+	(void)tc;
+	ATF_REQUIRE(use_jit);
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, true);
+	ATF_REQUIRE(rk65c02_mmu_set(&e, mmu_demand_page_translate, &ds,
+	    NULL, NULL, true, false));
+
+	bus_write_1(&b, 0x0111, 0xAB);
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0xAD); /* LDA abs $0111 */
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x11);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0x01);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xDB); /* STP */
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	runs = 0;
+	for (;;) {
+		rk65c02_start(&e);
+		runs++;
+		if (e.stopreason == STP)
+			break;
+		if (e.stopreason == EMUERROR && e.mmu_last_fault_code == 1) {
+			ds.page_1_present = true;
+			rk65c02_mmu_begin_update(&e);
+			rk65c02_mmu_mark_changed_vpage(&e, 1);
+			rk65c02_mmu_end_update(&e);
+			ATF_REQUIRE(runs < 4);
+			continue;
+		}
+		ATF_REQUIRE(e.stopreason == EMUERROR);
+		ATF_REQUIRE(e.mmu_last_fault_code == 1);
+	}
+	ATF_CHECK(e.regs.A == 0xAB);
+	ATF_CHECK(runs == 2);
+	bus_finish(&b);
+}
+ATF_TC_WITHOUT_HEAD(mmu_demand_page_jit);
+ATF_TC_BODY(mmu_demand_page_jit, tc) { do_mmu_demand_page_jit(tc, true); }
 
 static void
 do_mmu_tlb_hits(const atf_tc_t *tc, bool use_jit)
@@ -698,6 +828,9 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mmu_write_perm_fault_jit);
 	ATF_TP_ADD_TC(tp, mmu_out_of_range_fault);
 	ATF_TP_ADD_TC(tp, mmu_out_of_range_fault_jit);
+	ATF_TP_ADD_TC(tp, mmu_extended_phys);
+	ATF_TP_ADD_TC(tp, mmu_extended_phys_jit);
+	ATF_TP_ADD_TC(tp, mmu_demand_page_jit);
 	ATF_TP_ADD_TC(tp, mmu_tlb_hits);
 	ATF_TP_ADD_TC(tp, mmu_tlb_hits_jit);
 	ATF_TP_ADD_TC(tp, mmu_tlb_update_invalidate);

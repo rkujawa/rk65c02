@@ -15,7 +15,7 @@ LIB_STATIC=librk65c02.a
 LDFLAGS=-shared -lgc -llightning
 LDFLAGS_MACOSX=-L/opt/local/lib
 #CFLAGS=-Wall -fpic -ggdb -Og -DHAVE_LIGHTNING -MMD -MP
-CFLAGS=-Wall -fpic -O3 -DHAVE_LIGHTNING -MMD -MP
+CFLAGS=-Wall -Wpedantic -fpic -O3 -DHAVE_LIGHTNING -MMD -MP
 #CFLAGS=-Wall -fpic -Os -fplugin=annobin
 CFLAGS_MACOSX=-I/opt/local/include/uthash -I/opt/local/include
 
