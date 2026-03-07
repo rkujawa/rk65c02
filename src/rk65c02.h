@@ -55,6 +55,59 @@ typedef void (*rk65c02_tick_cb_t)(rk65c02emu_t *e, void *ctx);
 typedef void (*rk65c02_wait_cb_t)(rk65c02emu_t *e, void *ctx);
 
 /**
+ * @brief MMU access class for translation/permission checks.
+ */
+typedef enum {
+	RK65C02_MMU_FETCH = 0, /**< Instruction fetch access. */
+	RK65C02_MMU_READ,      /**< Data read access. */
+	RK65C02_MMU_WRITE      /**< Data write access. */
+} rk65c02_mmu_access_t;
+
+#define RK65C02_MMU_PERM_R 0x01
+#define RK65C02_MMU_PERM_W 0x02
+#define RK65C02_MMU_PERM_X 0x04
+
+/**
+ * @brief Translation result returned by host MMU callback.
+ */
+typedef struct {
+	bool ok;		/**< False indicates translation/access fault. */
+	uint32_t paddr;		/**< Translated physical address on emulator bus. */
+	uint8_t perms;		/**< Permission mask, see RK65C02_MMU_PERM_* bits. */
+	uint16_t fault_code;	/**< Host-defined reason code when ok=false. */
+	/** When true, this translation is not cached in the internal TLB.
+	 *  Use for mappings that depend on context (e.g. bank switch at entry only)
+	 *  so the TLB stays transparent and correct without host disabling it. */
+	bool no_fill_tlb;
+} rk65c02_mmu_result_t;
+
+/**
+ * @brief Host MMU translation callback.
+ */
+typedef rk65c02_mmu_result_t (*rk65c02_mmu_translate_cb_t)(
+    rk65c02emu_t *e, uint16_t vaddr, rk65c02_mmu_access_t access, void *ctx);
+
+/**
+ * @brief Optional callback invoked when an MMU fault occurs.
+ */
+typedef void (*rk65c02_mmu_fault_cb_t)(
+    rk65c02emu_t *e, uint16_t vaddr, rk65c02_mmu_access_t access,
+    uint16_t fault_code, void *ctx);
+
+typedef uint8_t (*rk65c02_mem_read_cb_t)(
+    rk65c02emu_t *e, uint16_t addr, rk65c02_mmu_access_t access);
+typedef void (*rk65c02_mem_write_cb_t)(
+    rk65c02emu_t *e, uint16_t addr, uint8_t val, rk65c02_mmu_access_t access);
+
+struct rk65c02_mmu_tlb_entry {
+	bool valid;
+	uint8_t vpage;
+	uint16_t ppage_base;
+	uint8_t perms;
+	uint32_t epoch;
+};
+
+/**
  * @brief State of the emulated CPU registers.
  */
 struct reg_state {
@@ -126,6 +179,26 @@ struct rk65c02emu {
 	bool idle_wait_enabled;	/**< Enable host wait callback while STOPPED/WAI. */
 	rk65c02_wait_cb_t idle_wait; /**< Host wait callback for WAI idle state. */
 	void *idle_wait_ctx;	/**< Host context for wait callback. */
+	bool mmu_enabled;	/**< Host MMU translation path enabled. */
+	bool mmu_identity_fastpath; /**< Host allows identity-map fast path bypass. */
+	bool mmu_identity_active; /**< Current map is identity+RWX (bypass active). */
+	bool mmu_update_pending; /**< Host signaled pending MMU mapping changes. */
+	uint32_t mmu_epoch;	/**< Monotonic epoch for MMU map changes. */
+	rk65c02_mmu_translate_cb_t mmu_translate; /**< Host MMU translate callback. */
+	void *mmu_translate_ctx; /**< Host context for MMU translation callback. */
+	rk65c02_mmu_fault_cb_t mmu_fault; /**< Optional host callback on MMU fault. */
+	void *mmu_fault_ctx;	/**< Host context for MMU fault callback. */
+	uint16_t mmu_last_fault_addr; /**< Last virtual address that faulted. */
+	rk65c02_mmu_access_t mmu_last_fault_access; /**< Last fault access class. */
+	uint16_t mmu_last_fault_code; /**< Last host-defined MMU fault code. */
+	bool mmu_tlb_enabled;	/**< Enable internal software MMU TLB. */
+	bool mmu_changed_all;	/**< MMU update changed broad mappings. */
+	bool mmu_changed_vpage[256]; /**< MMU update touched specific virtual pages. */
+	uint64_t mmu_tlb_hits;	/**< MMU TLB hits since last reset. */
+	uint64_t mmu_tlb_misses; /**< MMU TLB misses since last reset. */
+	struct rk65c02_mmu_tlb_entry mmu_tlb[256]; /**< Direct-mapped virtual-page TLB. */
+	rk65c02_mem_read_cb_t mem_read_1_fn; /**< Active memory-read backend. */
+	rk65c02_mem_write_cb_t mem_write_1_fn; /**< Active memory-write backend. */
 };
 
 /**
@@ -205,6 +278,75 @@ void rk65c02_idle_wait_set(rk65c02emu_t *e, rk65c02_wait_cb_t cb, void *ctx);
 void rk65c02_idle_wait_clear(rk65c02emu_t *e);
 
 /**
+ * @brief Configure host MMU translation callbacks.
+ * @param e Emulator instance.
+ * @param translate Translation callback (must not be NULL when enabled).
+ * @param translate_ctx Opaque host context for translation callback.
+ * @param on_fault Optional fault callback (may be NULL).
+ * @param fault_ctx Opaque host context for fault callback.
+ * @param enabled Enable or disable MMU translation.
+ * @param identity_fastpath True if current mapping is identity+RWX.
+ * @return true on success, false on invalid arguments.
+ */
+bool rk65c02_mmu_set(rk65c02emu_t *e, rk65c02_mmu_translate_cb_t translate,
+    void *translate_ctx, rk65c02_mmu_fault_cb_t on_fault, void *fault_ctx,
+    bool enabled, bool identity_fastpath);
+
+/**
+ * @brief Clear MMU callbacks and return to direct memory access.
+ * @param e Emulator instance.
+ */
+void rk65c02_mmu_clear(rk65c02emu_t *e);
+
+/**
+ * @brief Begin host-coordinated MMU mapping update batch.
+ * @param e Emulator instance.
+ */
+void rk65c02_mmu_begin_update(rk65c02emu_t *e);
+
+/**
+ * @brief Mark that MMU mapping changed for a virtual page.
+ * @param e Emulator instance.
+ * @param vpage Virtual page index (phase-1 semantic marker only).
+ */
+void rk65c02_mmu_mark_changed_vpage(rk65c02emu_t *e, uint8_t vpage);
+
+/**
+ * @brief Mark that MMU mapping changed for a virtual address range.
+ * @param e Emulator instance.
+ * @param start Inclusive virtual start address.
+ * @param end Inclusive virtual end address.
+ */
+void rk65c02_mmu_mark_changed_vrange(rk65c02emu_t *e, uint16_t start,
+    uint16_t end);
+
+/**
+ * @brief End host MMU mapping update batch and apply invalidation actions.
+ * @param e Emulator instance.
+ */
+void rk65c02_mmu_end_update(rk65c02emu_t *e);
+
+/**
+ * @brief Enable or disable internal MMU software TLB.
+ * @param e Emulator instance.
+ * @param enabled Desired TLB state.
+ */
+void rk65c02_mmu_tlb_set(rk65c02emu_t *e, bool enabled);
+
+/**
+ * @brief Flush all entries from internal MMU software TLB.
+ * @param e Emulator instance.
+ */
+void rk65c02_mmu_tlb_flush(rk65c02emu_t *e);
+
+/**
+ * @brief Flush one virtual page from internal MMU software TLB.
+ * @param e Emulator instance.
+ * @param vpage Virtual page index.
+ */
+void rk65c02_mmu_tlb_flush_vpage(rk65c02emu_t *e, uint8_t vpage);
+
+/**
  * @brief Request stop at the next safe execution boundary.
  * @param e Emulator instance.
  */
@@ -235,6 +377,10 @@ void rk65c02_irq(rk65c02emu_t *e);
  * @param fmt Message in printf-like format.
  */
 void rk65c02_panic(rk65c02emu_t *e, const char *fmt, ...);
+
+uint8_t rk65c02_mem_fetch_1(rk65c02emu_t *e, uint16_t addr);
+uint8_t rk65c02_mem_read_1(rk65c02emu_t *e, uint16_t addr);
+void rk65c02_mem_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val);
 
 /**
  * @brief Prep the emulator, load code from file, pass bus config optionally.

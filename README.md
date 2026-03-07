@@ -13,6 +13,7 @@ Currently, the following features are implemented:
 - JIT using GNU Lightning.
 - Host callbacks for stop notification and periodic execution ticks.
 - Optional idle-wait callback integration for `WAI`-driven guest idle loops.
+- **Host-pluggable MMU**: translation and fault callbacks, software TLB, and JIT-coherent invalidation so the host can implement bank switching, memory expansion, or multitasking without the guest depending on library internals. See [MMU documentation](doc/MMU.md) and the `examples/mmu_cart` and `examples/mmu_multitasking` examples.
 
 External dependencies (besides standard C library):
 
@@ -77,6 +78,13 @@ Notes:
   - continuing with `rk65c02_step()` after stop.
 - `idle_wait` - demonstrates `rk65c02_idle_wait_set()` by sleeping on host
   while guest executes `WAI`, then waking via IRQ assertion.
+- **MMU examples** (see [doc/MMU.md](doc/MMU.md) for the full guide):
+  - `mmu_cart` - C64-style bank-switched cartridge: guest writes bank id to 0xDE00,
+    host polls in the tick callback and remaps the cart window via the MMU API.
+  - `mmu_multitasking` - minimal task switching: two tasks with private low memory,
+    guest yields by writing next task id to 0xFF00, host remaps and continues.
+  Both are heavily commented (host and guest) to show the rk65c02↔host interface
+  and how the host can define the contract between emulated hardware and guest code.
 
 Build examples with:
 

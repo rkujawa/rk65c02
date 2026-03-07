@@ -2297,7 +2297,6 @@ ATF_TP_ADD_TCS(tp)
 
 	ATF_TP_ADD_TC(tp, emul_invalid_opcode);
 	ATF_TP_ADD_TC(tp, emul_invalid_opcode_jit);
-
 	return (atf_no_error());
 }
 

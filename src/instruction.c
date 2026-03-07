@@ -73,6 +73,43 @@ instruction_fetch(bus_t *b, uint16_t addr)
 	return i;
 }
 
+instruction_t
+instruction_fetch_emu(rk65c02emu_t *e, uint16_t addr)
+{
+	instruction_t i;
+	instrdef_t id;
+
+	i.opcode = rk65c02_mem_fetch_1(e, addr);
+	id = instruction_decode(i.opcode);
+
+	switch (id.mode) {
+	case IMMEDIATE:
+	case ZP:
+	case ZPX:
+	case ZPY:
+	case IZP:
+	case IZPX:
+	case IZPY:
+	case RELATIVE:
+		i.op1 = rk65c02_mem_fetch_1(e, (uint16_t)(addr + 1));
+		break;
+	case ABSOLUTE:
+	case ABSOLUTEX:
+	case ABSOLUTEY:
+	case IABSOLUTE:
+	case IABSOLUTEX:
+	case ZPR:
+		i.op1 = rk65c02_mem_fetch_1(e, (uint16_t)(addr + 1));
+		i.op2 = rk65c02_mem_fetch_1(e, (uint16_t)(addr + 2));
+		break;
+	case IMPLIED:
+	default:
+		break;
+	}
+
+	return i;
+}
+
 void
 instruction_print(instruction_t *i)
 {
@@ -191,7 +228,7 @@ instruction_exec_one(rk65c02emu_t *e)
 	instruction_t i;
 	instrdef_t id;
 
-	i = instruction_fetch(e->bus, e->regs.PC);
+	i = instruction_fetch_emu(e, e->regs.PC);
 	id = instruction_decode(i.opcode);
 
 	if (id.emul) {
@@ -234,7 +271,7 @@ instruction_data_write_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i, uint
 		return;
 	}
 
-	bus_write_1(e->bus, instruction_data_address(e, id, i), val);
+	rk65c02_mem_write_1(e, instruction_data_address(e, id, i), val);
 }
 
 uint8_t
@@ -245,7 +282,7 @@ instruction_data_read_1(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 	else if (id->mode == IMMEDIATE)
 		return i->op1;
 
-	return bus_read_1(e->bus, instruction_data_address(e, id, i));
+	return rk65c02_mem_read_1(e, instruction_data_address(e, id, i));
 }
 
 uint16_t
@@ -267,16 +304,16 @@ instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 		addr = (uint8_t) (i->op1 + e->regs.Y);
 		break;
 	case IZP:
-		addr = bus_read_1(e->bus, i->op1);
-		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + 1)) << 8);
+		addr = rk65c02_mem_read_1(e, i->op1);
+		addr |= (rk65c02_mem_read_1(e, (uint8_t) (i->op1 + 1)) << 8);
 		break;
 	case IZPX: /* Zero Page Indexed Indirect with X */
-		addr = bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X));
-		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
+		addr = rk65c02_mem_read_1(e, (uint8_t) (i->op1 + e->regs.X));
+		addr |= (rk65c02_mem_read_1(e, (uint8_t) (i->op1 + e->regs.X + 1)) << 8);
 		break;
 	case IZPY: /* Zero Page Indirect Indexed with Y */
-		addr = bus_read_1(e->bus, i->op1);
-		addr |= (bus_read_1(e->bus, (uint8_t) (i->op1 + 1)) << 8);
+		addr = rk65c02_mem_read_1(e, i->op1);
+		addr |= (rk65c02_mem_read_1(e, (uint8_t) (i->op1 + 1)) << 8);
 		addr += e->regs.Y;
 		break;
 	case ABSOLUTE:
@@ -309,7 +346,7 @@ instruction_data_address(rk65c02emu_t *e, instrdef_t *id, instruction_t *i)
 void
 stack_push(rk65c02emu_t *e, uint8_t val)
 {
-	bus_write_1(e->bus, STACK_START+e->regs.SP, val);
+	rk65c02_mem_write_1(e, STACK_START+e->regs.SP, val);
 	e->regs.SP--;
 }
 
@@ -320,7 +357,7 @@ stack_pop(rk65c02emu_t *e)
 	uint8_t val;
 
 	e->regs.SP++;
-	val = bus_read_1(e->bus, STACK_START+e->regs.SP);
+	val = rk65c02_mem_read_1(e, STACK_START+e->regs.SP);
 
 	return val;
 }

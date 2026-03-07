@@ -46,6 +46,7 @@ struct instrdef {
 typedef struct instrdef instrdef_t;
 
 instruction_t instruction_fetch(bus_t *, uint16_t);
+instruction_t instruction_fetch_emu(rk65c02emu_t *, uint16_t);
 instrdef_t instruction_decode(uint8_t);
 void instruction_print(instruction_t *);
 char * instruction_string_get(instruction_t *);

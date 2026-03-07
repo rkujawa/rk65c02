@@ -15,7 +15,7 @@ RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 
-EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait
+EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait mmu_cart mmu_multitasking
 EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(EXAMPLES) $(EXAMPLES_ROMS)
@@ -30,6 +30,12 @@ host_control : host_control.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 idle_wait : idle_wait.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+mmu_cart : mmu_cart.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+mmu_multitasking : mmu_multitasking.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 %.rom : %.s

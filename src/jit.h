@@ -21,6 +21,9 @@
 void rk65c02_run_jit(rk65c02emu_t *e);
 void rk65c02_poll_host_controls(rk65c02emu_t *e);
 bool rk65c02_maybe_wait_on_idle(rk65c02emu_t *e);
+void rk65c02_jit_invalidate_all(rk65c02emu_t *e);
+void rk65c02_jit_invalidate_vpage(rk65c02emu_t *e, uint8_t vpage);
+void rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage);
 
 #ifdef HAVE_LIGHTNING
 /* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */

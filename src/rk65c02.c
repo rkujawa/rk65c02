@@ -36,6 +36,178 @@
 #include "jit.h"
 
 void rk65c02_exec(rk65c02emu_t *);
+static void rk65c02_mmu_refresh_accessors(rk65c02emu_t *e);
+
+static uint8_t
+rk65c02_mem_read_direct(rk65c02emu_t *e, uint16_t addr,
+    rk65c02_mmu_access_t access)
+{
+	(void)access;
+	return bus_read_1(e->bus, addr);
+}
+
+static void
+rk65c02_mem_write_direct(rk65c02emu_t *e, uint16_t addr, uint8_t val,
+    rk65c02_mmu_access_t access)
+{
+	(void)access;
+	bus_write_1(e->bus, addr, val);
+}
+
+static bool
+rk65c02_mmu_translate_addr(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, uint8_t req_perm, uint32_t *paddr_out,
+    uint16_t *fault_code_out)
+{
+	struct rk65c02_mmu_tlb_entry *te;
+	rk65c02_mmu_result_t r;
+	uint8_t vpage;
+
+	if ((e == NULL) || (paddr_out == NULL) || (fault_code_out == NULL))
+		return false;
+	vpage = (uint8_t)(vaddr >> 8);
+	te = &e->mmu_tlb[vpage];
+	if (e->mmu_tlb_enabled && te->valid
+	    && (te->vpage == vpage)
+	    && (te->epoch == e->mmu_epoch)) {
+		e->mmu_tlb_hits++;
+		if ((te->perms & req_perm) != req_perm) {
+			*fault_code_out = 0xFFFEu;
+			return false;
+		}
+		*paddr_out = (uint32_t)(te->ppage_base | (vaddr & 0x00FFu));
+		return true;
+	}
+	e->mmu_tlb_misses++;
+
+	if (e->mmu_translate == NULL) {
+		*fault_code_out = 0xFFFDu;
+		return false;
+	}
+
+	r = e->mmu_translate(e, vaddr, access, e->mmu_translate_ctx);
+	if (!r.ok) {
+		*fault_code_out = r.fault_code;
+		return false;
+	}
+	if ((r.perms & req_perm) != req_perm) {
+		*fault_code_out = 0xFFFEu;
+		return false;
+	}
+	if (r.paddr >= RK65C02_BUS_SIZE) {
+		*fault_code_out = 0xFFFFu;
+		return false;
+	}
+
+	*paddr_out = r.paddr;
+	if (e->mmu_tlb_enabled && !r.no_fill_tlb
+	    && ((r.paddr & 0xFFu) == (vaddr & 0xFFu))) {
+		te->valid = true;
+		te->vpage = vpage;
+		te->ppage_base = (uint16_t)(r.paddr & 0xFF00u);
+		te->perms = r.perms;
+		te->epoch = e->mmu_epoch;
+	}
+	return true;
+}
+
+static void
+rk65c02_mmu_fault(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, uint16_t fault_code)
+{
+	assert(e != NULL);
+
+	e->mmu_last_fault_addr = vaddr;
+	e->mmu_last_fault_access = access;
+	e->mmu_last_fault_code = fault_code;
+	e->use_jit = false;
+	if (e->mmu_fault != NULL)
+		e->mmu_fault(e, vaddr, access, fault_code, e->mmu_fault_ctx);
+	rk65c02_panic(e, "MMU fault at vaddr=%04x access=%u code=%u",
+	    (unsigned)vaddr, (unsigned)access, (unsigned)fault_code);
+}
+
+static uint8_t
+rk65c02_mem_read_mmu(rk65c02emu_t *e, uint16_t addr, rk65c02_mmu_access_t access)
+{
+	uint8_t req_perm;
+	uint32_t paddr;
+	uint16_t fault_code;
+
+	switch (access) {
+	case RK65C02_MMU_FETCH:
+		req_perm = RK65C02_MMU_PERM_X;
+		break;
+	case RK65C02_MMU_READ:
+		req_perm = RK65C02_MMU_PERM_R;
+		break;
+	default:
+		req_perm = RK65C02_MMU_PERM_R;
+		break;
+	}
+
+	if (!rk65c02_mmu_translate_addr(e, addr, access, req_perm, &paddr,
+	    &fault_code)) {
+		rk65c02_mmu_fault(e, addr, access, fault_code);
+		return 0xFF;
+	}
+	return bus_read_1(e->bus, (uint16_t)paddr);
+}
+
+static void
+rk65c02_mem_write_mmu(rk65c02emu_t *e, uint16_t addr, uint8_t val,
+    rk65c02_mmu_access_t access)
+{
+	uint32_t paddr;
+	uint16_t fault_code;
+
+	(void)access;
+	if (!rk65c02_mmu_translate_addr(e, addr, RK65C02_MMU_WRITE,
+	    RK65C02_MMU_PERM_W, &paddr, &fault_code)) {
+		rk65c02_mmu_fault(e, addr, RK65C02_MMU_WRITE, fault_code);
+		return;
+	}
+	bus_write_1(e->bus, (uint16_t)paddr, val);
+}
+
+static void
+rk65c02_mmu_refresh_accessors(rk65c02emu_t *e)
+{
+	bool mmu_active;
+
+	assert(e != NULL);
+	mmu_active = e->mmu_enabled && !(e->mmu_identity_active);
+	if (mmu_active) {
+		e->mem_read_1_fn = rk65c02_mem_read_mmu;
+		e->mem_write_1_fn = rk65c02_mem_write_mmu;
+	} else {
+		e->mem_read_1_fn = rk65c02_mem_read_direct;
+		e->mem_write_1_fn = rk65c02_mem_write_direct;
+	}
+}
+
+void
+rk65c02_mmu_tlb_flush(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+	memset(e->mmu_tlb, 0, sizeof(e->mmu_tlb));
+}
+
+void
+rk65c02_mmu_tlb_flush_vpage(rk65c02emu_t *e, uint8_t vpage)
+{
+	assert(e != NULL);
+	e->mmu_tlb[vpage].valid = false;
+}
+
+void
+rk65c02_mmu_tlb_set(rk65c02emu_t *e, bool enabled)
+{
+	assert(e != NULL);
+	e->mmu_tlb_enabled = enabled;
+	if (!enabled)
+		rk65c02_mmu_tlb_flush(e);
+}
 
 static void
 rk65c02_maybe_call_on_stop(rk65c02emu_t *e)
@@ -184,6 +356,26 @@ rk65c02_init(bus_t *b)
 	e.idle_wait_enabled = false;
 	e.idle_wait = NULL;
 	e.idle_wait_ctx = NULL;
+	e.mmu_enabled = false;
+	e.mmu_identity_fastpath = false;
+	e.mmu_identity_active = false;
+	e.mmu_update_pending = false;
+	e.mmu_epoch = 0;
+	e.mmu_translate = NULL;
+	e.mmu_translate_ctx = NULL;
+	e.mmu_fault = NULL;
+	e.mmu_fault_ctx = NULL;
+	e.mmu_last_fault_addr = 0;
+	e.mmu_last_fault_access = RK65C02_MMU_READ;
+	e.mmu_last_fault_code = 0;
+	e.mmu_tlb_enabled = true;
+	e.mmu_changed_all = false;
+	memset(e.mmu_changed_vpage, 0, sizeof(e.mmu_changed_vpage));
+	e.mmu_tlb_hits = 0;
+	e.mmu_tlb_misses = 0;
+	memset(e.mmu_tlb, 0, sizeof(e.mmu_tlb));
+	e.mem_read_1_fn = rk65c02_mem_read_direct;
+	e.mem_write_1_fn = rk65c02_mem_write_direct;
 
 	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
@@ -231,8 +423,8 @@ rk65c02_irq(rk65c02emu_t *e)
 	e->regs.P &= ~P_BREAK;
 
 	/* load address from IRQ vector into program counter */
-	e->regs.PC = bus_read_1(e->bus, VECTOR_IRQ);
-	e->regs.PC |= bus_read_1(e->bus, VECTOR_IRQ + 1) << 8;
+	e->regs.PC = rk65c02_mem_read_1(e, VECTOR_IRQ);
+	e->regs.PC |= rk65c02_mem_read_1(e, VECTOR_IRQ + 1) << 8;
 }
 
 /*
@@ -260,7 +452,7 @@ rk65c02_exec(rk65c02emu_t *e)
 	if (e->runtime_disassembly)
 		disassemble(e->bus, e->regs.PC);
 
-	i = instruction_fetch(e->bus, e->regs.PC);
+	i = instruction_fetch_emu(e, e->regs.PC);
 	id = instruction_decode(i.opcode);
 
 	assert(id.emul);
@@ -288,6 +480,7 @@ rk65c02_start(rk65c02emu_t *e) {
 	e->use_jit = e->jit_requested;
 	e->stop_requested = false;
 	e->tick_countdown = e->tick_interval;
+	rk65c02_mmu_refresh_accessors(e);
 
 	if (rk65c02_can_use_jit(e))
 		rk65c02_run_jit(e);
@@ -326,6 +519,7 @@ rk65c02_step(rk65c02emu_t *e, uint16_t steps) {
 
 	e->stop_requested = false;
 	e->tick_countdown = e->tick_interval;
+	rk65c02_mmu_refresh_accessors(e);
 	e->state = STEPPING;
 	while ((e->state == STEPPING) && (i < steps)) {
 		rk65c02_poll_host_controls(e);
@@ -408,12 +602,168 @@ rk65c02_idle_wait_clear(rk65c02emu_t *e)
 	e->idle_wait_ctx = NULL;
 }
 
+bool
+rk65c02_mmu_set(rk65c02emu_t *e, rk65c02_mmu_translate_cb_t translate,
+    void *translate_ctx, rk65c02_mmu_fault_cb_t on_fault, void *fault_ctx,
+    bool enabled, bool identity_fastpath)
+{
+	assert(e != NULL);
+
+	if (enabled && (translate == NULL))
+		return false;
+
+	e->mmu_translate = translate;
+	e->mmu_translate_ctx = translate_ctx;
+	e->mmu_fault = on_fault;
+	e->mmu_fault_ctx = fault_ctx;
+	e->mmu_enabled = enabled;
+	e->mmu_identity_fastpath = identity_fastpath;
+	e->mmu_identity_active = enabled ? identity_fastpath : false;
+	e->mmu_update_pending = false;
+	e->mmu_changed_all = false;
+	memset(e->mmu_changed_vpage, 0, sizeof(e->mmu_changed_vpage));
+	e->mmu_epoch++;
+
+	rk65c02_mmu_refresh_accessors(e);
+	rk65c02_mmu_tlb_flush(e);
+	if (e->jit != NULL)
+		rk65c02_jit_flush(e);
+
+	return true;
+}
+
+void
+rk65c02_mmu_clear(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	e->mmu_enabled = false;
+	e->mmu_identity_fastpath = false;
+	e->mmu_identity_active = false;
+	e->mmu_update_pending = false;
+	e->mmu_translate = NULL;
+	e->mmu_translate_ctx = NULL;
+	e->mmu_fault = NULL;
+	e->mmu_fault_ctx = NULL;
+	e->mmu_epoch++;
+	e->mmu_changed_all = false;
+	memset(e->mmu_changed_vpage, 0, sizeof(e->mmu_changed_vpage));
+	rk65c02_mmu_refresh_accessors(e);
+	rk65c02_mmu_tlb_flush(e);
+}
+
+void
+rk65c02_mmu_begin_update(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	if (!(e->mmu_enabled))
+		return;
+	e->mmu_update_pending = true;
+	e->mmu_changed_all = false;
+	memset(e->mmu_changed_vpage, 0, sizeof(e->mmu_changed_vpage));
+}
+
+void
+rk65c02_mmu_mark_changed_vpage(rk65c02emu_t *e, uint8_t vpage)
+{
+	assert(e != NULL);
+	(void)vpage;
+
+	if (!(e->mmu_enabled))
+		return;
+	e->mmu_update_pending = true;
+	e->mmu_changed_vpage[vpage] = true;
+	e->mmu_identity_active = false;
+	rk65c02_mmu_refresh_accessors(e);
+}
+
+void
+rk65c02_mmu_mark_changed_vrange(rk65c02emu_t *e, uint16_t start, uint16_t end)
+{
+	assert(e != NULL);
+	(void)start;
+	(void)end;
+
+	if (!(e->mmu_enabled))
+		return;
+	e->mmu_update_pending = true;
+	if (start <= end) {
+		uint8_t sp = (uint8_t)(start >> 8);
+		uint8_t ep = (uint8_t)(end >> 8);
+		uint16_t p;
+		for (p = sp; p <= ep; p++)
+			e->mmu_changed_vpage[(uint8_t)p] = true;
+	} else {
+		e->mmu_changed_all = true;
+	}
+	e->mmu_identity_active = false;
+	rk65c02_mmu_refresh_accessors(e);
+}
+
+void
+rk65c02_mmu_end_update(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	if (!(e->mmu_enabled))
+		return;
+	if (!(e->mmu_update_pending))
+		return;
+
+	e->mmu_update_pending = false;
+	if (e->mmu_changed_all) {
+		e->mmu_epoch++;
+		rk65c02_mmu_tlb_flush(e);
+		if (e->jit != NULL)
+			rk65c02_jit_invalidate_all(e);
+	} else {
+		uint16_t p;
+		for (p = 0; p < 256; p++) {
+			if (!(e->mmu_changed_vpage[p]))
+				continue;
+			rk65c02_mmu_tlb_flush_vpage(e, (uint8_t)p);
+			/* Only invalidate JIT blocks whose code lies on this page;
+			 * data accesses go through accessors and see new mapping. */
+			if (e->jit != NULL)
+				rk65c02_jit_invalidate_code_vpage(e, (uint8_t)p);
+		}
+	}
+	e->mmu_changed_all = false;
+	memset(e->mmu_changed_vpage, 0, sizeof(e->mmu_changed_vpage));
+	rk65c02_mmu_refresh_accessors(e);
+}
+
 void
 rk65c02_request_stop(rk65c02emu_t *e)
 {
 	assert(e != NULL);
 
 	e->stop_requested = true;
+}
+
+uint8_t
+rk65c02_mem_fetch_1(rk65c02emu_t *e, uint16_t addr)
+{
+	assert(e != NULL);
+	assert(e->mem_read_1_fn != NULL);
+	return e->mem_read_1_fn(e, addr, RK65C02_MMU_FETCH);
+}
+
+uint8_t
+rk65c02_mem_read_1(rk65c02emu_t *e, uint16_t addr)
+{
+	assert(e != NULL);
+	assert(e->mem_read_1_fn != NULL);
+	return e->mem_read_1_fn(e, addr, RK65C02_MMU_READ);
+}
+
+void
+rk65c02_mem_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
+{
+	assert(e != NULL);
+	assert(e->mem_write_1_fn != NULL);
+	e->mem_write_1_fn(e, addr, val, RK65C02_MMU_WRITE);
 }
 
 void

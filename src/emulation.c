@@ -551,13 +551,13 @@ emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
 		break;
 	case IABSOLUTE:
 		iaddr = i->op1 + (i->op2 << 8);
-		target = bus_read_1(e->bus, iaddr);
-		target |= bus_read_1(e->bus, iaddr+1) << 8;
+		target = rk65c02_mem_read_1(e, iaddr);
+		target |= rk65c02_mem_read_1(e, iaddr+1) << 8;
 		break;
 	case IABSOLUTEX:
 		iaddr = i->op1 + (i->op2 << 8) + e->regs.X;
-		target = bus_read_1(e->bus, iaddr);
-		target |= bus_read_1(e->bus, iaddr + 1) << 8;
+		target = rk65c02_mem_read_1(e, iaddr);
+		target |= rk65c02_mem_read_1(e, iaddr + 1) << 8;
 		break;
 	default:
 		assert(false); /* Unreachable for valid JMP addressing modes. */

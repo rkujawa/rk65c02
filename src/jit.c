@@ -40,7 +40,6 @@ static jit_state_t *_jit;
 /* Offsets into emulator state for generated code (no magic numbers). */
 #define OFFSET_E_STATE  offsetof(struct rk65c02emu, state)
 #define OFFSET_E_REGS   offsetof(struct rk65c02emu, regs)
-#define OFFSET_E_BUS    offsetof(struct rk65c02emu, bus)
 #define OFFSET_E_USE_JIT offsetof(struct rk65c02emu, use_jit)
 #define OFFSET_REGS_A   offsetof(struct reg_state, A)
 #define OFFSET_REGS_X   offsetof(struct reg_state, X)
@@ -58,6 +57,8 @@ static jit_state_t *_jit;
 struct rk65c02_jit_block {
 	uint16_t start_pc;
 	uint16_t end_pc_exclusive;
+	bool mmu_phys_page_valid;
+	uint8_t mmu_phys_page;
 	void (*fn)(rk65c02emu_t *);
 #ifdef HAVE_LIGHTNING
 	jit_state_t *lightning_state;  /* one state per block: stable fn, no buffer realloc */
@@ -81,9 +82,13 @@ struct rk65c02_jit {
 	uint64_t debug_fallback_by_opcode[256];
 #endif
 	uint16_t compiled_page_refcnt[256];
+	uint16_t compiled_phys_page_refcnt[256];
+	uint16_t compiled_code_page_refcnt[256];
 	uint16_t covered_addr_refcnt[65536];
 	uint16_t page_invalidation_events[256];
 	bool mutable_code_page[256];
+	bool write_phys_page_valid;
+	uint8_t last_write_phys_page;
 	struct rk65c02_jit_block *blocks[JIT_CACHE_SIZE];
 };
 
@@ -101,13 +106,59 @@ static void jit_block_page_refs_update(struct rk65c02_jit *j,
     const struct rk65c02_jit_block *b, bool add);
 #endif
 
+static uint8_t
+jit_mem_read_1(rk65c02emu_t *e, uint16_t addr)
+{
+	return rk65c02_mem_read_1(e, addr);
+}
+
+static bool
+jit_translate_paddr(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, uint16_t *paddr_out)
+{
+	rk65c02_mmu_result_t r;
+	uint8_t need_perm;
+
+	if ((e == NULL) || (paddr_out == NULL))
+		return false;
+	if (!(e->mmu_enabled) || e->mmu_identity_active) {
+		*paddr_out = vaddr;
+		return true;
+	}
+	if (e->mmu_translate == NULL)
+		return false;
+
+	r = e->mmu_translate(e, vaddr, access, e->mmu_translate_ctx);
+	if (!r.ok)
+		return false;
+	if (r.paddr >= RK65C02_BUS_SIZE)
+		return false;
+	switch (access) {
+	case RK65C02_MMU_FETCH:
+		need_perm = RK65C02_MMU_PERM_X;
+		break;
+	case RK65C02_MMU_WRITE:
+		need_perm = RK65C02_MMU_PERM_W;
+		break;
+	case RK65C02_MMU_READ:
+	default:
+		need_perm = RK65C02_MMU_PERM_R;
+		break;
+	}
+	if ((r.perms & need_perm) != need_perm)
+		return false;
+
+	*paddr_out = (uint16_t)r.paddr;
+	return true;
+}
+
 /*
  * Build a block of instructions starting at start_pc. Stops at the first
  * instruction that modifies PC, at max_insns, or on PC wrap. Reuses
  * instruction_fetch and instruction_decode for consistency with the interpreter.
  */
 static void
-jit_build_block_insns(bus_t *bus, uint16_t start_pc,
+jit_build_block_insns(rk65c02emu_t *e, uint16_t start_pc,
     struct jit_block_insn *insns, size_t max_insns, size_t *num_insns)
 {
 	uint16_t pc;
@@ -120,7 +171,9 @@ jit_build_block_insns(bus_t *bus, uint16_t start_pc,
 	while (n < max_insns) {
 		if ((pc >> 8) != (start_pc >> 8))
 			break;
-		insns[n].i = instruction_fetch(bus, pc);
+		insns[n].i = instruction_fetch_emu(e, pc);
+		if (e->state != RUNNING)
+			break;
 		id = instruction_decode(insns[n].i.opcode);
 		insns[n].id = id;
 
@@ -164,6 +217,8 @@ jit_backend_create(void)
 	j->needs_flush = false;
 	j->write_event_pending = false;
 	j->last_write_addr = 0;
+	j->write_phys_page_valid = false;
+	j->last_write_phys_page = 0;
 	j->invalidation_events_this_run = 0;
 #if RK65C02_JIT_PERF_DEBUG
 	j->debug_blocks_executed = 0;
@@ -173,6 +228,8 @@ jit_backend_create(void)
 	memset(j->debug_fallback_by_opcode, 0, sizeof(j->debug_fallback_by_opcode));
 #endif
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
+	memset(j->compiled_phys_page_refcnt, 0, sizeof(j->compiled_phys_page_refcnt));
+	memset(j->compiled_code_page_refcnt, 0, sizeof(j->compiled_code_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
 	memset(j->mutable_code_page, 0, sizeof(j->mutable_code_page));
@@ -210,10 +267,16 @@ jit_backend_flush(struct rk65c02_jit *j)
 	j->needs_flush = false;
 	j->write_event_pending = false;
 	j->last_write_addr = 0;
+	j->write_phys_page_valid = false;
+	j->last_write_phys_page = 0;
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
+	memset(j->compiled_phys_page_refcnt, 0, sizeof(j->compiled_phys_page_refcnt));
+	memset(j->compiled_code_page_refcnt, 0, sizeof(j->compiled_code_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
 	memset(j->mutable_code_page, 0, sizeof(j->mutable_code_page));
+	j->write_phys_page_valid = false;
+	j->last_write_phys_page = 0;
 }
 
 static struct rk65c02_jit_block *
@@ -271,6 +334,21 @@ jit_block_page_refs_update(struct rk65c02_jit *j,
 		if (next < 0)
 			next = 0;
 		j->compiled_page_refcnt[addr] = (uint16_t)next;
+	}
+	if (b->mmu_phys_page_valid) {
+		int next;
+
+		next = (int)j->compiled_phys_page_refcnt[b->mmu_phys_page] + delta;
+		if (next < 0)
+			next = 0;
+		j->compiled_phys_page_refcnt[b->mmu_phys_page] = (uint16_t)next;
+	}
+	{
+		uint8_t code_page = (uint8_t)(b->start_pc >> 8);
+		int next = (int)j->compiled_code_page_refcnt[code_page] + delta;
+		if (next < 0)
+			next = 0;
+		j->compiled_code_page_refcnt[code_page] = (uint16_t)next;
 	}
 }
 
@@ -419,24 +497,99 @@ jit_invalidate_blocks_for_page(struct rk65c02_jit *j, uint8_t page)
 	}
 }
 
+/* Invalidate only blocks whose code (start_pc) lies on vpage. Used for MMU
+ * remap: data accesses go through accessors so only code-page blocks need
+ * invalidation when a page mapping changes. */
+static void
+jit_invalidate_blocks_for_code_page(struct rk65c02_jit *j, uint8_t vpage)
+{
+	size_t i;
+
+	if ((j == NULL) || (j->magic != JIT_MAGIC))
+		return;
+	if (j->compiled_code_page_refcnt[vpage] == 0)
+		return;
+	for (i = 0; i < JIT_CACHE_SIZE; i++) {
+		struct rk65c02_jit_block *b;
+
+		b = j->blocks[i];
+		if ((b == NULL) || (b->fn == NULL))
+			continue;
+		if ((uint8_t)(b->start_pc >> 8) != vpage)
+			continue;
+		if (b->lightning_state != NULL) {
+			_jit_destroy_state(b->lightning_state);
+			b->lightning_state = NULL;
+		}
+		jit_block_page_refs_update(j, b, false);
+		b->fn = NULL;
+		if (j->active_blocks > 0)
+			j->active_blocks--;
+#if RK65C02_JIT_PERF_DEBUG
+		j->debug_invalidated_blocks++;
+#endif
+	}
+}
+
+static void
+jit_invalidate_blocks_for_phys_page(struct rk65c02_jit *j, uint8_t phys_page)
+{
+	size_t i;
+
+	if ((j == NULL) || (j->magic != JIT_MAGIC))
+		return;
+	for (i = 0; i < JIT_CACHE_SIZE; i++) {
+		struct rk65c02_jit_block *b;
+
+		b = j->blocks[i];
+		if ((b == NULL) || (b->fn == NULL))
+			continue;
+		if (!(b->mmu_phys_page_valid) || (b->mmu_phys_page != phys_page))
+			continue;
+		if (b->lightning_state != NULL) {
+			_jit_destroy_state(b->lightning_state);
+			b->lightning_state = NULL;
+		}
+		jit_block_page_refs_update(j, b, false);
+		b->fn = NULL;
+		if (j->active_blocks > 0)
+			j->active_blocks--;
+#if RK65C02_JIT_PERF_DEBUG
+		j->debug_invalidated_blocks++;
+#endif
+	}
+}
+
 /* Write helper for JIT-native stores. */
 static void
 jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 {
+	uint16_t paddr;
+	bool has_phys_hit;
+
 	assert(e != NULL);
 
-	bus_write_1(e->bus, addr, val);
+	rk65c02_mem_write_1(e, addr, val);
+	if (e->state != RUNNING)
+		return;
 #if RK65C02_JIT_PERF_DEBUG
 	if ((e->jit != NULL) && (e->jit->magic == JIT_MAGIC))
 		e->jit->debug_write_events++;
 #endif
+	has_phys_hit = false;
+	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
+	    && jit_translate_paddr(e, addr, RK65C02_MMU_WRITE, &paddr)
+	    && (e->jit->compiled_phys_page_refcnt[paddr >> 8] != 0))
+		has_phys_hit = true;
 	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
 	    && (e->jit->compiled_page_refcnt[addr >> 8] != 0)
-	    && (e->jit->covered_addr_refcnt[addr] != 0)) {
+	    && ((e->jit->covered_addr_refcnt[addr] != 0) || has_phys_hit)) {
 		/* Force immediate block bail-out; dispatcher will invalidate spans. */
 		e->use_jit = false;
 		e->jit->write_event_pending = true;
 		e->jit->last_write_addr = addr;
+		e->jit->write_phys_page_valid = has_phys_hit;
+		e->jit->last_write_phys_page = has_phys_hit ? (uint8_t)(paddr >> 8) : 0;
 	}
 }
 
@@ -494,11 +647,10 @@ jit_emit_update_zn(void)
 static void
 jit_emit_bus_read(jit_node_t *arg_node)
 {
-	jit_ldxi(JIT_R2, JIT_R0, OFFSET_E_BUS);
 	jit_prepare();
-	jit_pushargr(JIT_R2);
+	jit_pushargr(JIT_R0);
 	jit_pushargr(JIT_R1);
-	jit_finishi((void *)bus_read_1);
+	jit_finishi((void *)jit_mem_read_1);
 	jit_retval(JIT_R1);
 	jit_andi(JIT_R1, JIT_R1, 0xFF);
 	jit_movr(JIT_R0, JIT_V0);
@@ -1645,7 +1797,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 #endif
 
 static struct rk65c02_jit_block *
-jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
+jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 {
 	struct rk65c02_jit_block *b;
 	struct jit_block_insn insns[JIT_BLOCK_MAX_INSNS];
@@ -1653,7 +1805,7 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 	size_t k;
 	uint16_t block_end;
 
-	if (j == NULL || j->magic != JIT_MAGIC || bus == NULL)
+	if (j == NULL || j->magic != JIT_MAGIC || e == NULL)
 		return NULL;
 
 	b = j->blocks[pc];
@@ -1662,6 +1814,8 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		assert(b != NULL);
 		b->start_pc = pc;
 		b->end_pc_exclusive = pc;
+		b->mmu_phys_page_valid = false;
+		b->mmu_phys_page = 0;
 		b->fn = NULL;
 #ifdef HAVE_LIGHTNING
 		b->lightning_state = NULL;
@@ -1677,8 +1831,16 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		jit_node_t *bail_nodes[JIT_BLOCK_MAX_INSNS];
 		jit_state_t *state;
 
-		jit_build_block_insns(bus, pc, insns, JIT_BLOCK_MAX_INSNS,
+		jit_build_block_insns(e, pc, insns, JIT_BLOCK_MAX_INSNS,
 		    &num_insns);
+		if (num_insns == 0)
+			return NULL;
+		if (jit_translate_paddr(e, pc, RK65C02_MMU_FETCH, &block_end)) {
+			b->mmu_phys_page_valid = true;
+			b->mmu_phys_page = (uint8_t)(block_end >> 8);
+		} else {
+			b->mmu_phys_page_valid = false;
+		}
 		block_end = pc;
 		for (k = 0; k < num_insns; k++)
 			block_end = (uint16_t)(block_end + insns[k].id.size);
@@ -1712,7 +1874,7 @@ jit_compile_block(struct rk65c02_jit *j, uint16_t pc, bus_t *bus)
 		}
 	}
 #else
-	(void)bus;
+	(void)e;
 	(void)insns;
 	(void)num_insns;
 	(void)k;
@@ -1752,6 +1914,36 @@ rk65c02_jit_flush(rk65c02emu_t *e)
 		return;
 
 	jit_backend_flush(e->jit);
+}
+
+void
+rk65c02_jit_invalidate_all(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	if (e->jit == NULL)
+		return;
+	jit_backend_flush(e->jit);
+}
+
+void
+rk65c02_jit_invalidate_vpage(rk65c02emu_t *e, uint8_t vpage)
+{
+	assert(e != NULL);
+
+	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
+		return;
+	jit_invalidate_blocks_for_page(e->jit, vpage);
+}
+
+void
+rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage)
+{
+	assert(e != NULL);
+
+	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
+		return;
+	jit_invalidate_blocks_for_code_page(e->jit, vpage);
 }
 
 void
@@ -1845,12 +2037,25 @@ rk65c02_run_jit(rk65c02emu_t *e)
 				 */
 				jit_backend_flush(e->jit);
 			}
-			b = jit_compile_block(e->jit, pc, e->bus);
+			b = jit_compile_block(e->jit, e, pc);
+			if (e->state != RUNNING)
+				break;
 		}
 
 		if ((b == NULL) || (b->fn == NULL)) {
 			rk65c02_exec(e);
+			if (e->state != RUNNING)
+				break;
 			continue;
+		}
+		if (b->mmu_phys_page_valid) {
+			uint16_t cur_paddr;
+
+			if (!jit_translate_paddr(e, pc, RK65C02_MMU_FETCH, &cur_paddr)
+			    || (((uint8_t)(cur_paddr >> 8)) != b->mmu_phys_page)) {
+				jit_invalidate_blocks_for_page(e->jit, (uint8_t)(pc >> 8));
+				continue;
+			}
 		}
 
 #if RK65C02_JIT_PERF_DEBUG
@@ -1861,6 +2066,9 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			uint8_t write_page = (uint8_t)(e->jit->last_write_addr >> 8);
 
 			jit_invalidate_blocks_for_addr(e->jit, e->jit->last_write_addr);
+			if (e->jit->write_phys_page_valid)
+				jit_invalidate_blocks_for_phys_page(e->jit,
+				    e->jit->last_write_phys_page);
 			e->jit->page_invalidation_events[write_page]++;
 			if (!e->jit->mutable_code_page[write_page] &&
 			    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
@@ -1868,6 +2076,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 				jit_invalidate_blocks_for_page(e->jit, write_page);
 			}
 			e->jit->write_event_pending = false;
+			e->jit->write_phys_page_valid = false;
 			if (e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
 				disable_jit_for_run = true;
 			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
