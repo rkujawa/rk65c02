@@ -1,3 +1,7 @@
+/**
+ * @file instruction.h
+ * @brief Instruction fetch/decode helpers and addressing-mode utilities.
+ */
 #ifndef _INSTRUCTION_H_
 #define _INSTRUCTION_H_
 

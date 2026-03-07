@@ -39,9 +39,20 @@ typedef void (*rk65c02_on_stop_cb_t)(rk65c02emu_t *e, emu_stop_reason_t reason,
     void *ctx);
 
 /**
- * @brief Callback executed periodically while emulation is running.
+ * @brief Callback executed periodically while emulation is active.
+ *
+ * Called from host control polling points in both interpreter and JIT paths.
+ * Cadence is therefore boundary-based, not guaranteed per instruction.
  */
 typedef void (*rk65c02_tick_cb_t)(rk65c02emu_t *e, void *ctx);
+
+/**
+ * @brief Callback executed when CPU is stopped in WAI idle state.
+ *
+ * Typical callback behavior is to block until the next host/device event and
+ * then wake the core (usually via rk65c02_assert_irq()).
+ */
+typedef void (*rk65c02_wait_cb_t)(rk65c02emu_t *e, void *ctx);
 
 /**
  * @brief State of the emulated CPU registers.
@@ -108,10 +119,13 @@ struct rk65c02emu {
 	bool stop_requested;	/**< Host requested stop at next safe boundary. */
 	rk65c02_on_stop_cb_t on_stop; /**< Callback executed after stop. */
 	void *on_stop_ctx;	/**< Host context for on_stop callback. */
-	rk65c02_tick_cb_t tick;	/**< Interpreter tick callback. */
+	rk65c02_tick_cb_t tick;	/**< Periodic host tick callback. */
 	void *tick_ctx;		/**< Host context for tick callback. */
-	uint32_t tick_interval; /**< Tick period in instructions (0 = every insn). */
-	uint32_t tick_countdown; /**< Internal countdown used by tick callback. */
+	uint32_t tick_interval; /**< Poll-count period (0 = every poll boundary). */
+	uint32_t tick_countdown; /**< Internal countdown for periodic ticks. */
+	bool idle_wait_enabled;	/**< Enable host wait callback while STOPPED/WAI. */
+	rk65c02_wait_cb_t idle_wait; /**< Host wait callback for WAI idle state. */
+	void *idle_wait_ctx;	/**< Host context for wait callback. */
 };
 
 /**
@@ -156,10 +170,11 @@ void rk65c02_on_stop_set(rk65c02emu_t *e, rk65c02_on_stop_cb_t cb, void *ctx);
 void rk65c02_on_stop_clear(rk65c02emu_t *e);
 
 /**
- * @brief Register periodic interpreter tick callback.
+ * @brief Register periodic host tick callback.
  * @param e Emulator instance.
  * @param cb Callback function.
- * @param interval Number of instructions between callbacks (0 = every insn).
+ * @param interval Number of host-poll boundaries between callbacks
+ *    (0 = every poll boundary).
  * @param ctx Opaque host context passed back to callback.
  */
 void rk65c02_tick_set(rk65c02emu_t *e, rk65c02_tick_cb_t cb,
@@ -170,6 +185,24 @@ void rk65c02_tick_set(rk65c02emu_t *e, rk65c02_tick_cb_t cb,
  * @param e Emulator instance.
  */
 void rk65c02_tick_clear(rk65c02emu_t *e);
+
+/**
+ * @brief Enable host wait callback for WAI idle periods.
+ * @param e Emulator instance.
+ * @param cb Callback function; when NULL, waits are disabled.
+ * @param ctx Opaque host context passed back to callback.
+ *
+ * The callback is invoked only when state is STOPPED and stop reason is WAI.
+ * Callback implementations may block, but should return once a wake event is
+ * delivered or a host shutdown/stop condition is observed.
+ */
+void rk65c02_idle_wait_set(rk65c02emu_t *e, rk65c02_wait_cb_t cb, void *ctx);
+
+/**
+ * @brief Disable host wait callback for WAI idle periods.
+ * @param e Emulator instance.
+ */
+void rk65c02_idle_wait_clear(rk65c02emu_t *e);
 
 /**
  * @brief Request stop at the next safe execution boundary.
@@ -184,6 +217,9 @@ void rk65c02_dump_stack(rk65c02emu_t *, uint8_t);
 /**
  * @brief Assert the IRQ line.
  * @param e Emulator instance.
+ *
+ * If the CPU is currently STOPPED because of WAI, this also transitions it
+ * back to RUNNING so execution can continue and service interrupts.
  */
 void rk65c02_assert_irq(rk65c02emu_t *e);
 

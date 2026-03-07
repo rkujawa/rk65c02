@@ -1265,6 +1265,105 @@ static void do_emul_selfmod_code_other_entry(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_selfmod_code_other_entry, do_emul_selfmod_code_other_entry)
 
+struct idle_wait_test_ctx {
+	unsigned int calls;
+	bool assert_irq_on_wait;
+};
+
+static void
+test_idle_wait_cb(rk65c02emu_t *e, void *ctx)
+{
+	struct idle_wait_test_ctx *wctx;
+
+	wctx = (struct idle_wait_test_ctx *)ctx;
+	wctx->calls++;
+	if (wctx->assert_irq_on_wait)
+		rk65c02_assert_irq(e);
+}
+
+static void do_emul_idle_wait_wai_resume(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+	struct idle_wait_test_ctx wctx;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	memset(&wctx, 0, sizeof(wctx));
+	wctx.assert_irq_on_wait = true;
+	rk65c02_idle_wait_set(&e, test_idle_wait_cb, &wctx);
+
+	ATF_REQUIRE(assemble_single_implied(&a, "wai"));
+	ATF_REQUIRE(assemble_single_implied(&a, "stp"));
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+
+	ATF_CHECK(wctx.calls >= 1);
+	ATF_CHECK(e.stopreason == STP);
+	rk65c02_idle_wait_clear(&e);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_idle_wait_wai_resume, do_emul_idle_wait_wai_resume)
+
+static void do_emul_idle_wait_stp_no_callback(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+	struct idle_wait_test_ctx wctx;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	memset(&wctx, 0, sizeof(wctx));
+	wctx.assert_irq_on_wait = true;
+	rk65c02_idle_wait_set(&e, test_idle_wait_cb, &wctx);
+
+	ATF_REQUIRE(assemble_single_implied(&a, "stp"));
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+
+	ATF_CHECK(wctx.calls == 0);
+	ATF_CHECK(e.stopreason == STP);
+	rk65c02_idle_wait_clear(&e);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_idle_wait_stp_no_callback, do_emul_idle_wait_stp_no_callback)
+
+static void do_emul_wai_no_idle_wait(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	assembler_t a;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	a = assemble_init(&b, ROM_LOAD_ADDR);
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	ATF_REQUIRE(assemble_single_implied(&a, "wai"));
+	ATF_REQUIRE(assemble_single_implied(&a, "stp"));
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == WAI);
+	ATF_CHECK(e.state == STOPPED);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_wai_no_idle_wait, do_emul_wai_no_idle_wait)
+
 static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
@@ -2116,6 +2215,12 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_jit);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry_jit);
+	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume);
+	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume_jit);
+	ATF_TP_ADD_TC(tp, emul_idle_wait_stp_no_callback);
+	ATF_TP_ADD_TC(tp, emul_idle_wait_stp_no_callback_jit);
+	ATF_TP_ADD_TC(tp, emul_wai_no_idle_wait);
+	ATF_TP_ADD_TC(tp, emul_wai_no_idle_wait_jit);
 	ATF_TP_ADD_TC(tp, emul_lda);
 	ATF_TP_ADD_TC(tp, emul_lda_jit);
 	ATF_TP_ADD_TC(tp, emul_lsr);

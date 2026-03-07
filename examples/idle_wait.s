@@ -1,0 +1,13 @@
+.org 0xC000
+
+start:
+	lda #0x00
+	sta 0x0200
+
+loop:
+	wai
+	inc 0x0200
+	lda 0x0200
+	cmp #0x05
+	bne loop
+	stp

@@ -1,3 +1,7 @@
+/**
+ * @file device_ram.h
+ * @brief RAM-backed device factory.
+ */
 #ifndef _DEVICE_RAM_H_
 #define _DEVICE_RAM_H_
 

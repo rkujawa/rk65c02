@@ -1,3 +1,7 @@
+/**
+ * @file assembler.h
+ * @brief Minimal in-process assembler helpers for tests/tools.
+ */
 #ifndef _ASSEMBLER_H_
 #define _ASSEMBLER_H_
 

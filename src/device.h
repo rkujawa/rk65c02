@@ -1,3 +1,7 @@
+/**
+ * @file device.h
+ * @brief Generic device and bus mapping descriptors.
+ */
 #ifndef _DEVICE_H_
 #define _DEVICE_H_
 

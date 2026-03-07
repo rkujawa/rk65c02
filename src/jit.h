@@ -3,6 +3,10 @@
  *
  *      rk65c02 - JIT support (internal header)
  */
+/**
+ * @file jit.h
+ * @brief Internal JIT helpers used by core execution loops.
+ */
 #ifndef _JIT_H_
 #define _JIT_H_
 
@@ -16,6 +20,7 @@
 
 void rk65c02_run_jit(rk65c02emu_t *e);
 void rk65c02_poll_host_controls(rk65c02emu_t *e);
+bool rk65c02_maybe_wait_on_idle(rk65c02emu_t *e);
 
 #ifdef HAVE_LIGHTNING
 /* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */

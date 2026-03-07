@@ -1767,10 +1767,19 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		e->state = RUNNING;
 		while (e->state == RUNNING) {
 			rk65c02_poll_host_controls(e);
-			if (e->state != RUNNING)
+			if (e->state != RUNNING) {
+				if (rk65c02_maybe_wait_on_idle(e))
+					continue;
 				break;
+			}
 			rk65c02_exec(e);
 			rk65c02_poll_host_controls(e);
+			if (e->state != RUNNING) {
+				if (rk65c02_maybe_wait_on_idle(e) &&
+				    e->state == RUNNING)
+					continue;
+				break;
+			}
 		}
 		return;
 	}
@@ -1784,8 +1793,11 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		uint16_t pc;
 
 		rk65c02_poll_host_controls(e);
-		if (e->state != RUNNING)
+		if (e->state != RUNNING) {
+			if (rk65c02_maybe_wait_on_idle(e))
+				continue;
 			break;
+		}
 
 		/*
 		 * Honour any runtime changes in debugging state by
@@ -1797,10 +1809,19 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		if (!(e->use_jit) || (e->jit == NULL)) {
 			while (e->state == RUNNING) {
 				rk65c02_poll_host_controls(e);
-				if (e->state != RUNNING)
+				if (e->state != RUNNING) {
+					if (rk65c02_maybe_wait_on_idle(e))
+						continue;
 					break;
+				}
 				rk65c02_exec(e);
 				rk65c02_poll_host_controls(e);
+				if (e->state != RUNNING) {
+					if (rk65c02_maybe_wait_on_idle(e) &&
+					    e->state == RUNNING)
+						continue;
+					break;
+				}
 			}
 			jit_run_counters_log(e->jit);
 			return;
@@ -1848,6 +1869,12 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		if (e->jit->needs_flush)
 			jit_backend_flush(e->jit);
 		rk65c02_poll_host_controls(e);
+		if (e->state != RUNNING) {
+			if (rk65c02_maybe_wait_on_idle(e) &&
+			    e->state == RUNNING)
+				continue;
+			break;
+		}
 	}
 	jit_run_counters_log(e->jit);
 }

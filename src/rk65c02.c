@@ -95,6 +95,21 @@ rk65c02_poll_host_controls(rk65c02emu_t *e)
 	rk65c02_apply_host_stop_request(e);
 }
 
+bool
+rk65c02_maybe_wait_on_idle(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	if (!(e->idle_wait_enabled) || (e->idle_wait == NULL))
+		return false;
+	if ((e->state != STOPPED) || (e->stopreason != WAI))
+		return false;
+
+	e->idle_wait(e, e->idle_wait_ctx);
+	rk65c02_apply_host_stop_request(e);
+	return true;
+}
+
 const char *
 rk65c02_stop_reason_string(emu_stop_reason_t reason)
 {
@@ -166,6 +181,9 @@ rk65c02_init(bus_t *b)
 	e.tick_ctx = NULL;
 	e.tick_interval = 0;
 	e.tick_countdown = 0;
+	e.idle_wait_enabled = false;
+	e.idle_wait = NULL;
+	e.idle_wait_ctx = NULL;
 
 	rk65c02_log(LOG_DEBUG, "Initialized new emulator.");
 
@@ -192,7 +210,7 @@ rk65c02_assert_irq(rk65c02emu_t *e)
 	 * need to start the CPU.
 	 */
 	if ((e->state == STOPPED) && (e->stopreason == WAI))
-		rk65c02_start(e);
+		e->state = RUNNING;
 }
 
 void
@@ -279,11 +297,20 @@ rk65c02_start(rk65c02emu_t *e) {
 		e->state = RUNNING;
 		while (e->state == RUNNING) {
 			rk65c02_poll_host_controls(e);
-			if (e->state != RUNNING)
+			if (e->state != RUNNING) {
+				if (rk65c02_maybe_wait_on_idle(e))
+					continue;
 				break;
+			}
 
 			rk65c02_exec(e);
 			rk65c02_poll_host_controls(e);
+			if (e->state != RUNNING) {
+				if (rk65c02_maybe_wait_on_idle(e) &&
+				    e->state == RUNNING)
+					continue;
+				break;
+			}
 		}
 	}
 
@@ -361,6 +388,26 @@ rk65c02_tick_clear(rk65c02emu_t *e)
 	e->tick_ctx = NULL;
 	e->tick_interval = 0;
 	e->tick_countdown = 0;
+}
+
+void
+rk65c02_idle_wait_set(rk65c02emu_t *e, rk65c02_wait_cb_t cb, void *ctx)
+{
+	assert(e != NULL);
+
+	e->idle_wait = cb;
+	e->idle_wait_ctx = ctx;
+	e->idle_wait_enabled = (cb != NULL);
+}
+
+void
+rk65c02_idle_wait_clear(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	e->idle_wait_enabled = false;
+	e->idle_wait = NULL;
+	e->idle_wait_ctx = NULL;
 }
 
 void
