@@ -2,7 +2,7 @@
  * MS BASIC host — run Microsoft BASIC (mist64/msbasic) in the emulator.
  *
  * Build: make (in examples/msbasic) or make msbasic (from examples/).
- * Run:   ./msbasic
+ * Run:   ./run_msbasic
  *
  * Loads BASIC ROM at $B000 and I/O stub at $F002. I/O device at $F000:
  *   write $F000 = putchar, read $F000 = getchar (blocking), read $F001 = status (bit0 = Ctrl-C).
