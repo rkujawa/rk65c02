@@ -1,0 +1,12 @@
+--- a/init.s
++++ b/init.s
+@@ -105,6 +105,9 @@
+           sty     ATN+2
+           sta     GOSTROUT+1
+           sty     GOSTROUT+2
++    .elseif .def(RK65C02)
++          sta     GOSTROUT+1
++          sty     GOSTROUT+2
+     .else
+           sta     USR+1
+           sty     USR+2

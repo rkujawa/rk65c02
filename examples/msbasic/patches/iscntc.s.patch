@@ -1,0 +1,12 @@
+--- a/iscntc.s
++++ b/iscntc.s
+@@ -21,6 +21,9 @@
+ .ifdef MICROTAN
+ .include "microtan_iscntc.s"
+ .endif
++.ifdef RK65C02
++.include "rk65c02_iscntc.s"
++.endif
+ .ifdef AIM65
+ .include "aim65_iscntc.s"
+ .endif

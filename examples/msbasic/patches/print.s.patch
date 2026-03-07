@@ -1,0 +1,16 @@
+--- a/print.s
++++ b/print.s
+@@ -100,7 +100,12 @@ L29B9:
+   .else
+     .ifndef APPLE
+         ldy     #$00
+         sty     INPUTBUFFER,x
++    .ifdef RK65C02
++        ldx     #<(INPUTBUFFER-1)
++        ldy     #>(INPUTBUFFER-1)
++    .else
+         ldx     #LINNUM+1
++    .endif
+     .endif
+     .if .def(MICROTAN) || .def(SYM1)
+         bne     CRDO2

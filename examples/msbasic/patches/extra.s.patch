@@ -1,0 +1,11 @@
+--- a/extra.s
++++ b/extra.s
+@@ -22,6 +22,9 @@
+ .endif
+ 
++.ifdef RK65C02
++.include "rk65c02_extra.s"
++.endif
+ .ifdef AIM65
+ .include "aim65_extra.s"
+ .endif

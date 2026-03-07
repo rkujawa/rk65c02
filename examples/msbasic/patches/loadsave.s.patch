@@ -1,0 +1,12 @@
+--- a/loadsave.s
++++ b/loadsave.s
+@@ -12,6 +12,9 @@
+ .ifdef MICROTAN
+ .include "microtan_loadsave.s"
+ .endif
++.ifdef RK65C02
++.include "rk65c02_loadsave.s"
++.endif
+ .ifdef AIM65
+ .include "aim65_loadsave.s"
+ .endif

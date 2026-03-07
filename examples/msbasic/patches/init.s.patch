@@ -1,0 +1,28 @@
+--- a/init.s	2026-03-07 21:46:05.896443558 +0100
++++ b/init.s	2026-03-07 21:46:33.793584864 +0100
+@@ -51,6 +51,7 @@
+         sta     GORESTART+1
+         sty     GORESTART+2
+     .ifndef AIM65
++    .ifndef RK65C02
+         sta     GOSTROUT+1
+         sty     GOSTROUT+2
+         lda     #<AYINT
+@@ -62,6 +63,7 @@
+         sta     GOGIVEAYF
+         sty     GOGIVEAYF+1
+     .endif
++    .endif
+   .endif
+         lda     #$4C
+   .ifdef CONFIG_CBM_ALL
+@@ -91,6 +93,9 @@
+     .ifdef APPLE
+           lda     #<USR_FUNC
+           ldy     #>USR_FUNC
++    .elseif .def(RK65C02)
++          lda     #<STROUT
++          ldy     #>STROUT
+     .else
+           lda     #<IQERR
+           ldy     #>IQERR
