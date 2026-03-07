@@ -15,7 +15,7 @@ RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 
-EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait mmu_cart mmu_multitasking mmu_pae mmu_mpu
+EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait interrupts hello_serial stepper jit_bench breakpoints mmu_cart mmu_multitasking mmu_pae mmu_mpu
 EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(EXAMPLES) $(EXAMPLES_ROMS)
@@ -30,6 +30,21 @@ host_control : host_control.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 idle_wait : idle_wait.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+interrupts : interrupts.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+hello_serial : hello_serial.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+stepper : stepper.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+jit_bench : jit_bench.o min3.rom $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
+breakpoints : breakpoints.o min3.rom $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
 mmu_cart : mmu_cart.o $(RK6502LIB)
@@ -59,6 +74,16 @@ run-mmu_cart: mmu_cart mmu_cart_bank0.rom mmu_cart_bank1.rom
 	timeout $(TIMEOUT) ./mmu_cart
 run-min3: min3 min3.rom
 	timeout $(TIMEOUT) ./min3
+run-interrupts: interrupts interrupts.rom
+	timeout $(TIMEOUT) ./interrupts
+run-hello_serial: hello_serial hello_serial.rom
+	./hello_serial
+run-stepper: stepper stepper.rom
+	./stepper
+run-jit_bench: jit_bench min3.rom
+	./jit_bench
+run-breakpoints: breakpoints min3.rom
+	./breakpoints
 
 %.o : %.c
 	$(CC) $(CFLAGS) -c $<

@@ -78,6 +78,16 @@ Notes:
   - continuing with `rk65c02_step()` after stop.
 - `idle_wait` - demonstrates `rk65c02_idle_wait_set()` by sleeping on host
   while guest executes `WAI`, then waking via IRQ assertion.
+- `interrupts` - IRQ vector at $FFFE, host asserts IRQ from idle_wait callback,
+  minimal guest handler; demonstrates `rk65c02_assert_irq` / `rk65c02_deassert_irq`.
+- `hello_serial` - custom bus device at $DE00: guest writes bytes, host device
+  callback prints to stdout (no MMU); demonstrates `bus_device_add`.
+- `stepper` - step-by-step execution with `rk65c02_step(e, 1)`, prints regs and
+  disassembly each step; demonstrates state inspection and optional tracing.
+- `jit_bench` - runs the same workload (min3.rom) with JIT on and off, reports
+  wall time; compares interpreter vs JIT performance.
+- `breakpoints` - sets a breakpoint with `debug_breakpoint_add`, runs until
+  BREAKPOINT stop, prints regs and disassembly, removes breakpoint and continues.
 - **MMU examples** (see [doc/MMU.md](doc/MMU.md) for the full guide):
   - `mmu_cart` - C64-style bank-switched cartridge: guest writes bank id to 0xDE00,
     host polls in the tick callback and remaps the cart window via the MMU API.
@@ -97,4 +107,6 @@ Build examples with:
 make -C src
 make -C examples
 ```
+
+Run examples from the `examples/` directory (e.g. `./min3`) so ROM files are found; or use `make run-<name>` from the repo root (e.g. `make -C examples run-min3`).
 
