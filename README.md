@@ -3,7 +3,7 @@
 
 ![rk65c02 logo](https://raw.githubusercontent.com/rkujawa/rk65c02/master/res/rk65c02_small.png)
 
-This project provides a library implementing a farily complete
+This project provides a library implementing a fairly complete
 emulator of WDC 65C02S CPU. It does not aim to be cycle-exact emulator, but
 otherwise it tries to mimic behaviour of 65C02S as close as possible. 
 Currently, the following features are implemented:
@@ -12,16 +12,24 @@ Currently, the following features are implemented:
 - Minimal support for interrupts.
 - JIT using GNU Lightning.
 - Host callbacks for stop notification and periodic execution ticks.
+- Optional idle-wait callback integration for `WAI`-driven guest idle loops.
 
-The only external dependencies (besides standard C library) are Boehm GC and
-uthash. GNU Lightning is required for JIT support, but the library can be built 
-without it.
-On Fedora these can be installed with `gc-devel`, `uthash-devel`, 
-`lightning` and `lightning-devel` packages.
+External dependencies (besides standard C library):
 
-If you want to build tests, `kyua` quality assurance toolkit, `atf` testing
-framework and a recent snapshot (1.8f or newer) of `vasm` assembler (6502
-with std syntax) are also necessary.
+- **Library/runtime**
+  - Boehm GC
+  - uthash
+- **Optional JIT support**
+  - GNU Lightning (the library can still be built without JIT)
+- **Test/tooling**
+  - `kyua` quality assurance toolkit
+  - `atf` testing framework
+  - `vasm` (6502 std syntax, recent snapshot such as 1.8f+) for assembling ROMs
+  - `ca65` for both Klaus Dormann test suites (`6502_functional_test` and
+    `65C02_extended_opcodes_test`)
+
+On Fedora, common packages include `gc-devel`, `uthash-devel`, `lightning`,
+`lightning-devel`, `kyua`, `atf`, and `cc65` (for `ca65`).
 
 [![Built by neckbeards](https://forthebadge.com/images/badges/built-by-neckbeards.svg)](https://forthebadge.com)
 
@@ -33,6 +41,7 @@ Typical host integration pattern is:
 2. Register optional callbacks:
    - `rk65c02_on_stop_set()` to be notified why execution stopped.
    - `rk65c02_tick_set()` to periodically run host code while interpreter runs.
+   - `rk65c02_idle_wait_set()` to let host sleep/block while guest is in `WAI`.
 3. Start execution with `rk65c02_start()` (or bounded execution with `rk65c02_step()`).
 4. Inspect or modify state (`e.regs`, bus reads/writes) and continue.
 
@@ -47,6 +56,8 @@ Notes:
   - interpreter mode checks tick after each instruction;
   - JIT mode checks tick at compiled block boundaries (coarser granularity).
 - If precise per-instruction callback cadence is required, run without JIT.
+- Idle-wait callback is only consulted when CPU stops with `WAI`; it is not
+  used for `STP`.
 - `on_stop` is called when execution stops from `rk65c02_start()` and
   `rk65c02_step()` (for example: `STP`, `WAI`, `BREAKPOINT`, `HOST`,
   `STEPPED`, `EMUERROR`).
@@ -64,6 +75,8 @@ Notes:
   - `rk65c02_tick_set()` callback.
   - host-driven stop via `rk65c02_request_stop()`.
   - continuing with `rk65c02_step()` after stop.
+- `idle_wait` - demonstrates `rk65c02_idle_wait_set()` by sleeping on host
+  while guest executes `WAI`, then waking via IRQ assertion.
 
 Build examples with:
 
