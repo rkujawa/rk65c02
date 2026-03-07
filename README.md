@@ -102,6 +102,9 @@ Notes:
   All are heavily commented (host and guest) to show the rk65c02↔host interface
   and how the host can define the contract between emulated hardware and guest code.
   Run MMU examples that may loop (e.g. `mmu_mpu`) with a timeout: `timeout 5 ./mmu_mpu`.
+- **MS BASIC** (`examples/msbasic/`) — runs Microsoft BASIC (mist64/msbasic) in the emulator;
+  terminal I/O via a bus device at $F000, JIT supported. Requires ca65/ld65 and the msbasic
+  git submodule. See [examples/msbasic/README.md](examples/msbasic/README.md).
 
 **Building with or without JIT**
 

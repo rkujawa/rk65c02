@@ -21,6 +21,9 @@ EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(EXAMPLES) $(EXAMPLES_ROMS)
 
+msbasic : $(RK6502LIB)
+	$(MAKE) -C msbasic all
+
 min3 : min3.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
@@ -85,6 +88,8 @@ run-jit_bench: jit_bench min3.rom
 	./jit_bench
 run-breakpoints: breakpoints min3.rom
 	./breakpoints
+run-msbasic: msbasic
+	cd msbasic && ./run_msbasic
 
 %.o : %.c
 	$(CC) $(CFLAGS) -c $<
