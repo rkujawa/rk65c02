@@ -6,7 +6,7 @@ The JIT backend compiles sequences of 65C02 instructions (basic blocks) into nat
 
 ## Block Definition
 
-- **Block**: A contiguous sequence of 65C02 instructions from a single entry PC until (and including) the first instruction that **modifies PC** (branch, JMP, JSR, RTS, RTI, BRK), or until a maximum length (64 instructions).
+- **Block**: A contiguous sequence of 65C02 instructions from a single entry PC until (and including) the first instruction that **modifies PC** (branch, JMP, JSR, RTS, RTI, BRK), or until a maximum length (64 instructions). RTS is explicitly treated as block-ending because the ISA marks it as not modifying PC for the interpreter's step logic, but it does change PC to the return address.
 - **Block key**: Start PC; the cache is direct-mapped as `blocks[pc]`.
 - **Compiled function**: One Lightning-generated function per block with signature `void block_fn(rk65c02emu_t *e)`. On return, `e->regs.PC` is the next PC. The C dispatcher looks up or compiles the block for that PC and calls it again.
 
@@ -23,7 +23,7 @@ All emulator state lives in `e->regs` and `e->bus`. Offsets are computed with `o
 
 ## Memory Access
 
-Memory is accessed via `bus_read_1(e->bus, addr)` and `bus_write_1(e->bus, addr, val)`. The JIT calls these from generated code using Lightning's `jit_prepare`, `jit_pushargr`, `jit_finishi`. Effective addresses for all modes are computed inline: ZP, ZPX, ZPY, ABSOLUTE, ABSOLUTEX, ABSOLUTEY use direct computation; IZP, IZPX, IZPY issue bus reads to resolve the indirect pointer.
+Memory is accessed via the emulator's accessors `rk65c02_mem_read_1(e, addr)` and `rk65c02_mem_write_1(e, addr, val)` (wrapped as `jit_mem_read_1` / `jit_bus_write_1` in jit.c), so MMU translation is applied when the MMU is enabled. The JIT calls these from generated code using Lightning's `jit_prepare`, `jit_pushargr`, `jit_finishi`. Effective addresses for all modes are computed inline: ZP, ZPX, ZPY, ABSOLUTE, ABSOLUTEX, ABSOLUTEY use direct computation; IZP, IZPX, IZPY issue a read to resolve the indirect pointer.
 
 ## Bail-Out After Fallback
 
@@ -31,14 +31,16 @@ When the fallback path calls `rk65c02_exec` (for opcodes not yet native), the ge
 
 ## C Helpers
 
-- **Bus**: `bus_read_1`, `bus_write_1` (from `bus.h`).
+- **Memory**: `jit_mem_read_1(e, addr)` and `jit_bus_write_1(e, addr, val)` — they call `rk65c02_mem_read_1` / `rk65c02_mem_write_1` so the bus and MMU are used correctly. The write helper also records write events for self-modifying code detection and JIT invalidation.
 - **Fallback**: Any opcode not yet implemented natively triggers a call to `rk65c02_exec(e)` (single instruction) so behaviour stays correct while the opcode table is filled incrementally.
 
 ## GNU Lightning Lifecycle
 
-- `init_jit(NULL)` is called once before any JIT state is created.
+- `init_jit(NULL)` is called once before any JIT state is created (in `jit_backend_create()` when the first block is needed).
 - One `jit_state_t *` per block so that `jit_emit()` returns a stable entry point.
 - For each block: `jit_prolog()`, `jit_getarg(JIT_V0, arg)`, emit body, patch bail-outs, `jit_ret()`, `jit_epilog()`, `jit_emit()`.
+
+The JIT backend is only built when the library is compiled with `HAVE_LIGHTNING`; otherwise a stub provides no-op implementations and execution is interpreter-only (see README).
 
 ## Coding Style
 
@@ -67,12 +69,21 @@ When the fallback path calls `rk65c02_exec` (for opcodes not yet native), the ge
 | Branch | BCC, BCS, BEQ, BNE, BMI, BPL, BVC, BVS, BRA | |
 | Jump | JMP absolute, JMP indirect (0x6C), JSR, RTS | RTI, BRK |
 | Arithmetic | ADC, SBC (all modes; BCD via helper when P_DECIMAL) | |
-| Misc | NOP | STP, WAI, BBR, BBS, RMB, SMB, TRB, TSB |
+| Misc | NOP, BBR, BBS, RMB, SMB, TRB, TSB | STP, WAI |
 
 ## ADC/SBC JIT
 
 - **Binary mode**: Full inline: load A and operand, add with carry, compute overflow (A^res)&(M^res)&0x80, set C if sum > 0xFF, update N/Z from result. SBC uses A + (~M) + C with the same flag logic.
 - **Decimal (BCD) mode**: When P_DECIMAL is set, the JIT calls `rk65c02_do_adc_bcd(e, operand)` or `rk65c02_do_sbc_bcd(e, operand)` so BCD semantics (from_bcd/to_bcd, carry/borrow rules) stay in C and match the interpreter. PC advance is done in the JIT after the helper returns.
+
+## MMU and Invalidation
+
+When the host enables the MMU, the JIT remains correct by:
+
+- **Translation on access**: All memory access from generated code goes through `rk65c02_mem_read_1` / `rk65c02_mem_write_1`, which use the host's translate callback when the MMU is enabled.
+- **Block physical page**: Each compiled block records the physical page of its entry PC (when translation succeeds) so the dispatcher can reuse the block only when the current mapping still matches (`mmu_phys_page_valid`, `mmu_phys_page`).
+- **Write tracking**: Stores go through `jit_bus_write_1`, which sets `write_event_pending` and `last_write_addr` when the write hits a page that has compiled code. The run loop then disables JIT for the rest of the run and invalidates affected blocks so the next run sees the updated code.
+- **Host-driven invalidation**: When the host calls `rk65c02_mmu_end_update` (e.g. after a bank switch or task switch), the library calls `rk65c02_jit_invalidate_all` or `rk65c02_jit_invalidate_code_vpage` so cached blocks for changed pages are discarded.
 
 ## Resolved Issues
 
