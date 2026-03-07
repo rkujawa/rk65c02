@@ -68,7 +68,7 @@ void
 emul_adc(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	uint8_t arg;
-	uint16_t res;	/* meh */
+	uint16_t res;
 
 	arg = instruction_data_read_1(e, (instrdef_t *) id, i);
 	if (e->regs.P & P_DECIMAL)
@@ -98,7 +98,7 @@ emul_adc(rk65c02emu_t *e, void *id, instruction_t *i)
 			e->regs.P &= ~P_CARRY;
 	}
 
-	/* squash the result into accumulator's 8 bits, lol */
+	/* Store the low 8 bits (or BCD-converted value) into accumulator. */
 	if (e->regs.P & P_DECIMAL)
 		e->regs.A = to_bcd(res);
 	else 
@@ -465,7 +465,7 @@ emul_dec(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	uint8_t val;
 
-	/* this is absurdly inefficient */
+	/* Read-modify-write sequence mirrors hardware-visible bus accesses. */
 	val = instruction_data_read_1(e, (instrdef_t *) id, i);
 	val--;
 	instruction_data_write_1(e, id, i, val);
@@ -510,7 +510,7 @@ emul_inc(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	uint8_t val;
 
-	/* this is absurdly inefficient */
+	/* Read-modify-write sequence mirrors hardware-visible bus accesses. */
 	val = instruction_data_read_1(e, (instrdef_t *) id, i);
 	val++;
 	instruction_data_write_1(e, id, i, val);
@@ -560,7 +560,7 @@ emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
 		target |= bus_read_1(e->bus, iaddr + 1) << 8;
 		break;
 	default:
-		assert(false); /* should never happen, lol */
+		assert(false); /* Unreachable for valid JMP addressing modes. */
 		break;
 	}
 
@@ -571,11 +571,11 @@ emul_jmp(rk65c02emu_t *e, void *id, instruction_t *i)
 void
 emul_jsr(rk65c02emu_t *e, void *id, instruction_t *i)
 {
-	uint16_t jumpaddr; /* addres to jump to */
+	uint16_t jumpaddr; /* address to jump to */
 	uint16_t retaddr; /* return address */
 
 	jumpaddr = i->op1 + (i->op2 << 8);
-	retaddr = e->regs.PC + 2; /* XXX */
+	retaddr = e->regs.PC + 2; /* Return address pushed by JSR semantics. */
 
 	/* push return address to stack */
 	stack_push(e, retaddr >> 8);
@@ -633,7 +633,7 @@ emul_lsr(rk65c02emu_t *e, void *id, instruction_t *i)
 	val >>= 1;
 
 	instruction_status_adjust_zero(e, val);
-	/* XXX: cannot ever be negative */
+	/* LSR clears bit 7, so negative flag is always cleared after update. */
 	instruction_status_adjust_negative(e, val);
 
 	instruction_data_write_1(e, (instrdef_t *) id, i, val);
@@ -872,7 +872,7 @@ void
 emul_sbc(rk65c02emu_t *e, void *id, instruction_t *i)
 {
 	uint8_t arg;
-	uint16_t res;	/* meh */
+	uint16_t res;
 
 	arg = instruction_data_read_1(e, (instrdef_t *) id, i);
 	if (e->regs.P & P_DECIMAL)

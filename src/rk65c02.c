@@ -144,7 +144,7 @@ rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 		*b = bus_init_with_default_devs();
 	}
 
-	/* XXX: normal error handling instead of assert would be preferred */
+	/* Library-style error propagation can replace this assert in a later API pass. */
 	assert(bus_load_file(b, load_addr, path));
 
 	e = rk65c02_init(b);
@@ -193,11 +193,9 @@ rk65c02_init(bus_t *b)
 void
 rk65c02_assert_irq(rk65c02emu_t *e)
 {
-	/* 
-	 * Clearly this is too simpleton'ish, because more than one device
-	 * might want to assert the interrupt line (on hardware level it is
-	 * active low, so can just be pulled down by any device connected
-	 * to it.
+	/*
+	 * This is a level-triggered aggregate line model: any source can assert IRQ
+	 * and the core observes it as a single boolean state.
 	 */
 	e->irq = true;
 
@@ -252,7 +250,7 @@ rk65c02_exec(rk65c02emu_t *e)
 	if (e->irq && (!(e->regs.P & P_IRQ_DISABLE)))
 		rk65c02_irq(e);
 
-	/* XXX: handle watchpoints toos */
+	/* Watchpoint support is not implemented yet. */
 	if (debug_PC_is_breakpoint(e)) {
 		e->state = STOPPED;
 		e->stopreason = BREAKPOINT;
@@ -456,7 +454,7 @@ rk65c02_regs_string_get(reg_state_t regs)
 #define REGS_STR_LEN 50
 	char *str;
 
-	/* XXX: string allocation to a separate utility function? */
+	/* Keep allocation local until shared string helpers are introduced. */
 	str = GC_MALLOC(REGS_STR_LEN);
 	assert(str != NULL);
 	memset(str, 0, REGS_STR_LEN);

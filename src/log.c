@@ -27,6 +27,7 @@ static const char *level_str[] = {
 	"CRITICAL",
 	"ERROR",
 	"INFO",
+	"WARN",
 	"DEBUG",
 	"TRACE"
 };

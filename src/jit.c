@@ -32,6 +32,7 @@ static jit_state_t *_jit;
 #define JIT_MAX_INVALIDATIONS_PER_RUN 128
 #define JIT_PAGE_INVALIDATION_THRESHOLD 4
 #define JIT_MAGIC 0x4a495431u  /* "JIT1" */
+/* Enable optional per-run telemetry for profiling JIT behavior. */
 #ifndef RK65C02_JIT_PERF_DEBUG
 #define RK65C02_JIT_PERF_DEBUG 0
 #endif
@@ -73,11 +74,11 @@ struct rk65c02_jit {
 	uint64_t invalidation_events_this_run;
 #if RK65C02_JIT_PERF_DEBUG
 	/* Optional per-run counters for profiling fallback pressure. */
-	uint64_t run_blocks_executed;
-	uint64_t run_fallback_calls;
-	uint64_t run_write_events;
-	uint64_t run_invalidated_blocks;
-	uint64_t run_fallback_by_opcode[256];
+	uint64_t debug_blocks_executed;
+	uint64_t debug_fallback_calls;
+	uint64_t debug_write_events;
+	uint64_t debug_invalidated_blocks;
+	uint64_t debug_fallback_by_opcode[256];
 #endif
 	uint16_t compiled_page_refcnt[256];
 	uint16_t covered_addr_refcnt[65536];
@@ -165,11 +166,11 @@ jit_backend_create(void)
 	j->last_write_addr = 0;
 	j->invalidation_events_this_run = 0;
 #if RK65C02_JIT_PERF_DEBUG
-	j->run_blocks_executed = 0;
-	j->run_fallback_calls = 0;
-	j->run_write_events = 0;
-	j->run_invalidated_blocks = 0;
-	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+	j->debug_blocks_executed = 0;
+	j->debug_fallback_calls = 0;
+	j->debug_write_events = 0;
+	j->debug_invalidated_blocks = 0;
+	memset(j->debug_fallback_by_opcode, 0, sizeof(j->debug_fallback_by_opcode));
 #endif
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
@@ -280,11 +281,11 @@ jit_run_state_reset(struct rk65c02_jit *j)
 		return;
 	j->invalidation_events_this_run = 0;
 #if RK65C02_JIT_PERF_DEBUG
-	j->run_blocks_executed = 0;
-	j->run_fallback_calls = 0;
-	j->run_write_events = 0;
-	j->run_invalidated_blocks = 0;
-	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+	j->debug_blocks_executed = 0;
+	j->debug_fallback_calls = 0;
+	j->debug_write_events = 0;
+	j->debug_invalidated_blocks = 0;
+	memset(j->debug_fallback_by_opcode, 0, sizeof(j->debug_fallback_by_opcode));
 #endif
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
 	memset(j->mutable_code_page, 0, sizeof(j->mutable_code_page));
@@ -301,16 +302,16 @@ jit_run_debug_log(const struct rk65c02_jit *j)
 		return;
 	rk65c02_log(LOG_DEBUG,
 	    "JIT run stats: blocks=%llu fallback=%llu writes=%llu invalidations=%llu invalidated_blocks=%llu",
-	    (unsigned long long)j->run_blocks_executed,
-	    (unsigned long long)j->run_fallback_calls,
-	    (unsigned long long)j->run_write_events,
+	    (unsigned long long)j->debug_blocks_executed,
+	    (unsigned long long)j->debug_fallback_calls,
+	    (unsigned long long)j->debug_write_events,
 	    (unsigned long long)j->invalidation_events_this_run,
-	    (unsigned long long)j->run_invalidated_blocks);
+	    (unsigned long long)j->debug_invalidated_blocks);
 	for (k = 0; k < 256; k++) {
-		if (j->run_fallback_by_opcode[k] == 0)
+		if (j->debug_fallback_by_opcode[k] == 0)
 			continue;
 		rk65c02_log(LOG_DEBUG, "JIT fallback opcode $%02X: %llu",
-		    k, (unsigned long long)j->run_fallback_by_opcode[k]);
+		    k, (unsigned long long)j->debug_fallback_by_opcode[k]);
 	}
 	for (m = 0; m < 256; m++) {
 		if (!j->mutable_code_page[m])
@@ -365,7 +366,7 @@ jit_invalidate_blocks_for_addr(struct rk65c02_jit *j, uint16_t addr)
 		if (j->active_blocks > 0)
 			j->active_blocks--;
 #if RK65C02_JIT_PERF_DEBUG
-		j->run_invalidated_blocks++;
+		j->debug_invalidated_blocks++;
 #endif
 	}
 }
@@ -413,7 +414,7 @@ jit_invalidate_blocks_for_page(struct rk65c02_jit *j, uint8_t page)
 		if (j->active_blocks > 0)
 			j->active_blocks--;
 #if RK65C02_JIT_PERF_DEBUG
-		j->run_invalidated_blocks++;
+		j->debug_invalidated_blocks++;
 #endif
 	}
 }
@@ -427,7 +428,7 @@ jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 	bus_write_1(e->bus, addr, val);
 #if RK65C02_JIT_PERF_DEBUG
 	if ((e->jit != NULL) && (e->jit->magic == JIT_MAGIC))
-		e->jit->run_write_events++;
+		e->jit->debug_write_events++;
 #endif
 	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
 	    && (e->jit->compiled_page_refcnt[addr >> 8] != 0)
@@ -444,8 +445,8 @@ jit_exec_fallback(rk65c02emu_t *e, uint8_t opcode)
 {
 #if RK65C02_JIT_PERF_DEBUG
 	if ((e != NULL) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)) {
-		e->jit->run_fallback_calls++;
-		e->jit->run_fallback_by_opcode[opcode]++;
+		e->jit->debug_fallback_calls++;
+		e->jit->debug_fallback_by_opcode[opcode]++;
 	}
 #else
 	(void)opcode;
@@ -1853,7 +1854,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		}
 
 #if RK65C02_JIT_PERF_DEBUG
-		e->jit->run_blocks_executed++;
+		e->jit->debug_blocks_executed++;
 #endif
 		b->fn(e);
 		if (e->jit->write_event_pending) {

@@ -73,7 +73,7 @@ bus_device_dump(bus_t *b)
 	LL_FOREACH(b->dm_head, dm) {
 		d = dm->dev;
 		printf("@ %x size %x - %s\n", dm->addr, d->size, d->name);
-		/* TODO: device specific info */
+		/* Additional per-device diagnostics can be added here if needed. */
 	}
 }
 
@@ -118,7 +118,7 @@ bus_read_1(bus_t *t, uint16_t addr)
 	bus_access_device(t, addr, &d, &off);
 
 	if (d == NULL)
-		return 0xFF; /* simulate floting pins */
+		return 0xFF; /* Simulate floating bus lines on unmapped reads. */
 	else
 		val = d->read_1(d, off);
 
@@ -198,7 +198,7 @@ bus_load_buf(bus_t *t, uint16_t addr, uint8_t *buf, uint16_t bufsize)
 	return true;
 }
 
-/* TODO: should be moved to ram/rom specific devs */
+/* Convenience loader for RAM-backed mappings used by tests/examples. */
 bool
 bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 {

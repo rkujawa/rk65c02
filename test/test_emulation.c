@@ -12,6 +12,22 @@
 #include "log.h"
 #include "utils.h"
 
+#ifndef RK65C02_TEST_DEBUG
+#define RK65C02_TEST_DEBUG 0
+#endif
+
+#if !RK65C02_TEST_DEBUG
+#define rk65c02_dump_regs(_regs) ((void)0)
+#endif
+
+#if RK65C02_TEST_DEBUG
+#define TEST_DBG_ENABLE_DISASM(_e) do { (_e).runtime_disassembly = true; } while (0)
+#define TEST_DBG_PRINTF(...) printf(__VA_ARGS__)
+#else
+#define TEST_DBG_ENABLE_DISASM(_e) ((void)0)
+#define TEST_DBG_PRINTF(...) ((void)0)
+#endif
+
 static void do_emul_bit(const atf_tc_t *tc, bool use_jit)
 {
 	rk65c02emu_t e;
@@ -1392,7 +1408,7 @@ static void do_emul_bbr(const atf_tc_t *tc, bool use_jit)
 		ATF_REQUIRE(assemble_single(&a, instr, ZPR, 0x10+i, 0x70));
 	}
 
-	e.runtime_disassembly = true;
+	TEST_DBG_ENABLE_DISASM(e);
 
 	for (i = 0; i < 8; i++) {
 		opc = e.regs.PC;
@@ -1433,7 +1449,7 @@ static void do_emul_bbs(const atf_tc_t *tc, bool use_jit)
 		ATF_REQUIRE(assemble_single(&a, instr, ZPR, 0x10+i, 0x70));
 	}
 
-	e.runtime_disassembly = true;
+	TEST_DBG_ENABLE_DISASM(e);
 
 	for (i = 0; i < 8; i++) {
 		opc = e.regs.PC;
@@ -1928,7 +1944,7 @@ static void do_emul_sbc_16bit(const atf_tc_t *tc, bool use_jit)
 	bus_write_1(&b, 0x65, 0x55);
 	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_sbc_16bit.rom", tc, use_jit));
 
-	printf("%x %x\n", bus_read_1(&b, 0x66), bus_read_1(&b, 0x67)) ;
+	TEST_DBG_PRINTF("%x %x\n", bus_read_1(&b, 0x66), bus_read_1(&b, 0x67));
 	ATF_CHECK(bus_read_1(&b, 0x66) == 0x55);
 	ATF_CHECK(bus_read_1(&b, 0x67) == 0xAA);
 	rk65c02_dump_regs(e.regs);
@@ -2126,7 +2142,7 @@ static void do_emul_invalid_opcode(const atf_tc_t *tc, bool use_jit)
 	e = rk65c02_init(&b);
 	rk65c02_jit_enable(&e, use_jit);
 
-	e.runtime_disassembly = true;
+	TEST_DBG_ENABLE_DISASM(e);
 	rorig = e.regs;
 
 	ATF_REQUIRE(rom_start_with_jit(&e, "test_emulation_invalid_opcode.rom", tc, use_jit));

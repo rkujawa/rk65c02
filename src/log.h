@@ -5,10 +5,10 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#define LOG_TRACE	5	/**< Most verbose log level. Used for tracing. */
-#define LOG_DEBUG	4	/**< Debug-level messages. */
+#define LOG_TRACE	6	/**< Most verbose log level. Used for tracing. */
+#define LOG_DEBUG	5	/**< Debug-level messages. */
+#define LOG_WARN	4	/**< Warning messages. */
 #define LOG_INFO	3	/**< Informational messages. */
-#define LOG_WARN	3	/**< Warning messages. */
 #define LOG_ERROR	2	/**< Errors. */
 #define LOG_CRIT	1	/**< Critical errors. */
 #define LOG_NOTHING	0	/**< At 0 nothing will get logged, can be set as

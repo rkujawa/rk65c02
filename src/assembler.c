@@ -101,7 +101,7 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, char *mnemonic, addressing_t 
 	memset(*buf, 0, id.size);
 
 	(*buf)[0] = opcode;
-	/* XXX */
+	/* Emit operands according to encoded instruction size. */
 	if (id.size > 1) 
 		(*buf)[1] = op1;
 	if (id.size > 2)

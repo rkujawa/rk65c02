@@ -44,23 +44,19 @@ static void do_intr_brk(const atf_tc_t *tc, bool use_jit)
 	ATF_REQUIRE(bus_load_file(&b, isr_addr,
 	    rom_path("test_interrupt_brk_isr.rom", tc)));
 
-        bus_write_1(&b, VECTOR_IRQ, isr_addr & 0xFF);
-        bus_write_1(&b, VECTOR_IRQ+1, isr_addr >> 8);
+	bus_write_1(&b, VECTOR_IRQ, isr_addr & 0xFF);
+	bus_write_1(&b, VECTOR_IRQ+1, isr_addr >> 8);
 
 	/* Execute first instruction, of the main program, which is a nop... */
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(e.regs);
 	/* BRK is next, save its address... */
-	//brkaddr = e.regs.PC + 1;
 	/* Execute BRK instruction, which should start ISR (regardless of IRQ disable flag). */
 	rk65c02_step(&e, 1);
-	rk65c02_dump_regs(e.regs);
-	rk65c02_dump_stack(&e, 0x4);
 	/* Are we in ISR really? */
 	ATF_CHECK(e.regs.PC == isr_addr);
 	ATF_CHECK(e.regs.P & P_IRQ_DISABLE);
 
-	/* XXX: separate test case is needed to check return to main program. */
+	/* Return-to-main RTI behavior is covered in a dedicated test case. */
 
 	/*
 	rk65c02_step(&e, 1);

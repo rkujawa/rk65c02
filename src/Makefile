@@ -45,7 +45,7 @@ $(65C02ISA).h : $(65C02ISA).csv $(65C02ISA).awk
 $(EMULATION).h : $(65C02ISA).csv $(EMULATION).awk
 	awk -f $(EMULATION).awk $(65C02ISA).csv > $(EMULATION).h
 
-# XXX: dependency on 65c02isa.h is only for instruction.c ?
+# Keep generated ISA/emulation headers as prerequisites for core objects.
 %.o : %.c %.h $(65C02ISA).h $(EMULATION).h $(DEVICE).h
 	$(CC) $(CFLAGS) -c $<
 
