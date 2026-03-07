@@ -16,7 +16,7 @@ min3:	pla		; pull low byte of return address
 	sta res		; save C into res
 	pla		; pull B from stack
 	cmp res		; compare B and C
-	bpl bltc	; branch if B > C
+	bpl bltc	; branch if B >= C
 	sta res		; if C is smaller, save it to res
 bltc:	pla		; pull A from stack
 	cmp res		; compare A and whatever is in res

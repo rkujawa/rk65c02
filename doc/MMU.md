@@ -13,7 +13,7 @@ The MMU interface is designed to support:
 | **Memory protection** | Host defines R/W/X per mapping; library enforces and reports violations. |
 | **Virtual memory** | Unmapped or invalid access faults; host is notified and can fix the mapping and re-run (e.g. demand paging). |
 | **Simple bank switching** | One or more 16-bit “windows” map to different physical banks; host decides when the mapping changes and notifies the library. |
-| **Larger physical memory** | The API uses a **32-bit physical address** so the host can expose more than 64K of physical RAM/ROM; the guest still addresses 64K at a time. (Current bus and library only support paddr &lt; 64K; see §6.) |
+| **Larger physical memory** | The API uses a **32-bit physical address** so the host can expose more than 64K of physical RAM/ROM; the guest still addresses 64K at a time. The bus supports extended physical space via `bus_device_add_phys` and `bus_read_1_phys` / `bus_write_1_phys`; see §6. |
 
 The **single abstraction** is: one translation callback maps (virtual address, access type) → (physical address, permissions) or fault. The library caches results in an internal TLB and invalidates on mapping changes. For context-dependent mappings (e.g. “new bank only at entry address”), the host sets `no_fill_tlb` so that translation is not cached for that page.
 
@@ -73,7 +73,7 @@ typedef rk65c02_mmu_result_t (*rk65c02_mmu_translate_cb_t)(
 | Field | Meaning |
 |-------|--------|
 | **`ok`** | true if the access is allowed; false means translation/permission fault. |
-| **`paddr`** | Physical address (32-bit). When `ok` is true, must be in range [0, bus size − 1]. Today the library rejects paddr ≥ 64K; see §6. |
+| **`paddr`** | Physical address (32-bit). When `ok` is true, must be in range [0, `RK65C02_PHYS_MAX`). Addresses &lt; 64K use the legacy bus; addresses ≥ 64K use the extended physical bus (`bus_read_1_phys` / `bus_write_1_phys`) if the host has attached devices there; see §6. |
 | **`perms`** | Bitmask: `RK65C02_MMU_PERM_R`, `RK65C02_MMU_PERM_W`, `RK65C02_MMU_PERM_X`. The library checks that the requested `access` is permitted by `perms`. |
 | **`fault_code`** | Host-defined value reported on fault (e.g. for logging or guest-visible status). |
 | **`no_fill_tlb`** | When true, this translation is **not** stored in the internal TLB. Use for pages whose effective mapping depends on context; see §3.2. |
@@ -150,11 +150,17 @@ On fault, the library calls the fault callback (if set), sets `e->mmu_last_fault
 
 The library does **not** define what the guest sees (bank registers, page tables, fault vectors, etc.). The host implements that contract using the API above. Two concrete patterns are implemented as examples:
 
-**Bank-switched cart (C64-style)** — A fixed window (e.g. $8000–$BFFF) is backed by one of several banks. The guest writes the bank id to a control address (e.g. $DE00); the host polls that address (e.g. in the tick callback), updates its “current bank,” calls `begin_update` / `mark_changed_vpage` / `end_update`, and the translate callback maps the window to the chosen bank. See `examples/mmu_cart`.
+**Bank-switched cart (C64-style)** — A fixed window (e.g. $8000–$BFFF) is backed by one of several banks. The cart has its own “address space” on the host; the **only** way the CPU can access cart content is through the window. Guest addresses $C000–$FFFF are not the cart (e.g. they map to RAM mirror), so the guest cannot peek at another bank at $C000. The guest writes the bank id to a control address (e.g. $DE00); the host polls the **physical** address that guest $DE00 maps to, updates its “current bank,” calls `begin_update` / `mark_changed_vpage` / `end_update`, and the translate callback maps the window to the chosen bank. See `examples/mmu_cart`.
 
 **Minimal multitasking** — Low addresses are per-task, high addresses shared. The guest yields by writing the next task id to a “yield” address; the host sees it (e.g. in the tick callback), sets the current task, calls `begin_update` / `mark_changed_vpage` / `end_update`, and the translate callback maps low addresses to the current task’s region. See `examples/mmu_multitasking`.
 
 Other possibilities (all host-defined): MMIO “MMU” device with registers for page table base and fault status; syscall-based mapping changes; multiple bank registers per region. The library API stays the same.
+
+**PAE-like (Physical Address Extension)** — The same API supports a design similar to x86 PAE: guest keeps a 64K virtual space; physical addresses can be much larger (up to `RK65C02_PHYS_MAX`). The host implements a translate callback that (1) reads a "page directory base" from a fixed physical address or host state, (2) walks one or more levels of page tables via `bus_read_1(e->bus, addr)` or `bus_read_1_phys(e->bus, paddr)` (direct bus reads; no recursion), (3) returns the resolved 32-bit `paddr` and permissions, or `ok = false` with a `fault_code` for page fault or protection fault. Page tables can live in the first 64K or in extended physical RAM. For demand paging: on fault, the host installs the mapping, calls `rk65c02_mmu_begin_update` / `mark_changed_vpage` (or vrange) / `rk65c02_mmu_end_update`, then calls `rk65c02_start()` again so the same instruction re-executes. When the guest (or host) changes page table contents, the host must call the same update API so the library's TLB and JIT stay coherent. See **`examples/mmu_pae`** for a minimal one-level table walk, extended-physical mapping, and demand paging with JIT enabled (the library leaves PC at the faulting instruction on MMU fault so the host can fix the mapping and re-run).
+
+**Simple MPU (Memory Protection Unit)** — The host can implement a flat 64K address space with per-region R/W/X protection. An imaginary MPU is exposed via MMIO registers (e.g. at $FE00) for region base/end/permissions and violation status. The translate callback returns identity mapping and permissions from the current region config; on violation it returns `ok = false`. The fault callback records the violation in MMIO state and calls `rk65c02_assert_irq(e)` so that when the host calls `rk65c02_start()` again, the CPU takes the IRQ before re-executing the faulting instruction. The guest IRQ handler reads violation registers, writes a “clear” register (the host deasserts IRQ via `rk65c02_deassert_irq(e)`), and can adjust permissions then RTI so the faulting access succeeds. See **`examples/mmu_mpu`**.
+
+**Build and run:** From the repo root, run `make -C src` then `make -C examples`. The `mmu_pae` example does not use a `.rom` file; the guest program is written by the host in C. Run `mmu_mpu` with a timeout when testing (e.g. `timeout 5 ./mmu_mpu`) so it does not hang if the guest does not stop as expected.
 
 ---
 
@@ -171,7 +177,7 @@ On translation failure or permission violation, execution stops with **`emu_stop
 | **Memory protection** | Yes. Permissions, enforcement, fault callback, and `mmu_last_fault_*` plus `e->regs.PC` at stop give the host what it needs. |
 | **Virtual memory** | Yes. “Resume” = update mapping and call `start`/`step` again; the same instruction re-executes. Enough for classic demand paging. |
 | **Bank switching** | Yes. Translate + update notifications + `no_fill_tlb` when the new bank applies only at an entry address. Host learns about guest “bank register” writes by polling (e.g. tick) or a custom bus device. |
-| **Physical memory &gt; 64K** | **Not yet.** The API uses a 32-bit `paddr`, but the current bus API uses 16-bit addresses and the library rejects `paddr >= RK65C02_BUS_SIZE` (64K). Supporting larger physical memory would require extending the bus and the library check. |
+| **Physical memory &gt; 64K** | **Yes.** The library allows `paddr` in [0, `RK65C02_PHYS_MAX`) (16M). The bus provides `bus_read_1_phys` / `bus_write_1_phys` (32-bit address) and `bus_device_add_phys(bus, device, uint32_t base)` so the host can attach devices (e.g. large cart ROM or expansion RAM) at physical addresses ≥ 64K. The TLB caches translations for the full physical range (32-bit page base). |
 
 ---
 
@@ -202,6 +208,6 @@ After an MMU fault, the following fields are set before the fault callback and b
 
 ## 9. Implementation notes
 
-- The internal TLB is per virtual page; epoch-based coherence; targeted flush on `end_update`.
+- The internal TLB is per virtual page; each entry stores a 32-bit physical page base so both legacy (paddr &lt; 64K) and extended (paddr ≥ 64K) translations are cached; epoch-based coherence; targeted flush on `end_update`.
 - On mapping change, only JIT blocks whose **code** lies on changed pages are invalidated (data accesses go through the callback).
 - The TLB and JIT are invisible to the guest; the host’s translate callback remains the single source of truth.

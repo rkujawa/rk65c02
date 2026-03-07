@@ -24,29 +24,41 @@
 #include <string.h>
 
 #include "bus.h"
+#include "device_ram.h"
 #include "rk65c02.h"
 
 /* -------------------------------------------------------------------------
- * Physical layout (host's view of the 64K bus)
- *   0x0000 - 0x7FFF   Main RAM (including $0200 result, $DE00 bank register)
- *   0x8000 - 0xBFFF   Bank 0 cartridge content (loaded from mmu_cart_bank0.rom)
- *   0xC000 - 0xFFFF   Bank 1 cartridge content (loaded from mmu_cart_bank1.rom)
+ * Physical layout (host's view)
+ *   The cart's banks live in extended physical space (above 64K); the CPU
+ *   never sees them directly. Only the cart window (see below) can reach them.
  *
- * Guest (virtual) layout
- *   Same as physical for 0x0000-0x7FFF and 0xC000-0xFFFF.
- *   ********** 0x8000 - 0xBFFF is the "cart window" **********
- *   The host's translate callback maps this window to either
- *   physical 0x8000-0xBFFF (bank 0) or 0xC000-0xFFFF (bank 1)
- *   based on the value the guest wrote to $DE00 (which we poll).
+ *   0x0000 - 0x7FFF   Main RAM (including $0200 result, $DE00 bank register)
+ *   0x8000 - 0xFFFF   Main RAM (legacy 64K space; guest high range maps here)
+ *   0x10000 - 0x13FFF Cart bank 0 (16K; loaded from mmu_cart_bank0.rom)
+ *   0x14000 - 0x17FFF Cart bank 1 (16K; loaded from mmu_cart_bank1.rom)
+ *
+ * Guest (virtual) layout — C64-style: cart has its own "address space";
+ * the only way the CPU can access cart content is through the window.
+ *
+ *   0x0000 - 0x7FFF   Identity → physical 0x0000-0x7FFF (main RAM)
+ *   0x8000 - 0xBFFF   CART WINDOW → physical 0x10000-0x13FFF (bank 0) or
+ *                     0x14000-0x17FFF (bank 1), depending on $DE00
+ *   0xC000 - 0xFFFF   → physical 0x4000-0x7FFF (RAM mirror), NOT the cart.
  * ------------------------------------------------------------------------- */
 
 #define CART_WINDOW_START  0x8000
 #define CART_WINDOW_END    0xBFFF
-#define BANK_REG          0xDE00
+#define BANK_REG          0xDE00   /* Guest address for bank select */
 #define RESULT_ADDR       0x0200
 
-#define PHYS_BANK0_START  0x8000
-#define PHYS_BANK1_START  0xC000
+#define CART_BANK_SIZE    0x4000u  /* 16K per bank */
+
+#define PHYS_BANK0_START  0x10000u  /* Extended physical: cart bank 0 */
+#define PHYS_BANK1_START  0x14000u  /* Extended physical: cart bank 1 */
+
+/* Guest 0xC000-0xFFFF maps to physical 0x4000-0x7FFF, so guest BANK_REG (0xDE00)
+ * stores to physical 0x4000 + (0xDE00 & 0x3FFF) = 0x5E00. We poll that. */
+#define PHYS_BANK_REG     0x5E00
 
 /* Host state: current bank selection (0 or 1). Updated only at cart entry 0x8000. */
 struct cart_state {
@@ -79,14 +91,18 @@ cart_translate(rk65c02emu_t *e, uint16_t vaddr, rk65c02_mmu_access_t access, voi
 	 * 0x8000 always calls us and sees the updated bank (TLB stays internal).
 	 */
 	if (vaddr >= CART_WINDOW_START && vaddr <= CART_WINDOW_END) {
-		reg = bus_read_1(e->bus, BANK_REG);
+		reg = bus_read_1(e->bus, PHYS_BANK_REG);  /* guest $DE00 → physical $5E00 */
 		if (vaddr == CART_WINDOW_START)
 			cs->last_bank_reg = reg, cs->current_bank = reg & 1;
 		if (cs->current_bank == 0)
-			r.paddr = vaddr;   /* physical 0x8000-0xBFFF */
+			r.paddr = (uint32_t)(vaddr - CART_WINDOW_START + PHYS_BANK0_START);  /* 0x10000-0x13FFF */
 		else
-			r.paddr = (uint32_t)(vaddr - CART_WINDOW_START + PHYS_BANK1_START);  /* 0xC000-0xFFFF */
+			r.paddr = (uint32_t)(vaddr - CART_WINDOW_START + PHYS_BANK1_START);  /* 0x14000-0x17FFF */
 		r.no_fill_tlb = true;
+	} else if (vaddr >= 0xC000) {
+		/* Guest high range: map to RAM (0x4000-0x7FFF), not to the cart.
+		 * So the cart is only visible through the window, C64-style. */
+		r.paddr = (uint32_t)(0x4000 + (vaddr & 0x3FFF));
 	}
 	return r;
 }
@@ -104,7 +120,7 @@ cart_tick(rk65c02emu_t *e, void *ctx)
 	struct cart_state *cs = (struct cart_state *)ctx;
 	uint8_t reg;
 
-	reg = bus_read_1(e->bus, BANK_REG);
+	reg = bus_read_1(e->bus, PHYS_BANK_REG);
 	if (reg == cs->last_bank_reg)
 		return;
 	cs->last_bank_reg = reg;
@@ -126,11 +142,15 @@ main(void)
 	bus_t b;
 
 	b = bus_init_with_default_devs();
-	if (!bus_load_file(&b, PHYS_BANK0_START, "mmu_cart_bank0.rom")) {
+
+	/* Cart banks in extended physical space (above 64K). */
+	bus_device_add_phys(&b, device_ram_init(CART_BANK_SIZE), PHYS_BANK0_START);
+	bus_device_add_phys(&b, device_ram_init(CART_BANK_SIZE), PHYS_BANK1_START);
+	if (!bus_load_file_phys(&b, PHYS_BANK0_START, "mmu_cart_bank0.rom")) {
 		fprintf(stderr, "mmu_cart: cannot load mmu_cart_bank0.rom\n");
 		return 1;
 	}
-	if (!bus_load_file(&b, PHYS_BANK1_START, "mmu_cart_bank1.rom")) {
+	if (!bus_load_file_phys(&b, PHYS_BANK1_START, "mmu_cart_bank1.rom")) {
 		fprintf(stderr, "mmu_cart: cannot load mmu_cart_bank1.rom\n");
 		return 1;
 	}
@@ -142,6 +162,7 @@ main(void)
 	/* Install MMU: our translate callback and optional fault callback (NULL). */
 	assert(rk65c02_mmu_set(&e, cart_translate, &cs, NULL, NULL, true, false));
 
+	/* Tick interval 0: poll bank register every opportunity (interpreter: every insn). */
 	rk65c02_tick_set(&e, cart_tick, 0, &cs);
 
 	/* Run (bounded by step count). */

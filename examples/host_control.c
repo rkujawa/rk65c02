@@ -1,3 +1,13 @@
+/*
+ * Host control example — on_stop, tick, request_stop, step.
+ *
+ * Build: make host_control host_control.rom
+ * Run:   ./host_control
+ *
+ * Demonstrates: on_stop callback, tick callback, host-driven stop, step() after stop.
+ * Expected: emulation stops with HOST (after tick_budget callbacks), on_stop and
+ * tick run; then a 5-step run completes. Exit 0.
+ */
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -78,5 +88,6 @@ main(void)
 	printf("After 5-step run, stop reason is %s\n",
 	    rk65c02_stop_reason_string(e.stopreason));
 
+	printf("PASS: host control (on_stop, tick, request_stop, step) demonstrated.\n");
 	return 0;
 }

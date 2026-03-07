@@ -83,8 +83,13 @@ Notes:
     host polls in the tick callback and remaps the cart window via the MMU API.
   - `mmu_multitasking` - minimal task switching: two tasks with private low memory,
     guest yields by writing next task id to 0xFF00, host remaps and continues.
-  Both are heavily commented (host and guest) to show the rk65c02↔host interface
+  - `mmu_pae` - PAE-like one-level page table, extended physical addresses, and
+    demand paging (fault → install mapping → restart); runs with JIT enabled.
+  - `mmu_mpu` - simple MPU: flat 64K with programmable protection regions, MMIO
+    registers at $FE00, violation triggers IRQ; guest handler can clear and fix perms.
+  All are heavily commented (host and guest) to show the rk65c02↔host interface
   and how the host can define the contract between emulated hardware and guest code.
+  Run MMU examples that may loop (e.g. `mmu_mpu`) with a timeout: `timeout 5 ./mmu_mpu`.
 
 Build examples with:
 

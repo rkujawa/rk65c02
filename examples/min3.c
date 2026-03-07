@@ -1,3 +1,13 @@
+/*
+ * Min3 example — calls a ROM routine to compute the minimum of three values.
+ *
+ * Arguments (A, B, C) and result (min) are passed on the stack: caller pushes
+ * three bytes (C, B, A with A on top), routine returns one byte (the minimum).
+ *
+ * Build: make min3 min3.rom
+ * Run:   ./min3
+ * Expected: min(5, 9, 4) = 4.
+ */
 #include <stdio.h>
 #include <stdint.h>
 
@@ -31,5 +41,11 @@ int main(void)
 
 	min = stack_pop(&e);
 	printf("Min is: %d\n", min);
+	if (min != 4) {
+		fprintf(stderr, "FAIL: expected min=4 (min of 5,9,4), got %d\n", min);
+		return 1;
+	}
+	printf("PASS: min(5, 9, 4) = 4.\n");
+	return 0;
 }
 
