@@ -1,0 +1,3 @@
+[submodule "examples/msbasic/msbasic"]
+	path = examples/msbasic/msbasic
+	url = https://github.com/mist64/msbasic.git
