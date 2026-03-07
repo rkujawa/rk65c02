@@ -26,33 +26,15 @@ static jit_state_t *_jit;
 #include "bus.h"
 #include "log.h"
 
-/* Opcode bytes for JIT-native instructions (avoid pulling in 65c02isa.h). */
-#define JIT_OP_CLC      0x18
-#define JIT_OP_SEC      0x38
-#define JIT_OP_CLI      0x58
-#define JIT_OP_SEI      0x78
-#define JIT_OP_DEY      0x88
-#define JIT_OP_TXA      0x8A
-#define JIT_OP_TYA      0x98
-#define JIT_OP_TXS      0x9A
-#define JIT_OP_LDY_IMM  0xA0
-#define JIT_OP_LDX_IMM  0xA2
-#define JIT_OP_TAY      0xA8
-#define JIT_OP_LDA_IMM  0xA9
-#define JIT_OP_TAX      0xAA
-#define JIT_OP_CLV      0xB8
-#define JIT_OP_TSX      0xBA
-#define JIT_OP_INY      0xC8
-#define JIT_OP_DEX      0xCA
-#define JIT_OP_NOP      0xEA
-#define JIT_OP_INX      0xE8
-
 #define JIT_CACHE_SIZE 65536
 #define JIT_BLOCK_MAX_INSNS 64
 #define JIT_MAX_ACTIVE_BLOCKS 1024
 #define JIT_MAX_INVALIDATIONS_PER_RUN 128
 #define JIT_PAGE_INVALIDATION_THRESHOLD 4
 #define JIT_MAGIC 0x4a495431u  /* "JIT1" */
+#ifndef RK65C02_JIT_PERF_DEBUG
+#define RK65C02_JIT_PERF_DEBUG 0
+#endif
 
 /* Offsets into emulator state for generated code (no magic numbers). */
 #define OFFSET_E_STATE  offsetof(struct rk65c02emu, state)
@@ -87,13 +69,16 @@ struct rk65c02_jit {
 	bool needs_flush;
 	bool write_event_pending;
 	uint16_t last_write_addr;
-	/* Per-run counters for profiling fallback pressure. */
+	/* Runtime state used by adaptive invalidation policy. */
+	uint64_t invalidation_events_this_run;
+#if RK65C02_JIT_PERF_DEBUG
+	/* Optional per-run counters for profiling fallback pressure. */
 	uint64_t run_blocks_executed;
 	uint64_t run_fallback_calls;
 	uint64_t run_write_events;
-	uint64_t run_invalidation_events;
 	uint64_t run_invalidated_blocks;
 	uint64_t run_fallback_by_opcode[256];
+#endif
 	uint16_t compiled_page_refcnt[256];
 	uint16_t covered_addr_refcnt[65536];
 	uint16_t page_invalidation_events[256];
@@ -178,12 +163,14 @@ jit_backend_create(void)
 	j->needs_flush = false;
 	j->write_event_pending = false;
 	j->last_write_addr = 0;
+	j->invalidation_events_this_run = 0;
+#if RK65C02_JIT_PERF_DEBUG
 	j->run_blocks_executed = 0;
 	j->run_fallback_calls = 0;
 	j->run_write_events = 0;
-	j->run_invalidation_events = 0;
 	j->run_invalidated_blocks = 0;
 	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+#endif
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
@@ -287,23 +274,26 @@ jit_block_page_refs_update(struct rk65c02_jit *j,
 }
 
 static void
-jit_run_counters_reset(struct rk65c02_jit *j)
+jit_run_state_reset(struct rk65c02_jit *j)
 {
 	if (j == NULL)
 		return;
+	j->invalidation_events_this_run = 0;
+#if RK65C02_JIT_PERF_DEBUG
 	j->run_blocks_executed = 0;
 	j->run_fallback_calls = 0;
 	j->run_write_events = 0;
-	j->run_invalidation_events = 0;
 	j->run_invalidated_blocks = 0;
 	memset(j->run_fallback_by_opcode, 0, sizeof(j->run_fallback_by_opcode));
+#endif
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
 	memset(j->mutable_code_page, 0, sizeof(j->mutable_code_page));
 }
 
 static void
-jit_run_counters_log(const struct rk65c02_jit *j)
+jit_run_debug_log(const struct rk65c02_jit *j)
 {
+#if RK65C02_JIT_PERF_DEBUG
 	int k;
 	int m;
 
@@ -314,7 +304,7 @@ jit_run_counters_log(const struct rk65c02_jit *j)
 	    (unsigned long long)j->run_blocks_executed,
 	    (unsigned long long)j->run_fallback_calls,
 	    (unsigned long long)j->run_write_events,
-	    (unsigned long long)j->run_invalidation_events,
+	    (unsigned long long)j->invalidation_events_this_run,
 	    (unsigned long long)j->run_invalidated_blocks);
 	for (k = 0; k < 256; k++) {
 		if (j->run_fallback_by_opcode[k] == 0)
@@ -328,6 +318,9 @@ jit_run_counters_log(const struct rk65c02_jit *j)
 		rk65c02_log(LOG_DEBUG, "JIT mutable code page $%02X: invalidations=%u",
 		    m, (unsigned)j->page_invalidation_events[m]);
 	}
+#else
+	(void)j;
+#endif
 }
 
 static bool
@@ -354,7 +347,7 @@ jit_invalidate_blocks_for_addr(struct rk65c02_jit *j, uint16_t addr)
 
 	if ((j == NULL) || (j->magic != JIT_MAGIC))
 		return;
-	j->run_invalidation_events++;
+	j->invalidation_events_this_run++;
 	for (i = 0; i < JIT_CACHE_SIZE; i++) {
 		struct rk65c02_jit_block *b;
 
@@ -371,7 +364,9 @@ jit_invalidate_blocks_for_addr(struct rk65c02_jit *j, uint16_t addr)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+#if RK65C02_JIT_PERF_DEBUG
 		j->run_invalidated_blocks++;
+#endif
 	}
 }
 
@@ -417,7 +412,9 @@ jit_invalidate_blocks_for_page(struct rk65c02_jit *j, uint8_t page)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+#if RK65C02_JIT_PERF_DEBUG
 		j->run_invalidated_blocks++;
+#endif
 	}
 }
 
@@ -428,8 +425,10 @@ jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 	assert(e != NULL);
 
 	bus_write_1(e->bus, addr, val);
+#if RK65C02_JIT_PERF_DEBUG
 	if ((e->jit != NULL) && (e->jit->magic == JIT_MAGIC))
 		e->jit->run_write_events++;
+#endif
 	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
 	    && (e->jit->compiled_page_refcnt[addr >> 8] != 0)
 	    && (e->jit->covered_addr_refcnt[addr] != 0)) {
@@ -443,10 +442,14 @@ jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 static void
 jit_exec_fallback(rk65c02emu_t *e, uint8_t opcode)
 {
+#if RK65C02_JIT_PERF_DEBUG
 	if ((e != NULL) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)) {
 		e->jit->run_fallback_calls++;
 		e->jit->run_fallback_by_opcode[opcode]++;
 	}
+#else
+	(void)opcode;
+#endif
 	rk65c02_exec(e);
 }
 
@@ -643,36 +646,36 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 	switch (op) {
 
 	/* --- NOP --- */
-	case JIT_OP_NOP:
+	case 0xEA: /* NOP */
 		jit_emit_advance_pc(size);
 		return NULL;
 
 	/* --- Flag modifiers --- */
-	case JIT_OP_CLC:
+	case 0x18: /* CLC */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
 		jit_andi(JIT_R1, JIT_R1, ~P_CARRY);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_SEC:
+	case 0x38: /* SEC */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
 		jit_ori(JIT_R1, JIT_R1, P_CARRY);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_CLI:
+	case 0x58: /* CLI */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
 		jit_andi(JIT_R1, JIT_R1, ~P_IRQ_DISABLE);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_SEI:
+	case 0x78: /* SEI */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
 		jit_ori(JIT_R1, JIT_R1, P_IRQ_DISABLE);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_CLV:
+	case 0xB8: /* CLV */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
 		jit_andi(JIT_R1, JIT_R1, ~P_SIGN_OVERFLOW);
 		jit_stxi_c(OFFSET_E_P, JIT_R0, JIT_R1);
@@ -692,44 +695,44 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		return NULL;
 
 	/* --- Transfer --- */
-	case JIT_OP_TAX:
+	case 0xAA: /* TAX */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_A);
 		jit_stxi_c(OFFSET_E_X, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_TAY:
+	case 0xA8: /* TAY */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_A);
 		jit_stxi_c(OFFSET_E_Y, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_TXA:
+	case 0x8A: /* TXA */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_X);
 		jit_stxi_c(OFFSET_E_A, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_TYA:
+	case 0x98: /* TYA */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_Y);
 		jit_stxi_c(OFFSET_E_A, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_TSX:
+	case 0xBA: /* TSX */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_SP);
 		jit_stxi_c(OFFSET_E_X, JIT_R0, JIT_R1);
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_TXS:
+	case 0x9A: /* TXS */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_X);
 		jit_stxi_c(OFFSET_E_SP, JIT_R0, JIT_R1);
 		jit_emit_advance_pc(size);
 		return NULL;
 
 	/* --- INX/DEX/INY/DEY --- */
-	case JIT_OP_INX:
+	case 0xE8: /* INX */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_X);
 		jit_addi(JIT_R1, JIT_R1, 1);
 		jit_andi(JIT_R1, JIT_R1, 0xFF);
@@ -737,7 +740,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_DEX:
+	case 0xCA: /* DEX */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_X);
 		jit_subi(JIT_R1, JIT_R1, 1);
 		jit_andi(JIT_R1, JIT_R1, 0xFF);
@@ -745,7 +748,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_INY:
+	case 0xC8: /* INY */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_Y);
 		jit_addi(JIT_R1, JIT_R1, 1);
 		jit_andi(JIT_R1, JIT_R1, 0xFF);
@@ -753,7 +756,7 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		jit_emit_update_zn();
 		jit_emit_advance_pc(size);
 		return NULL;
-	case JIT_OP_DEY:
+	case 0x88: /* DEY */
 		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_Y);
 		jit_subi(JIT_R1, JIT_R1, 1);
 		jit_andi(JIT_R1, JIT_R1, 0xFF);
@@ -1785,7 +1788,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 	}
 
 	e->state = RUNNING;
-	jit_run_counters_reset(e->jit);
+	jit_run_state_reset(e->jit);
 	disable_jit_for_run = false;
 
 	while (e->state == RUNNING) {
@@ -1823,7 +1826,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 					break;
 				}
 			}
-			jit_run_counters_log(e->jit);
+			jit_run_debug_log(e->jit);
 			return;
 		}
 
@@ -1849,7 +1852,9 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			continue;
 		}
 
+#if RK65C02_JIT_PERF_DEBUG
 		e->jit->run_blocks_executed++;
+#endif
 		b->fn(e);
 		if (e->jit->write_event_pending) {
 			uint8_t write_page = (uint8_t)(e->jit->last_write_addr >> 8);
@@ -1862,7 +1867,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 				jit_invalidate_blocks_for_page(e->jit, write_page);
 			}
 			e->jit->write_event_pending = false;
-			if (e->jit->run_invalidation_events >= JIT_MAX_INVALIDATIONS_PER_RUN)
+			if (e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
 				disable_jit_for_run = true;
 			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
 		}
@@ -1876,6 +1881,6 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			break;
 		}
 	}
-	jit_run_counters_log(e->jit);
+	jit_run_debug_log(e->jit);
 }
 
