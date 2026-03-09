@@ -95,6 +95,9 @@ Notes:
     host polls in the tick callback and remaps the cart window via the MMU API.
   - `mmu_multitasking` - minimal task switching: two tasks with private low memory,
     guest yields by writing next task id to 0xFF00, host remaps and continues.
+  - `tinyos` - Tiny OS scheduler: three tasks in extended physical RAM (above 64K),
+    first 32KB virtual per task, cooperative yield and WAI+IRQ-driven switch,
+    console at $DE00. See [doc/MMU.md](doc/MMU.md) §Tiny OS.
   - `mmu_pae` - PAE-like one-level page table, extended physical addresses, and
     demand paging (fault → install mapping → restart); runs with JIT enabled.
   - `mmu_mpu` - simple MPU: flat 64K with programmable protection regions, MMIO

@@ -75,3 +75,4 @@ emulation.h
 /examples/mmu_multitasking
 /examples/mmu_pae
 /examples/mmu_mpu
+/examples/tinyos

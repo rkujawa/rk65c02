@@ -16,7 +16,7 @@ RK6502LIB=../src/librk65c02.a
 VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 
-EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait interrupts hello_serial stepper jit_bench breakpoints mmu_cart mmu_multitasking mmu_pae mmu_mpu
+EXAMPLES=min3 mul_8bit_to_8bits host_control idle_wait interrupts hello_serial stepper jit_bench breakpoints mmu_cart mmu_multitasking mmu_pae mmu_mpu tinyos
 EXAMPLES_ROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 
 all : $(EXAMPLES) $(EXAMPLES_ROMS)
@@ -63,6 +63,9 @@ mmu_pae : mmu_pae.o $(RK6502LIB)
 mmu_mpu : mmu_mpu.o $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
 
+tinyos : tinyos.o $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(RK6502LIB)
+
 %.rom : %.s
 	$(VASM) $(VASMFLAGS) -o $@ $<
 
@@ -74,6 +77,8 @@ run-mmu_pae: mmu_pae mmu_pae.rom
 	timeout $(TIMEOUT) ./mmu_pae
 run-mmu_multitasking: mmu_multitasking mmu_multitasking_kernel.rom mmu_multitasking_task.rom
 	timeout $(TIMEOUT) ./mmu_multitasking
+run-tinyos: tinyos tinyos_kernel.rom tinyos_task.rom
+	timeout $(TIMEOUT) ./tinyos
 run-mmu_cart: mmu_cart mmu_cart_bank0.rom mmu_cart_bank1.rom
 	timeout $(TIMEOUT) ./mmu_cart
 run-min3: min3 min3.rom
