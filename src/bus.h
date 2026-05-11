@@ -10,7 +10,10 @@
 
 #include "device.h"
 
-#define RK65C02_BUS_SIZE	64*1024
+#define RK65C02_BUS_SIZE	(64u * 1024u)
+
+/** Maximum physical address (MMU paddr). Guest stays 64K; physical may be larger. */
+#define RK65C02_PHYS_MAX	(16u * 1024u * 1024u)
 
 /** Extended physical mapping: device at 32-bit base (for MMU physical space > 64K). */
 typedef struct device_phys_mapping_t device_phys_mapping_t;

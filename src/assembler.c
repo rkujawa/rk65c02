@@ -95,7 +95,6 @@ assemble_single_buf(uint8_t **buf, uint8_t *bsize, char *mnemonic, addressing_t 
 	*bsize = id.size;
 
 	*buf = GC_MALLOC(id.size);
-	assert(*buf != NULL);
 
 	/* fill the buffer */
 	memset(*buf, 0, id.size);

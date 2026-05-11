@@ -128,7 +128,6 @@ instruction_string_get(instruction_t *i)
 	char *str;
 
 	str = GC_MALLOC(INSTR_STR_LEN);
-	assert(str != NULL);
 	memset(str, 0, INSTR_STR_LEN);
 
 	id = instruction_decode(i->opcode);

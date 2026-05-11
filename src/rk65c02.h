@@ -8,8 +8,7 @@
 
 #include "bus.h"
 
-/** Maximum physical address (MMU paddr). Guest stays 64K; physical may be larger. */
-#define RK65C02_PHYS_MAX	(16u * 1024u * 1024u)
+/* RK65C02_PHYS_MAX is defined in bus.h (16 MiB). */
 
 struct rk65c02_jit;
 struct rk65c02emu;
@@ -159,14 +158,36 @@ typedef struct trace_t {
 
 /**
  * @brief Instance of the emulator.
+ *
+ * The struct definition is exposed here so that hosts can embed an
+ * rk65c02emu_t by value and read a handful of inspection-friendly
+ * fields directly. Only the fields in the "public, host-accessible"
+ * block below are part of the stable contract. Everything in the
+ * "INTERNAL" block is implementation detail: layout, names, semantics
+ * and even existence of those fields may change without notice. Use
+ * the corresponding accessor/setter functions instead — for example:
+ *   - irq line:           rk65c02_assert_irq() / rk65c02_deassert_irq()
+ *   - host stop request:  rk65c02_request_stop()
+ *   - JIT enable:         rk65c02_jit_enable()
+ *   - callbacks:          rk65c02_on_stop_set(), rk65c02_tick_set(),
+ *                         rk65c02_idle_wait_set()
+ *   - MMU configuration:  rk65c02_mmu_set() and related helpers
  */
 struct rk65c02emu {
+	/* --- public, host-accessible (stable API) ------------------- */
 	emu_state_t state;	/**< Current emulator status. */
 	bus_t *bus;		/**< Bus to which CPU is attached. */
 	reg_state_t regs;	/**< CPU registers. */
 	emu_stop_reason_t stopreason; /**< Reason for stopping emulation. */
-	bool irq;		/**< Interrupt request line state, true is asserted. */
+	uint16_t mmu_last_fault_addr; /**< Last virtual address that faulted. */
+	rk65c02_mmu_access_t mmu_last_fault_access; /**< Last fault access class. */
+	uint16_t mmu_last_fault_code; /**< Last host-defined MMU fault code. */
 
+	/* --- INTERNAL: do not access from host code ----------------- *
+	 * Fields below are implementation detail. They are present here
+	 * only because the struct is currently not opaque; their layout,
+	 * names, and semantics may change between releases.            */
+	bool irq;		/**< Interrupt request line state, true is asserted. */
 	breakpoint_t *bps_head;	/**< Pointer to linked list with breakpoints. */
 	bool runtime_disassembly; /**< Disassemble code when emulator is running. */
 	bool trace;		/**< Tracing mode enable/disable. */
@@ -196,9 +217,6 @@ struct rk65c02emu {
 	void *mmu_translate_ctx; /**< Host context for MMU translation callback. */
 	rk65c02_mmu_fault_cb_t mmu_fault; /**< Optional host callback on MMU fault. */
 	void *mmu_fault_ctx;	/**< Host context for MMU fault callback. */
-	uint16_t mmu_last_fault_addr; /**< Last virtual address that faulted. */
-	rk65c02_mmu_access_t mmu_last_fault_access; /**< Last fault access class. */
-	uint16_t mmu_last_fault_code; /**< Last host-defined MMU fault code. */
 	bool mmu_fault_reexec; /**< Set on MMU fault so interpreter/JIT skip PC advance for re-exec. */
 	bool mmu_tlb_enabled;	/**< Enable internal software MMU TLB. */
 	bool mmu_changed_all;	/**< MMU update changed broad mappings. */

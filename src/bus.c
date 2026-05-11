@@ -36,8 +36,6 @@
 
 #include "device_ram.h"
 
-#define RK65C02_BUS_SIZE	64*1024
-
 static void bus_access_device(bus_t *, uint16_t, device_t **, uint16_t *);
 static void bus_access_device_phys(bus_t *, uint32_t, device_t **, uint16_t *);
 
@@ -54,7 +52,6 @@ bus_device_add(bus_t *b, device_t *d, uint16_t addr)
 	}
 
 	dm = (device_mapping_t *) GC_MALLOC(sizeof(device_mapping_t));
-	assert(dm != NULL);
 
 	dm->dev = d;
 	dm->addr = addr;
@@ -74,7 +71,6 @@ bus_device_add_phys(bus_t *b, device_t *d, uint32_t base)
 	assert(d != NULL);
 
 	dm = (device_phys_mapping_t *) GC_MALLOC(sizeof(device_phys_mapping_t));
-	assert(dm != NULL);
 	dm->dev = d;
 	dm->base = base;
 
@@ -288,6 +284,7 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 {
 	int fd;
 	uint8_t data;
+	uint32_t cur;
 
 	rk65c02_log(LOG_DEBUG, "Loading file %s at %x.", filename, addr);
 
@@ -298,13 +295,19 @@ bus_load_file(bus_t *t, uint16_t addr, const char *filename)
 		return false;
 	}
 
+	/* Use uint32_t for the running address: a uint16_t would silently
+	 * wrap past 0xFFFF and overwrite low memory instead of tripping
+	 * the bounds check. */
+	cur = addr;
 	while ((read(fd, &data, 1)) > 0) {
-		if (addr >= RK65C02_BUS_SIZE) {
-			rk65c02_log(LOG_ERROR, "bus_load_file: address overflow at %x.", addr);
+		if (cur >= RK65C02_BUS_SIZE) {
+			rk65c02_log(LOG_ERROR, "bus_load_file: address overflow at %x.",
+			    (unsigned)cur);
 			close(fd);
 			return false;
 		}
-		bus_write_1(t, addr++, data);
+		bus_write_1(t, (uint16_t)cur, data);
+		cur++;
 	}
 
 	close(fd);
@@ -333,6 +336,12 @@ bus_load_file_phys(bus_t *t, uint32_t addr, const char *filename)
 	}
 
 	while ((read(fd, &data, 1)) > 0) {
+		if (addr >= RK65C02_PHYS_MAX) {
+			rk65c02_log(LOG_ERROR, "bus_load_file_phys: address overflow at %x.",
+			    (unsigned)addr);
+			close(fd);
+			return false;
+		}
 		bus_write_1_phys(t, addr, data);
 		addr++;
 	}

@@ -38,6 +38,27 @@
 void rk65c02_exec(rk65c02emu_t *);
 static void rk65c02_mmu_refresh_accessors(rk65c02emu_t *e);
 
+/*
+ * Boehm GC OOM handler. Boehm GC by default returns NULL on allocation
+ * failure; the rk65c02 library cannot make forward progress in that case,
+ * so we install this hook to turn OOM into a controlled abort with a log
+ * line instead. Installed once at library load via a constructor below.
+ */
+static void *
+rk65c02_gc_oom(size_t n)
+{
+	rk65c02_log(LOG_CRIT, "rk65c02: GC out of memory (%zu bytes)",
+	    (size_t)n);
+	abort();
+	return NULL;
+}
+
+static void __attribute__((constructor))
+rk65c02_lib_init(void)
+{
+	GC_set_oom_fn(rk65c02_gc_oom);
+}
+
 static uint8_t
 rk65c02_mem_read_direct(rk65c02emu_t *e, uint16_t addr,
     rk65c02_mmu_access_t access)
@@ -343,7 +364,6 @@ rk65c02_load_rom(const char *path, uint16_t load_addr, bus_t *b)
 
 	if (b == NULL) {
 		b = GC_MALLOC(sizeof(bus_t));
-		assert(b != NULL);
 		*b = bus_init_with_default_devs();
 	}
 
@@ -852,7 +872,6 @@ rk65c02_regs_string_get(reg_state_t regs)
 
 	/* Keep allocation local until shared string helpers are introduced. */
 	str = GC_MALLOC(REGS_STR_LEN);
-	assert(str != NULL);
 	memset(str, 0, REGS_STR_LEN);
 
 	snprintf(str, REGS_STR_LEN, "A: %X X: %X Y: %X PC: %X SP: %X P: %c%c%c%c%c%c%c%c", 

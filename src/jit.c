@@ -216,7 +216,6 @@ jit_backend_create(void)
 #endif
 
 	j = (struct rk65c02_jit *)GC_MALLOC(sizeof(struct rk65c02_jit));
-	assert(j != NULL);
 	j->magic = JIT_MAGIC;
 	j->active_blocks = 0;
 	j->needs_flush = false;
@@ -1816,7 +1815,6 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 	b = j->blocks[pc];
 	if (b == NULL) {
 		b = (struct rk65c02_jit_block *)GC_MALLOC(sizeof(struct rk65c02_jit_block));
-		assert(b != NULL);
 		b->start_pc = pc;
 		b->end_pc_exclusive = pc;
 		b->mmu_phys_page_valid = false;

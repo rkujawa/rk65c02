@@ -64,7 +64,6 @@ debug_trace_savestate(rk65c02emu_t *e, uint16_t address, instrdef_t *id,
 	trace_t *tr;
 
 	tr = (trace_t *) GC_MALLOC(sizeof(trace_t));
-	assert(tr != NULL);
 
 	tr->address = address;
 

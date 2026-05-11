@@ -67,6 +67,34 @@ Notes:
 - `rk65c02_stop_reason_string()` converts `emu_stop_reason_t` values to
   readable strings for logs/UI.
 
+### Stable vs internal fields of `rk65c02emu_t`
+
+The `struct rk65c02emu` definition is exposed in `rk65c02.h` so hosts can
+embed it by value, but only a small subset of its fields are part of the
+stable API. Hosts may read and write the fields in the "public,
+host-accessible" block of the struct definition:
+
+- `state`, `bus`, `regs`, `stopreason`
+- `mmu_last_fault_addr`, `mmu_last_fault_access`, `mmu_last_fault_code`
+  (after an MMU-fault stop)
+
+Everything in the "INTERNAL" block of the struct is implementation
+detail. Its layout, names, and semantics may change between releases.
+Use the published setter/getter functions instead — e.g.
+`rk65c02_assert_irq()`, `rk65c02_request_stop()`, `rk65c02_jit_enable()`,
+`rk65c02_on_stop_set()`, `rk65c02_tick_set()`, `rk65c02_idle_wait_set()`,
+`rk65c02_mmu_set()`.
+
+### Thread safety
+
+The library is single-threaded. A host must serialize all calls into the
+same `rk65c02emu_t` from a single thread (or with external locking).
+Two callbacks are explicitly designed to be invoked from outside the
+emulator's own thread of control: `rk65c02_assert_irq()` and
+`rk65c02_request_stop()` may be called from a signal handler or other
+context while the emulator is running. All other entry points require
+exclusive access to the emulator instance.
+
 ## Examples
 
 `examples/` contains small host programs using the library:
