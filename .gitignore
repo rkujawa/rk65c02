@@ -57,6 +57,7 @@ emulation.h
 /test/test_functional
 /test/test_jit
 /test/test_mmu
+/test/test_smc_fuzz
 /test/bench_emulation
 /test/bench_mmu
 /test/bench_functional

@@ -61,6 +61,9 @@ Notes:
 - Tick callback works in both execution modes:
   - interpreter mode checks tick after each instruction;
   - JIT mode checks tick at compiled block boundaries (coarser granularity).
+    Loops compiled natively re-enter the dispatcher at least every
+    `JIT_LOOP_BUDGET` (default 256) iterations, which also bounds host
+    stop and IRQ delivery latency inside such loops.
 - If precise per-instruction callback cadence is required, run without JIT.
 - Idle-wait callback is only consulted when CPU stops with `WAI`; it is not
   used for `STP`.

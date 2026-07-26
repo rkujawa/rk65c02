@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "bus.h"
 #include "device_ram.h"
@@ -29,7 +30,7 @@ enum functional_outcome {
 
 struct functional_monitor {
 	uint16_t success_pc;
-	uint16_t last_pc;
+	reg_state_t last_regs;
 	uint16_t terminal_pc;
 	uint8_t test_case_value;
 	uint32_t stable_pc_count;
@@ -46,6 +47,34 @@ struct functional_case {
 	uint64_t poll_limit;
 };
 
+/*
+ * A Dormann trap is a self-loop: a relative branch with offset $FE or a
+ * JMP absolute to itself. PC stability alone is not sufficient - long
+ * genuine loops alias with tick sampling (especially under JIT block
+ * chaining, where dispatch-boundary PCs repeat), so confirm the
+ * instruction at the stable PC really loops on itself.
+ */
+static bool
+is_self_loop_insn(rk65c02emu_t *e, uint16_t pc)
+{
+	uint8_t op = bus_read_1(e->bus, pc);
+
+	switch (op) {
+	case 0x10: case 0x30: case 0x50: case 0x70:
+	case 0x90: case 0xB0: case 0xD0: case 0xF0:
+	case 0x80:
+		return bus_read_1(e->bus, (uint16_t)(pc + 1)) == 0xFE;
+	case 0x4C: {
+		uint16_t t = bus_read_1(e->bus, (uint16_t)(pc + 1))
+		    | (bus_read_1(e->bus, (uint16_t)(pc + 2)) << 8);
+
+		return t == pc;
+	}
+	default:
+		return false;
+	}
+}
+
 static void
 functional_tick(rk65c02emu_t *e, void *ctx)
 {
@@ -55,18 +84,29 @@ functional_tick(rk65c02emu_t *e, void *ctx)
 	pc = e->regs.PC;
 	m->poll_count++;
 
-	if (!(m->initialized)) {
+	/*
+	 * A genuine trap self-loop makes no progress: the whole register
+	 * file is frozen, not just PC. Comparing only PC aliases with
+	 * long loops sampled at their entry point (the sampled PC can even
+	 * sit on a not-taken conditional trap instruction).
+	 */
+	if (!(m->initialized)
+	    || (pc != m->last_regs.PC) || (e->regs.A != m->last_regs.A)
+	    || (e->regs.X != m->last_regs.X) || (e->regs.Y != m->last_regs.Y)
+	    || (e->regs.SP != m->last_regs.SP) || (e->regs.P != m->last_regs.P)) {
 		m->initialized = true;
-		m->last_pc = pc;
+		m->last_regs = e->regs;
 		m->stable_pc_count = 1;
-	} else if (pc == m->last_pc) {
-		m->stable_pc_count++;
 	} else {
-		m->last_pc = pc;
-		m->stable_pc_count = 1;
+		m->stable_pc_count++;
 	}
 
 	if (m->stable_pc_count >= m->stable_threshold) {
+		if (!is_self_loop_insn(e, pc)) {
+			/* Sampling alias with a long loop, not a trap. */
+			m->stable_pc_count = 1;
+			return;
+		}
 		m->outcome = (pc == m->success_pc) ? FUNCTIONAL_OUTCOME_PASS
 		    : FUNCTIONAL_OUTCOME_FAIL;
 		m->terminal_pc = pc;
@@ -100,7 +140,7 @@ run_functional_case(const atf_tc_t *tc, const struct functional_case *fcase,
 	rk65c02_jit_flush(&e);
 
 	monitor.success_pc = fcase->success_pc;
-	monitor.last_pc = 0;
+	memset(&monitor.last_regs, 0, sizeof(monitor.last_regs));
 	monitor.terminal_pc = 0;
 	monitor.test_case_value = 0;
 	monitor.stable_pc_count = 0;

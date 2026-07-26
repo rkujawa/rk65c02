@@ -193,6 +193,7 @@ struct rk65c02emu {
 	bool trace;		/**< Tracing mode enable/disable. */
 	trace_t *trace_head;	/**< Pointer to linked list with trace log. */
 	bool use_jit;		/**< Current JIT execution state (may change at runtime). */
+	uint32_t jit_loop_budget; /**< Remaining native loop back-edges before returning to the dispatcher. */
 	bool jit_requested;	/**< Host-requested JIT preference across start() calls. */
 	struct rk65c02_jit *jit; /**< Opaque JIT backend state. */
 	/** For JIT: fault longjmp target so MMU fault does not return into compiled block. */

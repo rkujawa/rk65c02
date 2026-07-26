@@ -38,6 +38,13 @@ static jit_state_t *_jit;
 #define JIT_PAGE_INVALIDATION_THRESHOLD 4
 #endif
 /*
+ * Maximum native loop back-edges taken inside one block dispatch before
+ * control returns to the C dispatcher (bounds tick/stop/IRQ latency).
+ */
+#ifndef JIT_LOOP_BUDGET
+#define JIT_LOOP_BUDGET 256
+#endif
+/*
  * Deferred write-event slots: a single native instruction can perform at
  * most a few tracked stores before its block bails out (JSR pushes two
  * bytes, a fallback BRK pushes three), so four slots cover the worst case.
@@ -63,6 +70,9 @@ static jit_state_t *_jit;
 #define OFFSET_REGS_PC  offsetof(struct reg_state, PC)
 #define OFFSET_REGS_SP  offsetof(struct reg_state, SP)
 #define OFFSET_REGS_P   offsetof(struct reg_state, P)
+#define OFFSET_E_IRQ    offsetof(struct rk65c02emu, irq)
+#define OFFSET_E_STOP_REQUESTED offsetof(struct rk65c02emu, stop_requested)
+#define OFFSET_E_LOOP_BUDGET offsetof(struct rk65c02emu, jit_loop_budget)
 #define OFFSET_E_PC     (OFFSET_E_REGS + OFFSET_REGS_PC)
 #define OFFSET_E_P      (OFFSET_E_REGS + OFFSET_REGS_P)
 #define OFFSET_E_A      (OFFSET_E_REGS + OFFSET_REGS_A)
@@ -137,6 +147,52 @@ struct jit_block_insn {
 	instrdef_t id;
 };
 
+/* The 8 conditional relative branches (BRA excluded - unconditional). */
+static bool
+jit_opcode_is_cond_branch(uint8_t op)
+{
+	switch (op) {
+	case 0x10: case 0x30: case 0x50: case 0x70:
+	case 0x90: case 0xB0: case 0xD0: case 0xF0:
+		return true;
+	default:
+		return false;
+	}
+}
+
+#ifdef HAVE_LIGHTNING
+/* Up to 4 bail-out branches per instruction (back-edge guard emits 3). */
+#define JIT_MAX_BAILS (JIT_BLOCK_MAX_INSNS * 4)
+
+/*
+ * Per-block emission context: instruction addresses and labels for
+ * intra-block branch chaining, bail-out nodes patched to the shared
+ * return point, and internal jumps patched to instruction labels.
+ */
+struct jit_emit_ctx {
+	struct rk65c02_jit *j;
+	size_t num_insns;
+	uint16_t insn_addr[JIT_BLOCK_MAX_INSNS];
+	jit_node_t *labels[JIT_BLOCK_MAX_INSNS];
+	jit_node_t *bails[JIT_MAX_BAILS];
+	size_t nbails;
+	struct {
+		jit_node_t *jmp;
+		size_t target;
+	} ijmps[JIT_BLOCK_MAX_INSNS];
+	size_t nijmps;
+};
+
+static void
+jit_ctx_add_bail(struct jit_emit_ctx *ctx, jit_node_t *n)
+{
+	if (n == NULL)
+		return;
+	assert(ctx->nbails < JIT_MAX_BAILS);
+	ctx->bails[ctx->nbails++] = n;
+}
+#endif
+
 /* Forward declaration from rk65c02.c */
 void rk65c02_exec(rk65c02emu_t *e);
 
@@ -208,7 +264,18 @@ jit_build_block_insns(rk65c02emu_t *e, uint16_t start_pc,
 		n++;
 
 		/*
-		 * End the block at any instruction that modifies PC.
+		 * Conditional branches do NOT end the block: the not-taken
+		 * path falls through into the next inline instruction, and
+		 * taken paths either jump to an in-block label or store PC
+		 * and return (see the branch case in jit_emit_insn).
+		 */
+		if (jit_opcode_is_cond_branch(insns[n-1].i.opcode)) {
+			pc += id.size;
+			continue;
+		}
+
+		/*
+		 * End the block at any other instruction that modifies PC.
 		 * RTS has modify_pc=false in the ISA because the interpreter
 		 * relies on program_counter_increment to add 1 to the popped
 		 * return address. However, RTS still changes PC to a completely
@@ -802,6 +869,36 @@ jit_emit_bail_if_jit_disabled(void)
 }
 
 /*
+ * Guard emitted on every intra-block backward branch (native loop
+ * back-edge): return to the dispatcher when the per-dispatch loop
+ * budget is exhausted, a host stop was requested, or the IRQ line is
+ * asserted (the dispatcher re-checks the I flag; a spurious return is
+ * cheap). Bounds tick/stop/IRQ latency to JIT_LOOP_BUDGET back-edges.
+ * Also accumulates the back-edge span into stats.insns_executed so
+ * loop-heavy blocks report meaningful instruction counts.
+ */
+static void
+jit_emit_backedge_guard(struct jit_emit_ctx *ctx, int span_insns)
+{
+	jit_ldxi_i(JIT_R1, JIT_R0, OFFSET_E_LOOP_BUDGET);
+	jit_subi(JIT_R1, JIT_R1, 1);
+	jit_stxi_i(OFFSET_E_LOOP_BUDGET, JIT_R0, JIT_R1);
+	jit_ctx_add_bail(ctx, jit_blei(JIT_R1, 0));
+	jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_STOP_REQUESTED);
+	jit_ctx_add_bail(ctx, jit_bnei(JIT_R1, 0));
+	jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_IRQ);
+	jit_ctx_add_bail(ctx, jit_bnei(JIT_R1, 0));
+#if __SIZEOF_POINTER__ == 8
+	/* stats live in GC memory, which does not move; 64-bit hosts can
+	 * update the uint64 counter with a word load/store. */
+	jit_movi(JIT_R2, (jit_word_t)&ctx->j->stats.insns_executed);
+	jit_ldr(JIT_R1, JIT_R2);
+	jit_addi(JIT_R1, JIT_R1, span_insns);
+	jit_str(JIT_R2, JIT_R1);
+#endif
+}
+
+/*
  * Compute effective address into JIT_R1 based on addressing mode and operands.
  * JIT_R0 must hold e. For modes requiring bus reads (IZP, IZPX, IZPY),
  * this calls bus_read_1 and reloads JIT_R0 from arg_node.
@@ -908,7 +1005,8 @@ jit_emit_load_operand(struct jit_block_insn *bi, jit_node_t *arg_node)
  * point (for fallback bail-out on state change), or NULL for native insns.
  */
 static jit_node_t *
-jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
+jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node,
+    struct jit_emit_ctx *ctx, size_t k)
 {
 	jit_node_t *bail;
 	uint8_t op = bi->i.opcode;
@@ -1742,66 +1840,88 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 		return NULL;
 
 	/* --- Branches --- */
-	case 0x80: /* BRA */
+	case 0x80: { /* BRA: always taken, ends the block */
+		int8_t offset = (int8_t)bi->i.op1;
+
+		jit_ldxi_us(JIT_R1, JIT_R0, OFFSET_E_PC);
+		jit_addi(JIT_R1, JIT_R1, (int)size + (int)offset);
+		jit_andi(JIT_R1, JIT_R1, 0xFFFF);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		return NULL;
+	}
+
+	/*
+	 * Conditional branches: the not-taken path falls through into the
+	 * next inline instruction of the same block. Taken paths jump to
+	 * an in-block instruction label when the target lies inside the
+	 * block (backward edges pass the loop guard first), or store PC
+	 * and return to the dispatcher for external targets.
+	 */
 	case 0x90: /* BCC */ case 0xB0: /* BCS */
 	case 0xF0: /* BEQ */ case 0xD0: /* BNE */
 	case 0x30: /* BMI */ case 0x10: /* BPL */
 	case 0x70: /* BVS */ case 0x50: /* BVC */ {
 		int8_t offset = (int8_t)bi->i.op1;
-		uint16_t target = (uint16_t)((int)bi->i.op1 + (int)bi->i.op2 * 0
-		    + 0); /* placeholder, recalculate below */
-		jit_node_t *skip;
-		(void)target;
+		uint16_t target = (uint16_t)(ctx->insn_addr[k] + size + offset);
+		jit_node_t *taken = NULL;
+		jit_node_t *notaken;
+		size_t t;
+		int tidx = -1;
 
-		/* For BRA, always branch. For others, check condition. */
-		if (op != 0x80) {
-			jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
-			switch (op) {
-			case 0x90: /* BCC: branch if C clear */
-				skip = jit_bmci(JIT_R1, P_CARRY);
-				break;
-			case 0xB0: /* BCS: branch if C set */
-				skip = jit_bmsi(JIT_R1, P_CARRY);
-				break;
-			case 0xF0: /* BEQ: branch if Z set */
-				skip = jit_bmsi(JIT_R1, P_ZERO);
-				break;
-			case 0xD0: /* BNE: branch if Z clear */
-				skip = jit_bmci(JIT_R1, P_ZERO);
-				break;
-			case 0x30: /* BMI: branch if N set */
-				skip = jit_bmsi(JIT_R1, P_NEGATIVE);
-				break;
-			case 0x10: /* BPL: branch if N clear */
-				skip = jit_bmci(JIT_R1, P_NEGATIVE);
-				break;
-			case 0x70: /* BVS: branch if V set */
-				skip = jit_bmsi(JIT_R1, P_SIGN_OVERFLOW);
-				break;
-			case 0x50: /* BVC: branch if V clear */
-				skip = jit_bmci(JIT_R1, P_SIGN_OVERFLOW);
-				break;
-			default:
-				skip = NULL;
+		for (t = 0; t < ctx->num_insns; t++) {
+			if (ctx->insn_addr[t] == target) {
+				tidx = (int)t;
 				break;
 			}
-			/* Not taken: PC += size */
-			jit_emit_advance_pc(size);
-			jit_node_t *done = jit_jmpi();
-			/* Taken: */
-			jit_patch(skip);
-			jit_ldxi_us(JIT_R1, JIT_R0, OFFSET_E_PC);
-			jit_addi(JIT_R1, JIT_R1, (int)size + (int)offset);
-			jit_andi(JIT_R1, JIT_R1, 0xFFFF);
-			jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
-			jit_patch(done);
-		} else {
-			/* BRA: always taken */
-			jit_ldxi_us(JIT_R1, JIT_R0, OFFSET_E_PC);
-			jit_addi(JIT_R1, JIT_R1, (int)size + (int)offset);
-			jit_andi(JIT_R1, JIT_R1, 0xFFFF);
-			jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
 		}
+
+		jit_ldxi_uc(JIT_R1, JIT_R0, OFFSET_E_P);
+		switch (op) {
+		case 0x90: /* BCC: taken if C clear */
+			taken = jit_bmci(JIT_R1, P_CARRY);
+			break;
+		case 0xB0: /* BCS: taken if C set */
+			taken = jit_bmsi(JIT_R1, P_CARRY);
+			break;
+		case 0xF0: /* BEQ: taken if Z set */
+			taken = jit_bmsi(JIT_R1, P_ZERO);
+			break;
+		case 0xD0: /* BNE: taken if Z clear */
+			taken = jit_bmci(JIT_R1, P_ZERO);
+			break;
+		case 0x30: /* BMI: taken if N set */
+			taken = jit_bmsi(JIT_R1, P_NEGATIVE);
+			break;
+		case 0x10: /* BPL: taken if N clear */
+			taken = jit_bmci(JIT_R1, P_NEGATIVE);
+			break;
+		case 0x70: /* BVS: taken if V set */
+			taken = jit_bmsi(JIT_R1, P_SIGN_OVERFLOW);
+			break;
+		case 0x50: /* BVC: taken if V clear */
+			taken = jit_bmci(JIT_R1, P_SIGN_OVERFLOW);
+			break;
+		}
+		/* Not taken: PC += size, fall through to the next insn. */
+		jit_emit_advance_pc(size);
+		notaken = jit_jmpi();
+		/* Taken: PC = target (compile-time constant). */
+		jit_patch(taken);
+		jit_movi(JIT_R1, target);
+		jit_stxi_s(OFFSET_E_PC, JIT_R0, JIT_R1);
+		if (tidx < 0) {
+			/* External target: return to the dispatcher. */
+			jit_ctx_add_bail(ctx, jit_jmpi());
+		} else {
+			if ((size_t)tidx <= k)
+				jit_emit_backedge_guard(ctx,
+				    (int)(k - (size_t)tidx + 1));
+			assert(ctx->nijmps < JIT_BLOCK_MAX_INSNS);
+			ctx->ijmps[ctx->nijmps].jmp = jit_jmpi();
+			ctx->ijmps[ctx->nijmps].target = (size_t)tidx;
+			ctx->nijmps++;
+		}
+		jit_patch(notaken);
 		return NULL;
 	}
 
@@ -1953,7 +2073,7 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 #ifdef HAVE_LIGHTNING
 	{
 		jit_node_t *arg_node;
-		jit_node_t *bail_nodes[JIT_BLOCK_MAX_INSNS];
+		struct jit_emit_ctx ctx;
 		jit_state_t *state;
 
 		jit_build_block_insns(e, pc, insns, JIT_BLOCK_MAX_INSNS,
@@ -2003,19 +2123,37 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		b->lightning_state = state;
 		_jit = state;
 
+		memset(&ctx, 0, sizeof(ctx));
+		ctx.j = j;
+		ctx.num_insns = num_insns;
+		{
+			uint16_t a = pc;
+
+			for (k = 0; k < num_insns; k++) {
+				ctx.insn_addr[k] = a;
+				a = (uint16_t)(a + insns[k].id.size);
+			}
+		}
+
 		jit_prolog();
 		arg_node = jit_arg();
 		jit_getarg(JIT_V0, arg_node);
 		jit_movr(JIT_R0, JIT_V0);
 
-		for (k = 0; k < num_insns; k++)
-			bail_nodes[k] = jit_emit_insn(&insns[k], arg_node);
+		for (k = 0; k < num_insns; k++) {
+			ctx.labels[k] = jit_label();
+			jit_ctx_add_bail(&ctx,
+			    jit_emit_insn(&insns[k], arg_node, &ctx, k));
+		}
+
+		/* Patch intra-block branch jumps to instruction labels. */
+		for (k = 0; k < ctx.nijmps; k++)
+			jit_patch_at(ctx.ijmps[k].jmp,
+			    ctx.labels[ctx.ijmps[k].target]);
 
 		/* Patch all bail-out branches to the ret below. */
-		for (k = 0; k < num_insns; k++) {
-			if (bail_nodes[k] != NULL)
-				jit_patch(bail_nodes[k]);
-		}
+		for (k = 0; k < ctx.nbails; k++)
+			jit_patch(ctx.bails[k]);
 
 		jit_ret();
 		jit_epilog();
@@ -2331,6 +2469,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 #endif
 		e->jit->stats.blocks_executed++;
 		e->jit->stats.insns_executed += b->num_insns;
+		e->jit_loop_budget = JIT_LOOP_BUDGET;
 		e->in_jit_run = true;
 		b->fn(e);
 		e->in_jit_run = false;
