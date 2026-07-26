@@ -1579,6 +1579,64 @@ static void do_emul_selfmod_page_spill(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_selfmod_page_spill, do_emul_selfmod_page_spill)
 
+/*
+ * SMC tracking precision: stores to DATA bytes located on the same page
+ * as compiled code must not be treated as self-modifying-code events
+ * (no invalidations, no page demotion).
+ */
+static void do_emul_smc_data_write_precision(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	rk65c02_jit_stats_t st;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+
+	/* Main: JSR $C020 ; LDY #$08 ; loop: STY $C0F0 ; DEY ; BNE loop ;
+	 * JSR $C020 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xA0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x08);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0x8C);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0xF0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x88);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0xD0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xFA);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 12, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 13, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 14, 0xDB);
+
+	/* Victim at $C020: LDX #$5A ; RTS. Data byte at $C0F0. */
+	bus_write_1(&b, 0xC020, 0xA2);
+	bus_write_1(&b, 0xC021, 0x5A);
+	bus_write_1(&b, 0xC022, 0x60);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x5A);
+	ATF_CHECK(bus_read_1(&b, 0xC0F0) == 0x01);
+	if (rk65c02_jit_stats_get(&e, &st)) {
+		ATF_CHECK_MSG(st.write_events == 0,
+		    "data store counted as SMC event (write_events=%llu)",
+		    (unsigned long long)st.write_events);
+		ATF_CHECK(st.blocks_invalidated == 0);
+		ATF_CHECK(st.pages_demoted == 0);
+	}
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_smc_data_write_precision, do_emul_smc_data_write_precision)
+
 struct idle_wait_test_ctx {
 	unsigned int calls;
 	bool assert_irq_on_wait;
@@ -2539,6 +2597,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_selfmod_invalidation_budget_jit);
 	ATF_TP_ADD_TC(tp, emul_selfmod_page_spill);
 	ATF_TP_ADD_TC(tp, emul_selfmod_page_spill_jit);
+	ATF_TP_ADD_TC(tp, emul_smc_data_write_precision);
+	ATF_TP_ADD_TC(tp, emul_smc_data_write_precision_jit);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume_jit);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_stp_no_callback);

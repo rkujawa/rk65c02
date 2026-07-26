@@ -924,6 +924,67 @@ do_mmu_selfmod_page_spill_remap(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(mmu_selfmod_page_spill_remap, do_mmu_selfmod_page_spill_remap)
 
+/*
+ * SMC tracking precision under MMU aliasing: a store through an alias
+ * window to a byte on a code physical page that is NOT covered by any
+ * compiled block must not count as a self-modifying-code event.
+ */
+static void
+do_mmu_smc_alias_data_precision(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	struct mmu_test_state s;
+	rk65c02_jit_stats_t st;
+	uint16_t p;
+	(void)tc;
+
+	memset(&s, 0, sizeof(s));
+	for (p = 0; p < 256; p++)
+		s.page_base[p] = (uint16_t)(p << 8);
+	s.page_base[0x50] = 0xC100;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+	ATF_REQUIRE(rk65c02_mmu_set(&e, mmu_page_translate, &s, NULL, NULL, true, false));
+
+	/* Main: JSR $C100 ; LDA #$77 ; STA $5010 ; JSR $C100 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x77);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x10);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0x50);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0xDB);
+
+	/* Callee at phys $C100: LDX #$5A ; RTS. Data at phys $C110. */
+	bus_write_1(&b, 0xC100, 0xA2);
+	bus_write_1(&b, 0xC101, 0x5A);
+	bus_write_1(&b, 0xC102, 0x60);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x5A);
+	ATF_CHECK(bus_read_1(&b, 0xC110) == 0x77);
+	if (rk65c02_jit_stats_get(&e, &st)) {
+		ATF_CHECK_MSG(st.write_events == 0,
+		    "alias data store counted as SMC event (write_events=%llu)",
+		    (unsigned long long)st.write_events);
+		ATF_CHECK(st.blocks_invalidated == 0);
+		ATF_CHECK(st.pages_demoted == 0);
+	}
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(mmu_smc_alias_data_precision, do_mmu_smc_alias_data_precision)
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, mmu_set_requires_translate);
@@ -963,5 +1024,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mmu_selfmod_alias_write_jit);
 	ATF_TP_ADD_TC(tp, mmu_selfmod_page_spill_remap);
 	ATF_TP_ADD_TC(tp, mmu_selfmod_page_spill_remap_jit);
+	ATF_TP_ADD_TC(tp, mmu_smc_alias_data_precision);
+	ATF_TP_ADD_TC(tp, mmu_smc_alias_data_precision_jit);
 	return atf_no_error();
 }

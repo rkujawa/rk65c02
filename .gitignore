@@ -59,6 +59,7 @@ emulation.h
 /test/test_mmu
 /test/bench_emulation
 /test/bench_mmu
+/test/bench_functional
 /test/functional_tests/*.bin
 /test/functional_tests/*.lst
 /test/functional_tests/*.map

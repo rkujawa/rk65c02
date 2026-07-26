@@ -108,13 +108,26 @@ main(int argc, char **argv)
 	t1 = now_sec();
 	t_jit = t1 - t0;
 
-	bus_finish(&b);
-
 	printf("ROM: %s (%d runs each)\n", rom_path, n_runs);
 	printf("interpreter: %.3f s (%.3f s/run)\n", t_interp, t_interp / n_runs);
 	printf("JIT:         %.3f s (%.3f s/run)\n", t_jit, t_jit / n_runs);
 	if (t_jit > 0)
 		printf("speedup:     %.2f x\n", t_interp / t_jit);
+
+	{
+		rk65c02_jit_stats_t st;
+
+		if (rk65c02_jit_stats_get(&e, &st))
+			printf("jit stats:   write_events=%llu blocks_invalidated=%llu "
+			    "blocks_compiled=%llu pages_demoted=%llu run_jit_disables=%llu\n",
+			    (unsigned long long)st.write_events,
+			    (unsigned long long)st.blocks_invalidated,
+			    (unsigned long long)st.blocks_compiled,
+			    (unsigned long long)st.pages_demoted,
+			    (unsigned long long)st.run_jit_disables);
+	}
+
+	bus_finish(&b);
 
 	return 0;
 }

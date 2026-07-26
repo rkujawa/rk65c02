@@ -135,6 +135,44 @@ rk65c02_mmu_translate_addr(rk65c02emu_t *e, uint16_t vaddr,
 static void rk65c02_maybe_call_on_stop(rk65c02emu_t *e);
 
 /*
+ * TLB-backed translation for internal (JIT) lookups: resolves vaddr to a
+ * physical address using the same TLB and permission rules as guest
+ * accesses, but never raises an MMU fault - a miss or permission denial
+ * just returns false. Identity/no-MMU resolves to vaddr.
+ */
+bool
+rk65c02_mmu_translate_cached(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, uint32_t *paddr_out)
+{
+	uint8_t req_perm;
+	uint16_t fault_code = 0;
+
+	assert(e != NULL);
+	if (paddr_out == NULL)
+		return false;
+	if (!(e->mmu_enabled) || e->mmu_identity_active) {
+		*paddr_out = vaddr;
+		return true;
+	}
+
+	switch (access) {
+	case RK65C02_MMU_FETCH:
+		req_perm = RK65C02_MMU_PERM_X;
+		break;
+	case RK65C02_MMU_WRITE:
+		req_perm = RK65C02_MMU_PERM_W;
+		break;
+	case RK65C02_MMU_READ:
+	default:
+		req_perm = RK65C02_MMU_PERM_R;
+		break;
+	}
+
+	return rk65c02_mmu_translate_addr(e, vaddr, access, req_perm,
+	    paddr_out, &fault_code);
+}
+
+/*
  * Stop execution with EMUERROR (shared by panic and MMU fault).
  * Caller must have set any fault-related state (e.g. mmu_last_fault_*) before this.
  */

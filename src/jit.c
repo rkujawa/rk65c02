@@ -70,6 +70,15 @@ struct rk65c02_jit_block {
 	uint16_t end_pc_exclusive;
 	bool mmu_phys_page_valid;
 	uint8_t mmu_phys_page;
+	/*
+	 * When the block's physical mapping is offset-preserving and
+	 * page-uniform, mmu_phys_byte_cov is set and the block's bytes
+	 * occupy [mmu_phys_start, mmu_phys_start + block length); write
+	 * detection and invalidation are then byte-precise. Otherwise the
+	 * block falls back to page-granular physical tracking.
+	 */
+	bool mmu_phys_byte_cov;
+	uint16_t mmu_phys_start;
 	void (*fn)(rk65c02emu_t *);
 #ifdef HAVE_LIGHTNING
 	jit_state_t *lightning_state;  /* one state per block: stable fn, no buffer realloc */
@@ -90,7 +99,7 @@ struct rk65c02_jit {
 	bool pending_write_overflow;
 	uint16_t pending_write_addr[JIT_WRITE_EVENT_SLOTS];
 	bool pending_write_phys_valid[JIT_WRITE_EVENT_SLOTS];
-	uint8_t pending_write_phys_page[JIT_WRITE_EVENT_SLOTS];
+	uint16_t pending_write_phys_addr[JIT_WRITE_EVENT_SLOTS];
 	/* Runtime state used by adaptive invalidation policy. */
 	uint64_t invalidation_events_this_run;
 	/* Cumulative counters exposed via rk65c02_jit_stats_get(). */
@@ -104,7 +113,10 @@ struct rk65c02_jit {
 	uint64_t debug_fallback_by_opcode[256];
 #endif
 	uint16_t compiled_page_refcnt[256];
+	/* Coarse tier: phys pages of blocks WITHOUT byte-precise coverage. */
 	uint16_t compiled_phys_page_refcnt[256];
+	/* Byte tier: phys addresses covered by byte-precise blocks. */
+	uint16_t covered_phys_addr_refcnt[65536];
 	uint32_t compiled_phys_refs_total;
 	uint16_t compiled_code_page_refcnt[256];
 	uint16_t covered_addr_refcnt[65536];
@@ -137,39 +149,17 @@ static bool
 jit_translate_paddr(rk65c02emu_t *e, uint16_t vaddr,
     rk65c02_mmu_access_t access, uint16_t *paddr_out)
 {
-	rk65c02_mmu_result_t r;
-	uint8_t need_perm;
+	uint32_t paddr;
 
 	if ((e == NULL) || (paddr_out == NULL))
 		return false;
-	if (!(e->mmu_enabled) || e->mmu_identity_active) {
-		*paddr_out = vaddr;
-		return true;
-	}
-	if (e->mmu_translate == NULL)
+	/* TLB-backed lookup; no fault side effects on miss. */
+	if (!rk65c02_mmu_translate_cached(e, vaddr, access, &paddr))
+		return false;
+	if (paddr >= RK65C02_BUS_SIZE)
 		return false;
 
-	r = e->mmu_translate(e, vaddr, access, e->mmu_translate_ctx);
-	if (!r.ok)
-		return false;
-	if (r.paddr >= RK65C02_BUS_SIZE)
-		return false;
-	switch (access) {
-	case RK65C02_MMU_FETCH:
-		need_perm = RK65C02_MMU_PERM_X;
-		break;
-	case RK65C02_MMU_WRITE:
-		need_perm = RK65C02_MMU_PERM_W;
-		break;
-	case RK65C02_MMU_READ:
-	default:
-		need_perm = RK65C02_MMU_PERM_R;
-		break;
-	}
-	if ((r.perms & need_perm) != need_perm)
-		return false;
-
-	*paddr_out = (uint16_t)r.paddr;
+	*paddr_out = (uint16_t)paddr;
 	return true;
 }
 
@@ -220,6 +210,15 @@ jit_build_block_insns(rk65c02emu_t *e, uint16_t start_pc,
 		    insns[n-1].i.opcode == 0x60 /* RTS */)
 			break;
 
+		/*
+		 * STP and WAI end the block too: execution halts there, so
+		 * decoding bytes past them would only extend the block's
+		 * covered span into what is usually adjacent data.
+		 */
+		if ((insns[n-1].i.opcode == 0xDB /* STP */) ||
+		    (insns[n-1].i.opcode == 0xCB /* WAI */))
+			break;
+
 		pc += id.size;
 	}
 
@@ -248,7 +247,7 @@ jit_backend_create(void)
 	j->pending_write_overflow = false;
 	memset(j->pending_write_addr, 0, sizeof(j->pending_write_addr));
 	memset(j->pending_write_phys_valid, 0, sizeof(j->pending_write_phys_valid));
-	memset(j->pending_write_phys_page, 0, sizeof(j->pending_write_phys_page));
+	memset(j->pending_write_phys_addr, 0, sizeof(j->pending_write_phys_addr));
 	j->compiled_phys_refs_total = 0;
 	j->invalidation_events_this_run = 0;
 	memset(&j->stats, 0, sizeof(j->stats));
@@ -261,6 +260,7 @@ jit_backend_create(void)
 #endif
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->compiled_phys_page_refcnt, 0, sizeof(j->compiled_phys_page_refcnt));
+	memset(j->covered_phys_addr_refcnt, 0, sizeof(j->covered_phys_addr_refcnt));
 	memset(j->compiled_code_page_refcnt, 0, sizeof(j->compiled_code_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
@@ -301,6 +301,7 @@ jit_backend_flush(struct rk65c02_jit *j)
 	j->pending_write_overflow = false;
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->compiled_phys_page_refcnt, 0, sizeof(j->compiled_phys_page_refcnt));
+	memset(j->covered_phys_addr_refcnt, 0, sizeof(j->covered_phys_addr_refcnt));
 	j->compiled_phys_refs_total = 0;
 	memset(j->compiled_code_page_refcnt, 0, sizeof(j->compiled_code_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
@@ -367,10 +368,24 @@ jit_block_page_refs_update(struct rk65c02_jit *j,
 	if (b->mmu_phys_page_valid) {
 		int next;
 
-		next = (int)j->compiled_phys_page_refcnt[b->mmu_phys_page] + delta;
-		if (next < 0)
-			next = 0;
-		j->compiled_phys_page_refcnt[b->mmu_phys_page] = (uint16_t)next;
+		if (b->mmu_phys_byte_cov) {
+			uint16_t len, off;
+
+			len = (uint16_t)(b->end_pc_exclusive - b->start_pc);
+			for (off = 0; off < len; off++) {
+				uint32_t pa = (uint32_t)b->mmu_phys_start + off;
+
+				next = (int)j->covered_phys_addr_refcnt[pa] + delta;
+				if (next < 0)
+					next = 0;
+				j->covered_phys_addr_refcnt[pa] = (uint16_t)next;
+			}
+		} else {
+			next = (int)j->compiled_phys_page_refcnt[b->mmu_phys_page] + delta;
+			if (next < 0)
+				next = 0;
+			j->compiled_phys_page_refcnt[b->mmu_phys_page] = (uint16_t)next;
+		}
 		if (delta > 0)
 			j->compiled_phys_refs_total++;
 		else if (j->compiled_phys_refs_total > 0)
@@ -568,7 +583,7 @@ jit_invalidate_blocks_for_code_page(struct rk65c02_jit *j, uint8_t vpage)
 }
 
 static void
-jit_invalidate_blocks_for_phys_page(struct rk65c02_jit *j, uint8_t phys_page)
+jit_invalidate_blocks_for_phys_addr(struct rk65c02_jit *j, uint16_t paddr)
 {
 	size_t i;
 
@@ -580,8 +595,18 @@ jit_invalidate_blocks_for_phys_page(struct rk65c02_jit *j, uint8_t phys_page)
 		b = j->blocks[i];
 		if ((b == NULL) || (b->fn == NULL))
 			continue;
-		if (!(b->mmu_phys_page_valid) || (b->mmu_phys_page != phys_page))
+		if (!(b->mmu_phys_page_valid))
 			continue;
+		if (b->mmu_phys_byte_cov) {
+			uint16_t len;
+
+			len = (uint16_t)(b->end_pc_exclusive - b->start_pc);
+			if ((paddr < b->mmu_phys_start) ||
+			    (paddr >= (uint16_t)(b->mmu_phys_start + len)))
+				continue;
+		} else if ((uint8_t)(paddr >> 8) != b->mmu_phys_page) {
+			continue;
+		}
 		if (b->lightning_state != NULL) {
 			_jit_destroy_state(b->lightning_state);
 			b->lightning_state = NULL;
@@ -636,7 +661,8 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 	has_phys_hit = false;
 	if ((j->compiled_phys_refs_total != 0)
 	    && jit_translate_paddr(e, addr, RK65C02_MMU_WRITE, &paddr)
-	    && (j->compiled_phys_page_refcnt[paddr >> 8] != 0))
+	    && ((j->covered_phys_addr_refcnt[paddr] != 0)
+	    || (j->compiled_phys_page_refcnt[paddr >> 8] != 0)))
 		has_phys_hit = true;
 	if (!covered_virt && !has_phys_hit)
 		return;
@@ -654,8 +680,8 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 			j->pending_write_addr[j->pending_writes] = addr;
 			j->pending_write_phys_valid[j->pending_writes] =
 			    has_phys_hit;
-			j->pending_write_phys_page[j->pending_writes] =
-			    has_phys_hit ? (uint8_t)(paddr >> 8) : 0;
+			j->pending_write_phys_addr[j->pending_writes] =
+			    has_phys_hit ? paddr : 0;
 			j->pending_writes++;
 		} else {
 			j->pending_write_overflow = true;
@@ -666,7 +692,7 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 	/* Interpreter context: no native frame is active, invalidate now. */
 	jit_invalidate_blocks_for_addr(j, addr);
 	if (has_phys_hit)
-		jit_invalidate_blocks_for_phys_page(j, (uint8_t)(paddr >> 8));
+		jit_invalidate_blocks_for_phys_addr(j, paddr);
 	j->page_invalidation_events[addr >> 8]++;
 	if (!j->mutable_code_page[addr >> 8] &&
 	    (j->page_invalidation_events[addr >> 8] >=
@@ -1904,6 +1930,8 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		b->end_pc_exclusive = pc;
 		b->mmu_phys_page_valid = false;
 		b->mmu_phys_page = 0;
+		b->mmu_phys_byte_cov = false;
+		b->mmu_phys_start = 0;
 		b->fn = NULL;
 #ifdef HAVE_LIGHTNING
 		b->lightning_state = NULL;
@@ -1923,16 +1951,44 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		    &num_insns);
 		if (num_insns == 0)
 			return NULL;
-		if (jit_translate_paddr(e, pc, RK65C02_MMU_FETCH, &block_end)) {
-			b->mmu_phys_page_valid = true;
-			b->mmu_phys_page = (uint8_t)(block_end >> 8);
-		} else {
-			b->mmu_phys_page_valid = false;
-		}
 		block_end = pc;
 		for (k = 0; k < num_insns; k++)
 			block_end = (uint16_t)(block_end + insns[k].id.size);
 		b->end_pc_exclusive = block_end;
+
+		/*
+		 * Physical tags exist only for real (non-identity) MMU
+		 * mappings; under identity the byte-precise virtual coverage
+		 * already tracks every block byte. Mode changes go through
+		 * rk65c02_mmu_set, which flushes the JIT, so tags cannot go
+		 * stale across a mode switch.
+		 */
+		b->mmu_phys_page_valid = false;
+		b->mmu_phys_byte_cov = false;
+		b->mmu_phys_start = 0;
+		if (e->mmu_enabled && !(e->mmu_identity_active)) {
+			uint16_t phys_start, phys_last;
+
+			if (jit_translate_paddr(e, pc, RK65C02_MMU_FETCH,
+			    &phys_start)) {
+				b->mmu_phys_page_valid = true;
+				b->mmu_phys_page = (uint8_t)(phys_start >> 8);
+				b->mmu_phys_start = phys_start;
+				/*
+				 * Byte-precise physical coverage requires an
+				 * offset-preserving mapping; confirm the last
+				 * block byte translates contiguously too.
+				 */
+				if (((phys_start & 0xFFu) == (pc & 0xFFu))
+				    && (block_end != pc)
+				    && jit_translate_paddr(e,
+				        (uint16_t)(block_end - 1),
+				        RK65C02_MMU_FETCH, &phys_last)
+				    && (phys_last == (uint16_t)(phys_start +
+				        (uint16_t)(block_end - pc) - 1)))
+					b->mmu_phys_byte_cov = true;
+			}
+		}
 
 		state = jit_new_state();
 		b->lightning_state = state;
@@ -2199,8 +2255,8 @@ rk65c02_run_jit(rk65c02emu_t *e)
 
 				jit_invalidate_blocks_for_addr(e->jit, waddr);
 				if (e->jit->pending_write_phys_valid[wi])
-					jit_invalidate_blocks_for_phys_page(e->jit,
-					    e->jit->pending_write_phys_page[wi]);
+					jit_invalidate_blocks_for_phys_addr(e->jit,
+					    e->jit->pending_write_phys_addr[wi]);
 				e->jit->page_invalidation_events[write_page]++;
 				if (!e->jit->mutable_code_page[write_page] &&
 				    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {

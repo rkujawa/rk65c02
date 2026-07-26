@@ -26,6 +26,9 @@ void rk65c02_jit_invalidate_vpage(rk65c02emu_t *e, uint8_t vpage);
 void rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage);
 /* Self-modifying-code tracking: called after every successful guest store. */
 void rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr);
+/* TLB-backed, fault-free translation for JIT-internal lookups. */
+bool rk65c02_mmu_translate_cached(rk65c02emu_t *e, uint16_t vaddr,
+    rk65c02_mmu_access_t access, uint32_t *paddr_out);
 
 #ifdef HAVE_LIGHTNING
 /* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */
