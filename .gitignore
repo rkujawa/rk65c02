@@ -78,3 +78,8 @@ emulation.h
 /examples/mmu_pae
 /examples/mmu_mpu
 /examples/tinyos
+/examples/msbasic/basic.bin
+/examples/msbasic/basic.lbl
+/examples/msbasic/basic.map
+/examples/msbasic/iostub.bin
+/examples/msbasic/run_msbasic
