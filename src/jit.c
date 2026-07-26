@@ -140,6 +140,8 @@ struct jit_block_insn {
 /* Forward declaration from rk65c02.c */
 void rk65c02_exec(rk65c02emu_t *e);
 
+static bool jit_invalidate_deferred(rk65c02emu_t *e);
+
 #ifdef HAVE_LIGHTNING
 static void jit_block_page_refs_update(struct rk65c02_jit *j,
     const struct rk65c02_jit_block *b, bool add);
@@ -2063,6 +2065,8 @@ rk65c02_jit_flush(rk65c02emu_t *e)
 
 	if (e->jit == NULL)
 		return;
+	if (jit_invalidate_deferred(e))
+		return;
 
 	jit_backend_flush(e->jit);
 }
@@ -2091,12 +2095,32 @@ rk65c02_jit_stats_reset(rk65c02emu_t *e)
 	memset(&e->jit->stats, 0, sizeof(e->jit->stats));
 }
 
+/*
+ * Public invalidation entry points may be reached from host callbacks
+ * (e.g. a bus-device write handler performing an MMU remap) while a
+ * compiled block is executing. Destroying native code mid-execution
+ * would free the running function, so in that case defer to a full
+ * flush after the block returns (the dispatcher processes needs_flush)
+ * and clear use_jit so the block bails out at its next check.
+ */
+static bool
+jit_invalidate_deferred(rk65c02emu_t *e)
+{
+	if (!(e->in_jit_run))
+		return false;
+	e->jit->needs_flush = true;
+	e->use_jit = false;
+	return true;
+}
+
 void
 rk65c02_jit_invalidate_all(rk65c02emu_t *e)
 {
 	assert(e != NULL);
 
 	if (e->jit == NULL)
+		return;
+	if (jit_invalidate_deferred(e))
 		return;
 	jit_backend_flush(e->jit);
 }
@@ -2108,6 +2132,8 @@ rk65c02_jit_invalidate_vpage(rk65c02emu_t *e, uint8_t vpage)
 
 	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
 		return;
+	if (jit_invalidate_deferred(e))
+		return;
 	jit_invalidate_blocks_for_page(e->jit, vpage);
 }
 
@@ -2117,6 +2143,8 @@ rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage)
 	assert(e != NULL);
 
 	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
+		return;
+	if (jit_invalidate_deferred(e))
 		return;
 	jit_invalidate_blocks_for_code_page(e->jit, vpage);
 }
@@ -2315,8 +2343,12 @@ rk65c02_run_jit(rk65c02emu_t *e)
 			}
 			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
 		}
-		if (e->jit->needs_flush)
+		if (e->jit->needs_flush) {
 			jit_backend_flush(e->jit);
+			/* Deferred invalidation cleared use_jit to force a
+			 * bail-out; restore the host's preference. */
+			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
+		}
 		rk65c02_poll_host_controls(e);
 		if (e->state != RUNNING) {
 			if (rk65c02_maybe_wait_on_idle(e) &&
