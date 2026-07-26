@@ -11,7 +11,10 @@ otherwise it tries to mimic behaviour of 65C02S as close as possible.
 
 Currently, the following features are implemented:
 - Emulation of all opcodes, including WDC extensions and BCD mode.
-- Optional JIT using GNU Lightning.
+- Optional JIT using GNU Lightning, safe for self-modifying code: every
+  guest store (JIT-native or interpreted) invalidates affected compiled
+  blocks, including stores through MMU alias mappings. See
+  [doc/jit-design.md](doc/jit-design.md).
 - Support for interrupts.
 - Host callbacks for stop notification and periodic execution ticks.
 - Optional idle-wait callback integration for `WAI`-driven guest idle loops.

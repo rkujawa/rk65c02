@@ -830,6 +830,14 @@ rk65c02_mem_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 	assert(e != NULL);
 	assert(e->mem_write_1_fn != NULL);
 	e->mem_write_1_fn(e, addr, val, RK65C02_MMU_WRITE);
+	/*
+	 * Self-modifying-code tracking: all guest stores (interpreter and
+	 * JIT-native alike) must invalidate compiled blocks covering the
+	 * written address. Faulting writes longjmp out above and are never
+	 * reported here.
+	 */
+	if (e->jit != NULL)
+		rk65c02_jit_note_guest_write(e, addr);
 }
 
 void

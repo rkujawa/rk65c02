@@ -32,6 +32,12 @@ static jit_state_t *_jit;
 #define JIT_MAX_ACTIVE_BLOCKS 1024
 #define JIT_MAX_INVALIDATIONS_PER_RUN 128
 #define JIT_PAGE_INVALIDATION_THRESHOLD 4
+/*
+ * Deferred write-event slots: a single native instruction can perform at
+ * most a few tracked stores before its block bails out (JSR pushes two
+ * bytes, a fallback BRK pushes three), so four slots cover the worst case.
+ */
+#define JIT_WRITE_EVENT_SLOTS 4
 #define JIT_MAGIC 0x4a495431u  /* "JIT1" */
 /* Enable optional per-run telemetry for profiling JIT behavior. */
 #ifndef RK65C02_JIT_PERF_DEBUG
@@ -74,8 +80,17 @@ struct rk65c02_jit {
 	unsigned int magic;
 	size_t active_blocks;
 	bool needs_flush;
-	bool write_event_pending;
-	uint16_t last_write_addr;
+	/*
+	 * Guest stores into compiled code detected while a native block is
+	 * executing are deferred here; the dispatcher invalidates after the
+	 * block returns (destroying native code mid-execution is unsafe).
+	 * Stores from interpreter context invalidate immediately instead.
+	 */
+	size_t pending_writes;
+	bool pending_write_overflow;
+	uint16_t pending_write_addr[JIT_WRITE_EVENT_SLOTS];
+	bool pending_write_phys_valid[JIT_WRITE_EVENT_SLOTS];
+	uint8_t pending_write_phys_page[JIT_WRITE_EVENT_SLOTS];
 	/* Runtime state used by adaptive invalidation policy. */
 	uint64_t invalidation_events_this_run;
 #if RK65C02_JIT_PERF_DEBUG
@@ -88,12 +103,11 @@ struct rk65c02_jit {
 #endif
 	uint16_t compiled_page_refcnt[256];
 	uint16_t compiled_phys_page_refcnt[256];
+	uint32_t compiled_phys_refs_total;
 	uint16_t compiled_code_page_refcnt[256];
 	uint16_t covered_addr_refcnt[65536];
 	uint16_t page_invalidation_events[256];
 	bool mutable_code_page[256];
-	bool write_phys_page_valid;
-	uint8_t last_write_phys_page;
 	struct rk65c02_jit_block *blocks[JIT_CACHE_SIZE];
 };
 
@@ -180,6 +194,15 @@ jit_build_block_insns(rk65c02emu_t *e, uint16_t start_pc,
 		if (e->state != RUNNING)
 			break;
 		id = instruction_decode(insns[n].i.opcode);
+		/*
+		 * Keep every byte of the block on the entry page: operand
+		 * bytes spilling into the next page would escape the per-page
+		 * MMU phys tracking and code-vpage invalidation, which match
+		 * blocks by their entry page only.
+		 */
+		if ((uint16_t)((uint16_t)(pc + id.size - 1) >> 8) !=
+		    (start_pc >> 8))
+			break;
 		insns[n].id = id;
 
 		n++;
@@ -219,10 +242,12 @@ jit_backend_create(void)
 	j->magic = JIT_MAGIC;
 	j->active_blocks = 0;
 	j->needs_flush = false;
-	j->write_event_pending = false;
-	j->last_write_addr = 0;
-	j->write_phys_page_valid = false;
-	j->last_write_phys_page = 0;
+	j->pending_writes = 0;
+	j->pending_write_overflow = false;
+	memset(j->pending_write_addr, 0, sizeof(j->pending_write_addr));
+	memset(j->pending_write_phys_valid, 0, sizeof(j->pending_write_phys_valid));
+	memset(j->pending_write_phys_page, 0, sizeof(j->pending_write_phys_page));
+	j->compiled_phys_refs_total = 0;
 	j->invalidation_events_this_run = 0;
 #if RK65C02_JIT_PERF_DEBUG
 	j->debug_blocks_executed = 0;
@@ -269,18 +294,15 @@ jit_backend_flush(struct rk65c02_jit *j)
 
 	j->active_blocks = 0;
 	j->needs_flush = false;
-	j->write_event_pending = false;
-	j->last_write_addr = 0;
-	j->write_phys_page_valid = false;
-	j->last_write_phys_page = 0;
+	j->pending_writes = 0;
+	j->pending_write_overflow = false;
 	memset(j->compiled_page_refcnt, 0, sizeof(j->compiled_page_refcnt));
 	memset(j->compiled_phys_page_refcnt, 0, sizeof(j->compiled_phys_page_refcnt));
+	j->compiled_phys_refs_total = 0;
 	memset(j->compiled_code_page_refcnt, 0, sizeof(j->compiled_code_page_refcnt));
 	memset(j->covered_addr_refcnt, 0, sizeof(j->covered_addr_refcnt));
 	memset(j->page_invalidation_events, 0, sizeof(j->page_invalidation_events));
 	memset(j->mutable_code_page, 0, sizeof(j->mutable_code_page));
-	j->write_phys_page_valid = false;
-	j->last_write_phys_page = 0;
 }
 
 static struct rk65c02_jit_block *
@@ -346,6 +368,10 @@ jit_block_page_refs_update(struct rk65c02_jit *j,
 		if (next < 0)
 			next = 0;
 		j->compiled_phys_page_refcnt[b->mmu_phys_page] = (uint16_t)next;
+		if (delta > 0)
+			j->compiled_phys_refs_total++;
+		else if (j->compiled_phys_refs_total > 0)
+			j->compiled_phys_refs_total--;
 	}
 	{
 		uint8_t code_page = (uint8_t)(b->start_pc >> 8);
@@ -564,36 +590,81 @@ jit_invalidate_blocks_for_phys_page(struct rk65c02_jit *j, uint8_t phys_page)
 	}
 }
 
-/* Write helper for JIT-native stores. */
+/* Write helper for JIT-native stores. SMC detection happens inside
+ * rk65c02_mem_write_1 via rk65c02_jit_note_guest_write, so native and
+ * interpreter stores share the same tracking. */
 static void
 jit_bus_write_1(rk65c02emu_t *e, uint16_t addr, uint8_t val)
 {
-	uint16_t paddr;
-	bool has_phys_hit;
-
 	assert(e != NULL);
 
 	rk65c02_mem_write_1(e, addr, val);
-	if (e->state != RUNNING)
+}
+
+/*
+ * Called from rk65c02_mem_write_1 after every successful guest store.
+ * Detects writes into memory covered by compiled blocks (directly, or via
+ * an MMU alias to a physical page holding compiled code). From inside a
+ * running block the invalidation is deferred and the block bails out;
+ * from interpreter context (rk65c02_step, mutable pages, fallbacks called
+ * outside blocks, runs with JIT disabled) blocks are invalidated at once.
+ */
+void
+rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
+{
+	struct rk65c02_jit *j;
+	uint16_t paddr;
+	bool covered_virt, has_phys_hit;
+
+	assert(e != NULL);
+
+	j = e->jit;
+	if ((j == NULL) || (j->magic != JIT_MAGIC) || (j->active_blocks == 0))
 		return;
 #if RK65C02_JIT_PERF_DEBUG
-	if ((e->jit != NULL) && (e->jit->magic == JIT_MAGIC))
-		e->jit->debug_write_events++;
+	j->debug_write_events++;
 #endif
+	covered_virt = (j->compiled_page_refcnt[addr >> 8] != 0)
+	    && (j->covered_addr_refcnt[addr] != 0);
 	has_phys_hit = false;
-	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
+	if ((j->compiled_phys_refs_total != 0)
 	    && jit_translate_paddr(e, addr, RK65C02_MMU_WRITE, &paddr)
-	    && (e->jit->compiled_phys_page_refcnt[paddr >> 8] != 0))
+	    && (j->compiled_phys_page_refcnt[paddr >> 8] != 0))
 		has_phys_hit = true;
-	if ((e->use_jit) && (e->jit != NULL) && (e->jit->magic == JIT_MAGIC)
-	    && (e->jit->compiled_page_refcnt[addr >> 8] != 0)
-	    && ((e->jit->covered_addr_refcnt[addr] != 0) || has_phys_hit)) {
-		/* Force immediate block bail-out; dispatcher will invalidate spans. */
+	if (!covered_virt && !has_phys_hit)
+		return;
+
+	if (e->in_jit_run) {
+		/*
+		 * Native code for the written span may be executing right
+		 * now; destroying it here would free the running function.
+		 * Record the event and force the block to bail out after the
+		 * current instruction; the dispatcher invalidates the spans.
+		 */
 		e->use_jit = false;
-		e->jit->write_event_pending = true;
-		e->jit->last_write_addr = addr;
-		e->jit->write_phys_page_valid = has_phys_hit;
-		e->jit->last_write_phys_page = has_phys_hit ? (uint8_t)(paddr >> 8) : 0;
+		if (j->pending_writes < JIT_WRITE_EVENT_SLOTS) {
+			j->pending_write_addr[j->pending_writes] = addr;
+			j->pending_write_phys_valid[j->pending_writes] =
+			    has_phys_hit;
+			j->pending_write_phys_page[j->pending_writes] =
+			    has_phys_hit ? (uint8_t)(paddr >> 8) : 0;
+			j->pending_writes++;
+		} else {
+			j->pending_write_overflow = true;
+		}
+		return;
+	}
+
+	/* Interpreter context: no native frame is active, invalidate now. */
+	jit_invalidate_blocks_for_addr(j, addr);
+	if (has_phys_hit)
+		jit_invalidate_blocks_for_phys_page(j, (uint8_t)(paddr >> 8));
+	j->page_invalidation_events[addr >> 8]++;
+	if (!j->mutable_code_page[addr >> 8] &&
+	    (j->page_invalidation_events[addr >> 8] >=
+	    JIT_PAGE_INVALIDATION_THRESHOLD)) {
+		j->mutable_code_page[addr >> 8] = true;
+		jit_invalidate_blocks_for_page(j, (uint8_t)(addr >> 8));
 	}
 }
 
@@ -1787,13 +1858,18 @@ jit_emit_insn(struct jit_block_insn *bi, jit_node_t *arg_node)
 
 	/*
 	 * Fallback opcodes that modify PC must end the current native block.
-	 * For others we continue, but still bail if execution stopped.
+	 * For others we continue, but still bail if execution stopped or if
+	 * the fallback stored into compiled code (rk65c02_jit_note_guest_write
+	 * cleared use_jit to request an immediate bail-out).
 	 */
 	if (bi->id.modify_pc) {
 		bail = jit_jmpi();
 	} else {
 		jit_ldxi_i(JIT_R1, JIT_R0, OFFSET_E_STATE);
-		bail = jit_bnei(JIT_R1, RUNNING);
+		jit_eqi(JIT_R1, JIT_R1, RUNNING);
+		jit_ldxi_uc(JIT_R2, JIT_R0, OFFSET_E_USE_JIT);
+		jit_andr(JIT_R1, JIT_R1, JIT_R2);
+		bail = jit_beqi(JIT_R1, 0);
 	}
 
 	return bail;
@@ -2072,21 +2148,33 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		if (setjmp(e->jit_fault_env) == 0)
 			b->fn(e);
 		e->in_jit_run = false;
-		if (e->jit->write_event_pending) {
-			uint8_t write_page = (uint8_t)(e->jit->last_write_addr >> 8);
+		if ((e->jit->pending_writes > 0) ||
+		    e->jit->pending_write_overflow) {
+			size_t wi;
 
-			jit_invalidate_blocks_for_addr(e->jit, e->jit->last_write_addr);
-			if (e->jit->write_phys_page_valid)
-				jit_invalidate_blocks_for_phys_page(e->jit,
-				    e->jit->last_write_phys_page);
-			e->jit->page_invalidation_events[write_page]++;
-			if (!e->jit->mutable_code_page[write_page] &&
-			    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
-				e->jit->mutable_code_page[write_page] = true;
-				jit_invalidate_blocks_for_page(e->jit, write_page);
+			if (e->jit->pending_write_overflow) {
+				/* More tracked stores than slots in a single
+				 * block: give up on precision and flush. */
+				jit_backend_flush(e->jit);
+				e->jit->invalidation_events_this_run++;
 			}
-			e->jit->write_event_pending = false;
-			e->jit->write_phys_page_valid = false;
+			for (wi = 0; wi < e->jit->pending_writes; wi++) {
+				uint16_t waddr = e->jit->pending_write_addr[wi];
+				uint8_t write_page = (uint8_t)(waddr >> 8);
+
+				jit_invalidate_blocks_for_addr(e->jit, waddr);
+				if (e->jit->pending_write_phys_valid[wi])
+					jit_invalidate_blocks_for_phys_page(e->jit,
+					    e->jit->pending_write_phys_page[wi]);
+				e->jit->page_invalidation_events[write_page]++;
+				if (!e->jit->mutable_code_page[write_page] &&
+				    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
+					e->jit->mutable_code_page[write_page] = true;
+					jit_invalidate_blocks_for_page(e->jit, write_page);
+				}
+			}
+			e->jit->pending_writes = 0;
+			e->jit->pending_write_overflow = false;
 			if (e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
 				disable_jit_for_run = true;
 			e->use_jit = disable_jit_for_run ? false : e->jit_requested;

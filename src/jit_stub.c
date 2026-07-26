@@ -48,6 +48,13 @@ rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage)
 }
 
 void
+rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
+{
+	(void)e;
+	(void)addr;
+}
+
+void
 rk65c02_run_jit(rk65c02emu_t *e)
 {
 	/* Fall back to interpreter loop (same as in jit.c when !use_jit). */

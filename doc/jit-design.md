@@ -6,7 +6,7 @@ The JIT backend compiles sequences of 65C02 instructions (basic blocks) into nat
 
 ## Block Definition
 
-- **Block**: A contiguous sequence of 65C02 instructions from a single entry PC until (and including) the first instruction that **modifies PC** (branch, JMP, JSR, RTS, RTI, BRK), or until a maximum length (64 instructions). RTS is explicitly treated as block-ending because the ISA marks it as not modifying PC for the interpreter's step logic, but it does change PC to the return address.
+- **Block**: A contiguous sequence of 65C02 instructions from a single entry PC until (and including) the first instruction that **modifies PC** (branch, JMP, JSR, RTS, RTI, BRK), until a maximum length (64 instructions), or before an instruction whose bytes would cross the entry page. RTS is explicitly treated as block-ending because the ISA marks it as not modifying PC for the interpreter's step logic, but it does change PC to the return address. Keeping every block byte on the entry page makes per-page tracking exact: the block's physical-page tag and `rk65c02_jit_invalidate_code_vpage()` (which match blocks by entry page) cover all of its bytes.
 - **Block key**: Start PC; the cache is direct-mapped as `blocks[pc]`.
 - **Compiled function**: One Lightning-generated function per block with signature `void block_fn(rk65c02emu_t *e)`. On return, `e->regs.PC` is the next PC. The C dispatcher looks up or compiles the block for that PC and calls it again.
 
@@ -27,11 +27,11 @@ Memory is accessed via the emulator's accessors `rk65c02_mem_read_1(e, addr)` an
 
 ## Bail-Out After Fallback
 
-When the fallback path calls `rk65c02_exec` (for opcodes not yet native), the generated code checks `e->state` afterward. If the emulator is no longer RUNNING (e.g. STP, WAI, BRK changed the state), a forward branch skips the remaining block instructions and returns. All bail-out branches are patched to the block's shared return point.
+When the fallback path calls `rk65c02_exec` (for opcodes not yet native), the generated code checks `e->state` and `e->use_jit` afterward. If the emulator is no longer RUNNING (e.g. STP, WAI, BRK changed the state), or the fallback instruction stored into compiled code (which clears `use_jit` to request a bail-out), a forward branch skips the remaining block instructions and returns. All bail-out branches are patched to the block's shared return point.
 
 ## C Helpers
 
-- **Memory**: `jit_mem_read_1(e, addr)` and `jit_bus_write_1(e, addr, val)` — they call `rk65c02_mem_read_1` / `rk65c02_mem_write_1` so the bus and MMU are used correctly. The write helper also records write events for self-modifying code detection and JIT invalidation.
+- **Memory**: `jit_mem_read_1(e, addr)` and `jit_bus_write_1(e, addr, val)` — they call `rk65c02_mem_read_1` / `rk65c02_mem_write_1` so the bus and MMU are used correctly. Self-modifying-code detection is not in the JIT helper: `rk65c02_mem_write_1` itself calls `rk65c02_jit_note_guest_write()` after every successful guest store, so interpreter-executed stores (stepping, mutable pages, fallbacks, runs with JIT disabled) are tracked exactly like JIT-native ones.
 - **Fallback**: Any opcode not yet implemented natively triggers a call to `rk65c02_exec(e)` (single instruction) so behaviour stays correct while the opcode table is filled incrementally.
 
 ## GNU Lightning Lifecycle
@@ -82,7 +82,8 @@ When the host enables the MMU, the JIT remains correct by:
 
 - **Translation on access**: All memory access from generated code goes through `rk65c02_mem_read_1` / `rk65c02_mem_write_1`, which use the host's translate callback when the MMU is enabled.
 - **Block physical page**: Each compiled block records the physical page of its entry PC (when translation succeeds) so the dispatcher can reuse the block only when the current mapping still matches (`mmu_phys_page_valid`, `mmu_phys_page`).
-- **Write tracking**: Stores go through `jit_bus_write_1`, which sets `write_event_pending` and `last_write_addr` when the write hits a page that has compiled code. The run loop then disables JIT for the rest of the run and invalidates affected blocks so the next run sees the updated code.
+- **Write tracking**: Every guest store — native or interpreted — reaches `rk65c02_jit_note_guest_write()` via `rk65c02_mem_write_1`. A store is a write event when its virtual address is covered by a compiled block, or when it translates to a physical page holding compiled code (so stores through an MMU alias window are caught even if the written virtual page has no code). From inside a running block the event is deferred (`use_jit` is cleared so the block bails out after the current instruction, and the dispatcher invalidates the recorded spans — destroying native code mid-execution would free the running function). From interpreter context the affected blocks are invalidated immediately.
+- **Adaptive policy**: After each event the dispatcher invalidates the blocks covering the written address (and physical page), then re-enables JIT. A page that accumulates `JIT_PAGE_INVALIDATION_THRESHOLD` (4) events in one run is marked mutable and interpreted for the rest of the run; `JIT_MAX_INVALIDATIONS_PER_RUN` (128) events in one run disable JIT for the rest of the run. Both are per-run states — the next `rk65c02_start()` runs JIT again, which stays correct because interpreter-path stores keep invalidating stale blocks in the meantime.
 - **Host-driven invalidation**: When the host calls `rk65c02_mmu_end_update` (e.g. after a bank switch or task switch), the library calls `rk65c02_jit_invalidate_all` or `rk65c02_jit_invalidate_code_vpage` so cached blocks for changed pages are discarded.
 
 ## Resolved Issues

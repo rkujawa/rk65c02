@@ -814,6 +814,116 @@ do_mmu_remap_fuzz(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(mmu_remap_fuzz, do_mmu_remap_fuzz)
 
+/*
+ * Self-modifying code via an MMU alias: vpage $50 maps to the same
+ * physical page as the code executing via identity-mapped vpage $C1.
+ * A store through the alias window must invalidate the compiled block
+ * even though vpage $50 itself holds no compiled code.
+ */
+static void
+do_mmu_selfmod_alias_write(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	struct mmu_test_state s;
+	uint16_t p;
+	(void)tc;
+
+	memset(&s, 0, sizeof(s));
+	for (p = 0; p < 256; p++)
+		s.page_base[p] = (uint16_t)(p << 8);
+	s.page_base[0x50] = 0xC100;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+	ATF_REQUIRE(rk65c02_mmu_set(&e, mmu_page_translate, &s, NULL, NULL, true, false));
+
+	/* Main: JSR $C100 ; LDA #$37 ; STA $5001 ; JSR $C100 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x37);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x01);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0x50);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0xDB);
+
+	/* Callee at phys $C100: LDX #$00 ; RTS (patched via $5001). */
+	bus_write_1(&b, 0xC100, 0xA2);
+	bus_write_1(&b, 0xC101, 0x00);
+	bus_write_1(&b, 0xC102, 0x60);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(mmu_selfmod_alias_write, do_mmu_selfmod_alias_write)
+
+/*
+ * Instruction operand spilling into the next virtual page, followed by a
+ * remap of that page: LDX #imm entered at $C0FF keeps its immediate at
+ * $C100. After remapping vpage $C1 the new operand byte must be used;
+ * no compiled block may retain the old page's byte.
+ */
+static void
+do_mmu_selfmod_page_spill_remap(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	struct mmu_test_state s;
+	uint16_t p;
+	(void)tc;
+
+	memset(&s, 0, sizeof(s));
+	for (p = 0; p < 256; p++)
+		s.page_base[p] = (uint16_t)(p << 8);
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+	ATF_REQUIRE(rk65c02_mmu_set(&e, mmu_page_translate, &s, NULL, NULL, true, false));
+
+	/* Main: JSR $C0FF ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0xFF);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xDB);
+
+	/* Callee at $C0FF: LDX #$11 (immediate at $C100) ; RTS. */
+	bus_write_1(&b, 0xC0FF, 0xA2);
+	bus_write_1(&b, 0xC100, 0x11);
+	bus_write_1(&b, 0xC101, 0x60);
+
+	/* Alternate operand page at phys $3000: immediate $77 ; RTS. */
+	bus_write_1(&b, 0x3000, 0x77);
+	bus_write_1(&b, 0x3001, 0x60);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x11);
+
+	rk65c02_mmu_begin_update(&e);
+	s.page_base[0xC1] = 0x3000;
+	rk65c02_mmu_mark_changed_vpage(&e, 0xC1);
+	rk65c02_mmu_end_update(&e);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x77);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(mmu_selfmod_page_spill_remap, do_mmu_selfmod_page_spill_remap)
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, mmu_set_requires_translate);
@@ -849,5 +959,9 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mmu_remap_stress_jit);
 	ATF_TP_ADD_TC(tp, mmu_remap_fuzz);
 	ATF_TP_ADD_TC(tp, mmu_remap_fuzz_jit);
+	ATF_TP_ADD_TC(tp, mmu_selfmod_alias_write);
+	ATF_TP_ADD_TC(tp, mmu_selfmod_alias_write_jit);
+	ATF_TP_ADD_TC(tp, mmu_selfmod_page_spill_remap);
+	ATF_TP_ADD_TC(tp, mmu_selfmod_page_spill_remap_jit);
 	return atf_no_error();
 }

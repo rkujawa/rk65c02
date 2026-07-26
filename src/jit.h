@@ -24,6 +24,8 @@ bool rk65c02_maybe_wait_on_idle(rk65c02emu_t *e);
 void rk65c02_jit_invalidate_all(rk65c02emu_t *e);
 void rk65c02_jit_invalidate_vpage(rk65c02emu_t *e, uint8_t vpage);
 void rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage);
+/* Self-modifying-code tracking: called after every successful guest store. */
+void rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr);
 
 #ifdef HAVE_LIGHTNING
 /* BCD ADC/SBC helpers: JIT calls these when P_DECIMAL is set. */

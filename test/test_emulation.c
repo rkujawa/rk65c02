@@ -1281,6 +1281,304 @@ static void do_emul_selfmod_code_other_entry(const atf_tc_t *tc, bool use_jit)
 }
 ATF_TC_JIT_VARIANTS(emul_selfmod_code_other_entry, do_emul_selfmod_code_other_entry)
 
+/*
+ * Self-modifying code regression (cross-page):
+ * patcher on page $C0 patches a compiled block on page $C1, then re-runs it.
+ */
+static void do_emul_selfmod_cross_page(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+
+	/* Main: JSR $C100 ; LDA #$37 ; STA $C101 ; JSR $C100 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x37);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x01);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0xDB);
+
+	/* Callee at $C100: LDX #$00 ; RTS (patched to LDX #$37 ; RTS). */
+	bus_write_1(&b, 0xC100, 0xA2);
+	bus_write_1(&b, 0xC101, 0x00);
+	bus_write_1(&b, 0xC102, 0x60);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_cross_page, do_emul_selfmod_cross_page)
+
+/*
+ * Self-modifying code regression (mutable page, cross-page patch):
+ * a patcher page accumulates enough write events to be marked mutable
+ * (interpreted for the rest of the run), then patches a compiled block on
+ * another page. The interpreted store must still invalidate that block.
+ */
+static void do_emul_selfmod_mutable_page_cross(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	uint16_t a;
+	int i;
+	static const uint8_t vals[4] = { 0x11, 0x22, 0x33, 0x44 };
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+
+	/* Main: JSR $C020 ; JSR $C140 ; JSR $C100 ; JSR $C020 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x40);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 12, 0xDB);
+
+	/* Victim at $C020 (page $C0): LDX #$00 ; RTS. */
+	bus_write_1(&b, 0xC020, 0xA2);
+	bus_write_1(&b, 0xC021, 0x00);
+	bus_write_1(&b, 0xC022, 0x60);
+
+	/* Loop target at $C140 (page $C1): LDY #$00 ; RTS. */
+	bus_write_1(&b, 0xC140, 0xA0);
+	bus_write_1(&b, 0xC141, 0x00);
+	bus_write_1(&b, 0xC142, 0x60);
+
+	/*
+	 * Patcher at $C100 (page $C1): four rounds of
+	 * LDA #val ; STA $C141 ; JSR $C140 so page $C1 crosses the
+	 * mutable-page threshold, then LDA #$37 ; STA $C021 ; RTS.
+	 */
+	a = 0xC100;
+	for (i = 0; i < 4; i++) {
+		bus_write_1(&b, a++, 0xA9);
+		bus_write_1(&b, a++, vals[i]);
+		bus_write_1(&b, a++, 0x8D);
+		bus_write_1(&b, a++, 0x41);
+		bus_write_1(&b, a++, 0xC1);
+		bus_write_1(&b, a++, 0x20);
+		bus_write_1(&b, a++, 0x40);
+		bus_write_1(&b, a++, 0xC1);
+	}
+	bus_write_1(&b, a++, 0xA9);
+	bus_write_1(&b, a++, 0x37);
+	bus_write_1(&b, a++, 0x8D);
+	bus_write_1(&b, a++, 0x21);
+	bus_write_1(&b, a++, 0xC0);
+	bus_write_1(&b, a++, 0x60);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	ATF_CHECK(e.regs.Y == 0x44);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_mutable_page_cross, do_emul_selfmod_mutable_page_cross)
+
+/*
+ * Self-modifying code regression (interpreter write between JIT runs):
+ * compile blocks in a JIT run, patch code via rk65c02_step (interpreter),
+ * then start again. The stepped store must invalidate the compiled block.
+ */
+static void do_emul_selfmod_step_then_start(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	/* Main: JSR $C020 ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xDB);
+
+	/* Patcher at $C010: LDA #$37 ; STA $C021 */
+	bus_write_1(&b, 0xC010, 0xA9);
+	bus_write_1(&b, 0xC011, 0x37);
+	bus_write_1(&b, 0xC012, 0x8D);
+	bus_write_1(&b, 0xC013, 0x21);
+	bus_write_1(&b, 0xC014, 0xC0);
+
+	/* Callee at $C020: LDX #$00 ; RTS. */
+	bus_write_1(&b, 0xC020, 0xA2);
+	bus_write_1(&b, 0xC021, 0x00);
+	bus_write_1(&b, 0xC022, 0x60);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x00);
+
+	e.regs.PC = 0xC010;
+	rk65c02_step(&e, 2);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_step_then_start, do_emul_selfmod_step_then_start)
+
+/*
+ * Self-modifying code regression (invalidation budget exhausted):
+ * enough write events in one run to trip JIT_MAX_INVALIDATIONS_PER_RUN and
+ * disable JIT for the rest of the run. A code patch performed in that
+ * interpreted tail must still invalidate the compiled block so the next
+ * rk65c02_start() does not execute stale native code.
+ */
+static void do_emul_selfmod_invalidation_budget(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+	uint16_t a;
+	uint8_t page;
+	int i;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	/* Victim at $0F20: LDX #$00 ; RTS. */
+	bus_write_1(&b, 0x0F20, 0xA2);
+	bus_write_1(&b, 0x0F21, 0x00);
+	bus_write_1(&b, 0x0F22, 0x60);
+
+	/* Second-run stub at $0F00: JSR $0F20 ; STP */
+	bus_write_1(&b, 0x0F00, 0x20);
+	bus_write_1(&b, 0x0F01, 0x20);
+	bus_write_1(&b, 0x0F02, 0x0F);
+	bus_write_1(&b, 0x0F03, 0xDB);
+
+	/* Loop targets on pages $10-$30: LDY #$00 ; RTS at each page start. */
+	for (page = 0x10; page <= 0x30; page++) {
+		bus_write_1(&b, (uint16_t)(page << 8) + 0, 0xA0);
+		bus_write_1(&b, (uint16_t)(page << 8) + 1, 0x00);
+		bus_write_1(&b, (uint16_t)(page << 8) + 2, 0x60);
+	}
+
+	/*
+	 * Main at $C000: JSR $0F20, then for each target page five rounds of
+	 * JSR target ; LDA #$55 ; STA target+1 (each store is a write event
+	 * into compiled code), then LDA #$37 ; STA $0F21 ; STP.
+	 */
+	a = ROM_LOAD_ADDR;
+	bus_write_1(&b, a++, 0x20);
+	bus_write_1(&b, a++, 0x20);
+	bus_write_1(&b, a++, 0x0F);
+	for (page = 0x10; page <= 0x30; page++) {
+		for (i = 0; i < 5; i++) {
+			bus_write_1(&b, a++, 0x20);
+			bus_write_1(&b, a++, 0x00);
+			bus_write_1(&b, a++, page);
+			bus_write_1(&b, a++, 0xA9);
+			bus_write_1(&b, a++, 0x55);
+			bus_write_1(&b, a++, 0x8D);
+			bus_write_1(&b, a++, 0x01);
+			bus_write_1(&b, a++, page);
+		}
+	}
+	bus_write_1(&b, a++, 0xA9);
+	bus_write_1(&b, a++, 0x37);
+	bus_write_1(&b, a++, 0x8D);
+	bus_write_1(&b, a++, 0x21);
+	bus_write_1(&b, a++, 0x0F);
+	bus_write_1(&b, a++, 0xDB);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x00);
+
+	e.regs.PC = 0x0F00;
+	rk65c02_start(&e);
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_invalidation_budget, do_emul_selfmod_invalidation_budget)
+
+/*
+ * Self-modifying code regression (operand spilling into the next page):
+ * a two-byte instruction whose entry is the last byte of a page keeps its
+ * immediate operand on the next page; patching that operand must be seen.
+ */
+static void do_emul_selfmod_page_spill(const atf_tc_t *tc, bool use_jit)
+{
+	rk65c02emu_t e;
+	bus_t b;
+
+	(void)tc;
+	b = bus_init_with_default_devs();
+	e = rk65c02_init(&b);
+	rk65c02_jit_enable(&e, use_jit);
+
+	e.regs.PC = ROM_LOAD_ADDR;
+	e.regs.X = 0xFF;
+
+	/* Main: JSR $C0FF ; LDA #$37 ; STA $C100 ; JSR $C0FF ; STP */
+	bus_write_1(&b, ROM_LOAD_ADDR + 0, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 1, 0xFF);
+	bus_write_1(&b, ROM_LOAD_ADDR + 2, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 3, 0xA9);
+	bus_write_1(&b, ROM_LOAD_ADDR + 4, 0x37);
+	bus_write_1(&b, ROM_LOAD_ADDR + 5, 0x8D);
+	bus_write_1(&b, ROM_LOAD_ADDR + 6, 0x00);
+	bus_write_1(&b, ROM_LOAD_ADDR + 7, 0xC1);
+	bus_write_1(&b, ROM_LOAD_ADDR + 8, 0x20);
+	bus_write_1(&b, ROM_LOAD_ADDR + 9, 0xFF);
+	bus_write_1(&b, ROM_LOAD_ADDR + 10, 0xC0);
+	bus_write_1(&b, ROM_LOAD_ADDR + 11, 0xDB);
+
+	/* Callee at $C0FF: LDX #$00 (immediate at $C100) ; RTS at $C101. */
+	bus_write_1(&b, 0xC0FF, 0xA2);
+	bus_write_1(&b, 0xC100, 0x00);
+	bus_write_1(&b, 0xC101, 0x60);
+
+	rk65c02_start(&e);
+
+	ATF_CHECK(e.stopreason == STP);
+	ATF_CHECK(e.regs.X == 0x37);
+	bus_finish(&b);
+}
+ATF_TC_JIT_VARIANTS(emul_selfmod_page_spill, do_emul_selfmod_page_spill)
+
 struct idle_wait_test_ctx {
 	unsigned int calls;
 	bool assert_irq_on_wait;
@@ -2231,6 +2529,16 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_jit);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry);
 	ATF_TP_ADD_TC(tp, emul_selfmod_code_other_entry_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_cross_page);
+	ATF_TP_ADD_TC(tp, emul_selfmod_cross_page_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_mutable_page_cross);
+	ATF_TP_ADD_TC(tp, emul_selfmod_mutable_page_cross_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_step_then_start);
+	ATF_TP_ADD_TC(tp, emul_selfmod_step_then_start_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_invalidation_budget);
+	ATF_TP_ADD_TC(tp, emul_selfmod_invalidation_budget_jit);
+	ATF_TP_ADD_TC(tp, emul_selfmod_page_spill);
+	ATF_TP_ADD_TC(tp, emul_selfmod_page_spill_jit);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_wai_resume_jit);
 	ATF_TP_ADD_TC(tp, emul_idle_wait_stp_no_callback);
