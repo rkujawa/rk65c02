@@ -30,8 +30,13 @@ static jit_state_t *_jit;
 #define JIT_CACHE_SIZE 65536
 #define JIT_BLOCK_MAX_INSNS 64
 #define JIT_MAX_ACTIVE_BLOCKS 1024
+/* Both thresholds can be overridden at build time (-D...) for experiments. */
+#ifndef JIT_MAX_INVALIDATIONS_PER_RUN
 #define JIT_MAX_INVALIDATIONS_PER_RUN 128
+#endif
+#ifndef JIT_PAGE_INVALIDATION_THRESHOLD
 #define JIT_PAGE_INVALIDATION_THRESHOLD 4
+#endif
 /*
  * Deferred write-event slots: a single native instruction can perform at
  * most a few tracked stores before its block bails out (JSR pushes two
@@ -79,6 +84,7 @@ struct rk65c02_jit_block {
 	 */
 	bool mmu_phys_byte_cov;
 	uint16_t mmu_phys_start;
+	uint8_t num_insns;
 	void (*fn)(rk65c02emu_t *);
 #ifdef HAVE_LIGHTNING
 	jit_state_t *lightning_state;  /* one state per block: stable fn, no buffer realloc */
@@ -1932,6 +1938,7 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		b->mmu_phys_page = 0;
 		b->mmu_phys_byte_cov = false;
 		b->mmu_phys_start = 0;
+		b->num_insns = 0;
 		b->fn = NULL;
 #ifdef HAVE_LIGHTNING
 		b->lightning_state = NULL;
@@ -2017,6 +2024,7 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 			b->fn = u.fn;
 		}
 		if (b->fn != NULL) {
+			b->num_insns = (uint8_t)num_insns;
 			jit_block_page_refs_update(j, b, true);
 			j->active_blocks++;
 			j->stats.blocks_compiled++;
@@ -2113,10 +2121,50 @@ rk65c02_jit_invalidate_code_vpage(rk65c02emu_t *e, uint8_t vpage)
 	jit_invalidate_blocks_for_code_page(e->jit, vpage);
 }
 
+/*
+ * Invalidate spans recorded by rk65c02_jit_note_guest_write while a
+ * compiled block was executing. Called after a block returns and on the
+ * fault path (longjmp out of a block). Returns true when this run's
+ * invalidation budget is exhausted.
+ */
+static bool
+jit_process_pending_writes(rk65c02emu_t *e)
+{
+	struct rk65c02_jit *j = e->jit;
+	size_t wi;
+
+	if (j->pending_write_overflow) {
+		/* More tracked stores than slots in a single block:
+		 * give up on precision and flush. */
+		jit_backend_flush(j);
+		j->invalidation_events_this_run++;
+	}
+	for (wi = 0; wi < j->pending_writes; wi++) {
+		uint16_t waddr = j->pending_write_addr[wi];
+		uint8_t write_page = (uint8_t)(waddr >> 8);
+
+		jit_invalidate_blocks_for_addr(j, waddr);
+		if (j->pending_write_phys_valid[wi])
+			jit_invalidate_blocks_for_phys_addr(j,
+			    j->pending_write_phys_addr[wi]);
+		j->page_invalidation_events[write_page]++;
+		if (!j->mutable_code_page[write_page] &&
+		    j->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
+			j->mutable_code_page[write_page] = true;
+			j->stats.pages_demoted++;
+			jit_invalidate_blocks_for_page(j, write_page);
+		}
+	}
+	j->pending_writes = 0;
+	j->pending_write_overflow = false;
+	return (j->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN);
+}
+
 void
 rk65c02_run_jit(rk65c02emu_t *e)
 {
-	bool disable_jit_for_run;
+	/* Written between setjmp and a possible longjmp (fault path). */
+	volatile bool disable_jit_for_run;
 
 	assert(e != NULL);
 
@@ -2150,6 +2198,25 @@ rk65c02_run_jit(rk65c02emu_t *e)
 	e->state = RUNNING;
 	jit_run_state_reset(e->jit);
 	disable_jit_for_run = false;
+
+	/*
+	 * Fault path: MMU faults and panics inside a compiled block longjmp
+	 * here. emu_stop_error has already set a terminal state and cleared
+	 * in_jit_run; process any write events the block recorded before
+	 * faulting, then re-evaluate the loop condition (which exits).
+	 * One setjmp per run instead of one per block dispatch.
+	 */
+	if (setjmp(e->jit_fault_env) != 0) {
+		if ((e->jit->pending_writes > 0) ||
+		    e->jit->pending_write_overflow) {
+			if (jit_process_pending_writes(e) &&
+			    !disable_jit_for_run) {
+				disable_jit_for_run = true;
+				e->jit->stats.run_jit_disables++;
+			}
+			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
+		}
+	}
 
 	while (e->state == RUNNING) {
 		struct rk65c02_jit_block *b;
@@ -2235,40 +2302,14 @@ rk65c02_run_jit(rk65c02emu_t *e)
 		e->jit->debug_blocks_executed++;
 #endif
 		e->jit->stats.blocks_executed++;
+		e->jit->stats.insns_executed += b->num_insns;
 		e->in_jit_run = true;
-		if (setjmp(e->jit_fault_env) == 0)
-			b->fn(e);
+		b->fn(e);
 		e->in_jit_run = false;
 		if ((e->jit->pending_writes > 0) ||
 		    e->jit->pending_write_overflow) {
-			size_t wi;
-
-			if (e->jit->pending_write_overflow) {
-				/* More tracked stores than slots in a single
-				 * block: give up on precision and flush. */
-				jit_backend_flush(e->jit);
-				e->jit->invalidation_events_this_run++;
-			}
-			for (wi = 0; wi < e->jit->pending_writes; wi++) {
-				uint16_t waddr = e->jit->pending_write_addr[wi];
-				uint8_t write_page = (uint8_t)(waddr >> 8);
-
-				jit_invalidate_blocks_for_addr(e->jit, waddr);
-				if (e->jit->pending_write_phys_valid[wi])
-					jit_invalidate_blocks_for_phys_addr(e->jit,
-					    e->jit->pending_write_phys_addr[wi]);
-				e->jit->page_invalidation_events[write_page]++;
-				if (!e->jit->mutable_code_page[write_page] &&
-				    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
-					e->jit->mutable_code_page[write_page] = true;
-					e->jit->stats.pages_demoted++;
-					jit_invalidate_blocks_for_page(e->jit, write_page);
-				}
-			}
-			e->jit->pending_writes = 0;
-			e->jit->pending_write_overflow = false;
-			if ((e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
-			    && !disable_jit_for_run) {
+			if (jit_process_pending_writes(e) &&
+			    !disable_jit_for_run) {
 				disable_jit_for_run = true;
 				e->jit->stats.run_jit_disables++;
 			}

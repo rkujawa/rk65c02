@@ -455,6 +455,7 @@ typedef struct rk65c02_jit_stats {
 	uint64_t blocks_executed;	/**< Native block dispatches. */
 	uint64_t pages_demoted;		/**< Pages marked mutable (per run). */
 	uint64_t run_jit_disables;	/**< Runs with JIT budget-disabled. */
+	uint64_t insns_executed;	/**< Instructions in dispatched blocks. */
 } rk65c02_jit_stats_t;
 
 /**

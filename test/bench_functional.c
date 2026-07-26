@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 
 #ifdef __linux__
@@ -106,6 +107,9 @@ functional_tick(rk65c02emu_t *e, void *ctx)
 	}
 }
 
+/* Tick interval for rk65c02_tick_set (0 = every check); argv[1]. */
+static uint32_t tick_interval;
+
 /* Returns elapsed seconds, negative on failure. */
 static double
 run_case(const struct functional_case *fcase, bool use_jit,
@@ -140,7 +144,7 @@ run_case(const struct functional_case *fcase, bool use_jit,
 	e.regs.A = 0x00;
 	e.regs.X = 0x00;
 	e.regs.Y = 0x00;
-	rk65c02_tick_set(&e, functional_tick, 0, &monitor);
+	rk65c02_tick_set(&e, functional_tick, tick_interval, &monitor);
 
 	t0 = now_sec();
 	rk65c02_start(&e);
@@ -162,12 +166,16 @@ run_case(const struct functional_case *fcase, bool use_jit,
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
 	size_t i;
 	int rv = 0;
 
+	if ((argc > 1) && (argv[1] != NULL))
+		tick_interval = (uint32_t)strtoul(argv[1], NULL, 0);
+
 	rk65c02_loglevel_set(LOG_ERROR);
+	printf("tick interval: %u\n", (unsigned)tick_interval);
 
 	for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
 		const struct functional_case *fc = &cases[i];
@@ -195,6 +203,12 @@ main(void)
 			    st.write_events, st.blocks_invalidated,
 			    st.blocks_compiled, st.blocks_executed,
 			    st.pages_demoted, st.run_jit_disables);
+			if (st.blocks_executed > 0)
+				printf("             insns_executed=%" PRIu64
+				    " avg insns/block=%.2f jit MIPS=%.1f\n",
+				    st.insns_executed,
+				    (double)st.insns_executed / (double)st.blocks_executed,
+				    (t_jit > 0) ? (double)st.insns_executed / t_jit / 1e6 : 0.0);
 		}
 	}
 

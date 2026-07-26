@@ -9,6 +9,7 @@
  * Uses JIT when available. Entry point COLD_START from basic.lbl.
  */
 #include <errno.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -181,10 +182,36 @@ main(int argc, char **argv)
 
 	rk65c02_tick_set(&e, tick_break, 1024, NULL);
 
-	rk65c02_jit_enable(&e, true);
+	/* JIT on by default; RK65C02_JIT=0 in the environment disables it. */
+	{
+		const char *env = getenv("RK65C02_JIT");
+
+		rk65c02_jit_enable(&e, !((env != NULL) && (env[0] == '0')));
+	}
 	rk65c02_start(&e);
 
 	sigaction(SIGINT, &sa_old, NULL);
+
+	/* RK65C02_JIT_STATS=1: dump JIT statistics to stderr on exit. */
+	if (getenv("RK65C02_JIT_STATS") != NULL) {
+		rk65c02_jit_stats_t st;
+
+		if (rk65c02_jit_stats_get(&e, &st))
+			fprintf(stderr, "jit stats: write_events=%" PRIu64
+			    " blocks_invalidated=%" PRIu64
+			    " blocks_compiled=%" PRIu64
+			    " blocks_executed=%" PRIu64
+			    " insns_executed=%" PRIu64
+			    " pages_demoted=%" PRIu64
+			    " run_jit_disables=%" PRIu64 "\n",
+			    st.write_events, st.blocks_invalidated,
+			    st.blocks_compiled, st.blocks_executed,
+			    st.insns_executed, st.pages_demoted,
+			    st.run_jit_disables);
+		else
+			fprintf(stderr, "jit stats: unavailable\n");
+	}
+
 	bus_finish(&bus);
 
 	if (e.stopreason == STP)
