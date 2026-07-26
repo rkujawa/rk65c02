@@ -438,5 +438,39 @@ void rk65c02_jit_enable(rk65c02emu_t *e, bool enable);
  */
 void rk65c02_jit_flush(rk65c02emu_t *e);
 
+/**
+ * @brief Cumulative JIT statistics since JIT creation (or last reset).
+ *
+ * Counters accumulate across rk65c02_start()/rk65c02_step() calls.
+ * Self-modifying-code metrics: write_events counts guest stores that hit
+ * compiled code, blocks_invalidated counts native blocks discarded because
+ * of such stores (or MMU remaps), pages_demoted counts pages switched to
+ * interpretation for the rest of a run, run_jit_disables counts runs where
+ * the invalidation budget disabled JIT until the run ended.
+ */
+typedef struct rk65c02_jit_stats {
+	uint64_t write_events;		/**< Stores that hit compiled code. */
+	uint64_t blocks_invalidated;	/**< Native blocks discarded. */
+	uint64_t blocks_compiled;	/**< Native blocks compiled. */
+	uint64_t blocks_executed;	/**< Native block dispatches. */
+	uint64_t pages_demoted;		/**< Pages marked mutable (per run). */
+	uint64_t run_jit_disables;	/**< Runs with JIT budget-disabled. */
+} rk65c02_jit_stats_t;
+
+/**
+ * @brief Read cumulative JIT statistics.
+ * @param e Emulator instance.
+ * @param out Filled with current counters (zeroed if unavailable).
+ * @return true when JIT state exists and counters are meaningful,
+ *         false otherwise (JIT never enabled, or built without Lightning).
+ */
+bool rk65c02_jit_stats_get(rk65c02emu_t *e, rk65c02_jit_stats_t *out);
+
+/**
+ * @brief Reset cumulative JIT statistics to zero.
+ * @param e Emulator instance.
+ */
+void rk65c02_jit_stats_reset(rk65c02emu_t *e);
+
 #endif
 

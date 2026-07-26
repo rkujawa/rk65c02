@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "rk65c02.h"
 #include "jit.h"
@@ -52,6 +53,21 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 {
 	(void)e;
 	(void)addr;
+}
+
+bool
+rk65c02_jit_stats_get(rk65c02emu_t *e, rk65c02_jit_stats_t *out)
+{
+	(void)e;
+	if (out != NULL)
+		memset(out, 0, sizeof(*out));
+	return false;
+}
+
+void
+rk65c02_jit_stats_reset(rk65c02emu_t *e)
+{
+	(void)e;
 }
 
 void

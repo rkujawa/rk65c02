@@ -21,7 +21,7 @@ VASMFLAGS=-Fbin -wdc02
 UTILS=utils.o
 
 TESTS=test_bus test_emulation test_mmu test_stepping test_assemble test_interrupt test_debug test_functional
-BENCH=bench_emulation bench_mmu
+BENCH=bench_emulation bench_mmu bench_functional
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 FUNCTIONAL_DIR=functional_tests
 
@@ -58,6 +58,9 @@ bench_emulation: bench_emulation.o $(RK6502LIB)
 	$(CC) -o $@ $< $(RK6502LIB) -lgc $(if $(NO_LIGHTNING),,-llightning)
 
 bench_mmu: bench_mmu.o $(RK6502LIB)
+	$(CC) -o $@ $< $(RK6502LIB) -lgc $(if $(NO_LIGHTNING),,-llightning)
+
+bench_functional: bench_functional.o $(RK6502LIB)
 	$(CC) -o $@ $< $(RK6502LIB) -lgc $(if $(NO_LIGHTNING),,-llightning)
 
 test_device_serial: test_device_serial.o $(UTILS) $(RK6502LIB)

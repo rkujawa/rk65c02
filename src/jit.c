@@ -93,6 +93,8 @@ struct rk65c02_jit {
 	uint8_t pending_write_phys_page[JIT_WRITE_EVENT_SLOTS];
 	/* Runtime state used by adaptive invalidation policy. */
 	uint64_t invalidation_events_this_run;
+	/* Cumulative counters exposed via rk65c02_jit_stats_get(). */
+	rk65c02_jit_stats_t stats;
 #if RK65C02_JIT_PERF_DEBUG
 	/* Optional per-run counters for profiling fallback pressure. */
 	uint64_t debug_blocks_executed;
@@ -249,6 +251,7 @@ jit_backend_create(void)
 	memset(j->pending_write_phys_page, 0, sizeof(j->pending_write_phys_page));
 	j->compiled_phys_refs_total = 0;
 	j->invalidation_events_this_run = 0;
+	memset(&j->stats, 0, sizeof(j->stats));
 #if RK65C02_JIT_PERF_DEBUG
 	j->debug_blocks_executed = 0;
 	j->debug_fallback_calls = 0;
@@ -473,6 +476,7 @@ jit_invalidate_blocks_for_addr(struct rk65c02_jit *j, uint16_t addr)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+		j->stats.blocks_invalidated++;
 #if RK65C02_JIT_PERF_DEBUG
 		j->debug_invalidated_blocks++;
 #endif
@@ -521,6 +525,7 @@ jit_invalidate_blocks_for_page(struct rk65c02_jit *j, uint8_t page)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+		j->stats.blocks_invalidated++;
 #if RK65C02_JIT_PERF_DEBUG
 		j->debug_invalidated_blocks++;
 #endif
@@ -555,6 +560,7 @@ jit_invalidate_blocks_for_code_page(struct rk65c02_jit *j, uint8_t vpage)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+		j->stats.blocks_invalidated++;
 #if RK65C02_JIT_PERF_DEBUG
 		j->debug_invalidated_blocks++;
 #endif
@@ -584,6 +590,7 @@ jit_invalidate_blocks_for_phys_page(struct rk65c02_jit *j, uint8_t phys_page)
 		b->fn = NULL;
 		if (j->active_blocks > 0)
 			j->active_blocks--;
+		j->stats.blocks_invalidated++;
 #if RK65C02_JIT_PERF_DEBUG
 		j->debug_invalidated_blocks++;
 #endif
@@ -633,6 +640,7 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 		has_phys_hit = true;
 	if (!covered_virt && !has_phys_hit)
 		return;
+	j->stats.write_events++;
 
 	if (e->in_jit_run) {
 		/*
@@ -664,6 +672,7 @@ rk65c02_jit_note_guest_write(rk65c02emu_t *e, uint16_t addr)
 	    (j->page_invalidation_events[addr >> 8] >=
 	    JIT_PAGE_INVALIDATION_THRESHOLD)) {
 		j->mutable_code_page[addr >> 8] = true;
+		j->stats.pages_demoted++;
 		jit_invalidate_blocks_for_page(j, (uint8_t)(addr >> 8));
 	}
 }
@@ -1954,6 +1963,7 @@ jit_compile_block(struct rk65c02_jit *j, rk65c02emu_t *e, uint16_t pc)
 		if (b->fn != NULL) {
 			jit_block_page_refs_update(j, b, true);
 			j->active_blocks++;
+			j->stats.blocks_compiled++;
 		}
 	}
 #else
@@ -1991,6 +2001,30 @@ rk65c02_jit_flush(rk65c02emu_t *e)
 		return;
 
 	jit_backend_flush(e->jit);
+}
+
+bool
+rk65c02_jit_stats_get(rk65c02emu_t *e, rk65c02_jit_stats_t *out)
+{
+	assert(e != NULL);
+
+	if (out == NULL)
+		return false;
+	memset(out, 0, sizeof(*out));
+	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
+		return false;
+	*out = e->jit->stats;
+	return true;
+}
+
+void
+rk65c02_jit_stats_reset(rk65c02emu_t *e)
+{
+	assert(e != NULL);
+
+	if ((e->jit == NULL) || (e->jit->magic != JIT_MAGIC))
+		return;
+	memset(&e->jit->stats, 0, sizeof(e->jit->stats));
 }
 
 void
@@ -2144,6 +2178,7 @@ rk65c02_run_jit(rk65c02emu_t *e)
 #if RK65C02_JIT_PERF_DEBUG
 		e->jit->debug_blocks_executed++;
 #endif
+		e->jit->stats.blocks_executed++;
 		e->in_jit_run = true;
 		if (setjmp(e->jit_fault_env) == 0)
 			b->fn(e);
@@ -2170,13 +2205,17 @@ rk65c02_run_jit(rk65c02emu_t *e)
 				if (!e->jit->mutable_code_page[write_page] &&
 				    e->jit->page_invalidation_events[write_page] >= JIT_PAGE_INVALIDATION_THRESHOLD) {
 					e->jit->mutable_code_page[write_page] = true;
+					e->jit->stats.pages_demoted++;
 					jit_invalidate_blocks_for_page(e->jit, write_page);
 				}
 			}
 			e->jit->pending_writes = 0;
 			e->jit->pending_write_overflow = false;
-			if (e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
+			if ((e->jit->invalidation_events_this_run >= JIT_MAX_INVALIDATIONS_PER_RUN)
+			    && !disable_jit_for_run) {
 				disable_jit_for_run = true;
+				e->jit->stats.run_jit_disables++;
+			}
 			e->use_jit = disable_jit_for_run ? false : e->jit_requested;
 		}
 		if (e->jit->needs_flush)
