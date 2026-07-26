@@ -20,7 +20,7 @@ VASM=vasm6502_std
 VASMFLAGS=-Fbin -wdc02
 UTILS=utils.o
 
-TESTS=test_bus test_emulation test_mmu test_stepping test_assemble test_interrupt test_debug test_functional
+TESTS=test_bus test_emulation test_mmu test_stepping test_assemble test_interrupt test_debug test_functional test_smc_fuzz
 BENCH=bench_emulation bench_mmu bench_functional
 TESTROMS:=$(addsuffix .rom,$(basename $(wildcard *.s)))
 FUNCTIONAL_DIR=functional_tests
@@ -52,6 +52,9 @@ test_debug: test_debug.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 test_functional: test_functional.o $(UTILS) $(RK6502LIB)
+	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
+
+test_smc_fuzz: test_smc_fuzz.o $(UTILS) $(RK6502LIB)
 	$(CC) -o $@ $(LDFLAGS) $< $(UTILS) $(RK6502LIB)
 
 bench_emulation: bench_emulation.o $(RK6502LIB)

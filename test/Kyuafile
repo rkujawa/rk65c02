@@ -12,3 +12,4 @@ atf_test_program{name='test_functional',timeout=300}
 atf_test_program{name='test_interrupt'}
 atf_test_program{name='test_stepping'}
 
+atf_test_program{name='test_smc_fuzz',timeout=120}
